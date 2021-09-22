@@ -39,6 +39,9 @@ test_code3 = """
 x = -10
 if (x != 10) {
     print(10)
+    print(read(y, cell1, 10))
+    print(getlink(z, 2))
+    #print(y)
 }
 print(20)
 """
@@ -48,8 +51,6 @@ c = p.preprocess(test_code3)
 
 l = Lexer()
 r = l.lex(c)
-
-print(r)
 
 p = Parser()
 a = p.parse(r)

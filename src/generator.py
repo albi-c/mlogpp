@@ -54,6 +54,27 @@ PRECALC = {
     # not implemented: angle, length, noise, rand, sin, cos, tan, asin, acos, atan
 }
 
+NATIVE_RETURN_POS = {
+    "set": 0,
+    "op": 1,
+    "read": 0,
+    "getlink": 0,
+    "sensor": 0
+}
+
+PARAM_NO_TMP = {
+    "set": [0],
+    "op": [1],
+    "read": [0],
+    "drawflush": [0],
+    "printflush": [0],
+    "getlink": [0],
+    "radar": [6],
+    "sensor": [0],
+    "uradar": [6],
+    "ulocate": [4, 5, 6, 7]
+}
+
 native_functions = [
     "read", "write",
     "draw", "drawflush",
@@ -86,6 +107,7 @@ class Generator:
         self.tmpl = 0
         self.func_stack = []
         self.loop_stack = []
+        self.no_generate_tmp = False
 
         code = self._code_node_join(node)
 
@@ -263,10 +285,6 @@ class Generator:
         
         return tmp, found
     
-    def _single_set_optimize(self, code: str) -> str:
-        lns = code.splitlines()
-        sets = {}
-    
     def postprocess(self, code: str) -> str:
         if not code.strip():
             return code
@@ -283,6 +301,13 @@ class Generator:
                 labels[ln[1:]] = i - lc
                 lc += 1
                 continue
+
+            if GEN_REGEXES["VARA"]:
+                spl = ln.split()
+                if spl[0] == "set":
+                    if spl[1] == spl[2]:
+                        continue
+                
             
             tmp += ln + "\n"
         
@@ -325,7 +350,7 @@ class Generator:
         for i, ln in enumerate(tmp2.splitlines()):
             if GEN_REGEXES["MJUMP"].fullmatch(ln):
                 spl = ln.split(" ", 4)
-                if int(spl[1]) >= lnc - 1:
+                if int(spl[1]) >= lnc:
                     ln = f"{spl[0]} 0 {spl[2]} {spl[3]} {spl[4]}"
 
             tmp += ln + "\n"
@@ -343,7 +368,10 @@ class Generator:
         elif t == CodeNode:
             return "\n".join([str(self._generate(c)) for c in node.code])
         elif t == ValueNode:
-            var = self.get_tmp_var()
+            if self.no_generate_tmp:
+                var = str(node.value)
+            else:
+                var = self.get_tmp_var()
             return f"set {var} {node.value}", var
         elif t == AtomNode:
             return self._generate(node.value)
@@ -429,8 +457,17 @@ class Generator:
                 tmp = ""
                 params = []
                 for i, arg in enumerate(node.params):
+                    pnt = PARAM_NO_TMP.get(node.function, {})
+                    
+                    if i in pnt:
+                        onogen = self.no_generate_tmp
+                        self.no_generate_tmp = True
+                    
                     tmp2, var = self._generate(arg)
                     params.append(var)
+
+                    if i in pnt:
+                        self.no_generate_tmp = onogen
 
                     if is_native:
                         tmp += f"{tmp2}\n"
@@ -441,8 +478,13 @@ class Generator:
                     req = native_functions_params[node.function]
                     while len(params) < req:
                         params.append("_")
-
-                    return f"{tmp}{node.function} {' '.join(params)}", "null"
+                    
+                    retpos = NATIVE_RETURN_POS.get(node.function, -1)
+                    retvar = "null"
+                    if retpos != -1:
+                        retvar = params[retpos]
+                    
+                    return f"{tmp}{node.function} {' '.join(params)}", retvar
                 else:
                     return f"{tmp}op add __f_{node.function}_ret @counter 1\nset @counter __f_{node.function}", f"__f_{node.function}_retv"
             else:
