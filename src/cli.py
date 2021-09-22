@@ -7,6 +7,7 @@ from preprocessor import Preprocessor
 from lexer import Lexer
 from parser_ import Parser
 from generator import Generator
+from linker import Linker
 
 class IOMethod(Enum):
     FILE = 0
@@ -15,7 +16,7 @@ class IOMethod(Enum):
 
 parser = argparse.ArgumentParser(description="Mindustry logic compiler")
 
-parser.add_argument("file", type=str, help="input file to compile")
+parser.add_argument("file", type=str, help="input file(s)", nargs="+")
 
 parser.add_argument("-o:f", "--output-file", help="write output to a file")
 parser.add_argument("-o:s", "--output-stdout", help="write output to stdout", action="store_true")
@@ -41,12 +42,15 @@ for k, v in vars(args).items():
         elif k.startswith("optimize"):
             optlevel = int(k[-1])
 
-if not os.path.isfile(args.file):
-    print("Error: input file does not exist")
-    sys.exit(1)
+for fn in args.file:
+    if not os.path.isfile(fn):
+        print(f"Error: input file \"{fn}\" does not exist")
+        sys.exit(1)
 
-with open(args.file, "r") as f:
-    data = f.read()
+datas = []
+for fn in args.file:
+    with open(fn, "r") as f:
+        datas.append((fn, f.read()))
 
 optimization_levels = {
     0: {"enable": False},
@@ -54,10 +58,22 @@ optimization_levels = {
     2: {}
 }
 
-out = Preprocessor().preprocess(data)
-out = Lexer().lex(out)
-out = Parser().parse(out)
-out = Generator().generate(out, optimization_levels[optlevel])
+outs = []
+for data in datas:
+    if data[0].endswith(".mind"):
+        outs.append(data[1])
+        continue
+
+    out = Preprocessor().preprocess(data[1])
+    out = Lexer().lex(out)
+    out = Parser().parse(out)
+    out = Generator().generate(out, optimization_levels[optlevel])
+    outs.append(out)
+
+if len(outs) > 1:
+    out = Linker().link(outs).strip()
+else:
+    out = outs[0].strip()
 
 if omethod == IOMethod.FILE:
     with open(ofile, "w+") as f:

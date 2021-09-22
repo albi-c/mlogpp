@@ -195,6 +195,7 @@ class Generator:
                             lns[i + n_lines] = lns[i + n_lines].replace(name, val)
                             found = True
                             continue
+                
             tmp += ln + "\n"
         
         return tmp, found
@@ -304,7 +305,7 @@ class Generator:
 
             if GEN_REGEXES["VARA"]:
                 spl = ln.split()
-                if spl[0] == "set":
+                if spl and spl[0] == "set":
                     if spl[1] == spl[2]:
                         continue
                 
@@ -372,7 +373,7 @@ class Generator:
                 var = str(node.value)
             else:
                 var = self.get_tmp_var()
-            return f"set {var} {node.value}", var
+            return f"set {var} {node.value}" if not self.no_generate_tmp else "", var
         elif t == AtomNode:
             return self._generate(node.value)
         elif t == AssignmentNode:
@@ -451,13 +452,16 @@ class Generator:
             if node.is_call:
                 if type(node.function) == AtomNode:
                     node.function = str(node.function.value.value)
+                
+                if type(node.function) != str:
+                        node.function = self._generate(node.function)[0].split()[-1]
 
                 is_native = node.function in native_functions
 
                 tmp = ""
                 params = []
                 for i, arg in enumerate(node.params):
-                    pnt = PARAM_NO_TMP.get(node.function, {})
+                    pnt = PARAM_NO_TMP.get(node.function, [])
                     
                     if i in pnt:
                         onogen = self.no_generate_tmp
