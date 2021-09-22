@@ -7,9 +7,9 @@ PRE_REGEXES = {
 class Preprocessor:
     def preprocess(self, code: str) -> str:
         tmp2 = code
-
+        
+        # Resolve includes and labels
         included = []
-
         while True:
             tmp = ""
             found = False
@@ -45,6 +45,7 @@ class Preprocessor:
 
         tmp = tmp.strip(" \t\n")
 
+        # Find constanrs
         tmp2 = ""
         const_table = {}
         for ln in tmp.splitlines():
@@ -57,6 +58,7 @@ class Preprocessor:
 
             tmp2 += ln + "\n"
         
+        # Resolve raw code lines
         table = str.maketrans({"\n": "\\n", "\"":"\\\"", "\\":"\\\\"})
         tmp = ""
         for ln in tmp2.splitlines():
@@ -68,6 +70,7 @@ class Preprocessor:
             
             tmp += ln + "\n"
         
+        # Remove leading and trailing whitespaces
         tmp2 = ""
         in_str = False
         prev = ""
@@ -80,6 +83,7 @@ class Preprocessor:
             
             prev = c
         
+        # Remove comments
         tmp = ""
         for ln in tmp2.splitlines():
             if not ln.startswith("#") and ln:

@@ -75,7 +75,6 @@ class Lexer:
                 tok = c
                 continue
             elif matched == TokenType.NUMBER and matches == TokenType.NONE and c == ".":
-                print("A")
                 continue
 
             if ((matched != TokenType.NONE) and (matches == TokenType.NONE)) or ((matched != matches) and matched != TokenType.NONE):
