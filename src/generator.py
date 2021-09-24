@@ -119,7 +119,7 @@ class Generator:
             r = self._generate(c)
             code += (r if type(r) == str else r[0]) + "\n"
         
-        return code.strip()
+        return "\n".join([l for l in code.strip().splitlines() if l.strip()])
     
     def optimize(self, code: str, optimize_options: dict = None) -> str:
         options = {
