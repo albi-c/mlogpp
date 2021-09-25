@@ -75,7 +75,7 @@ for data in datas:
     outs.append(out)
 
 if len(outs) > 1:
-    out = Linker().link(outs).strip()
+    out = Linker.link(outs).strip()
 else:
     out = outs[0].strip()
 

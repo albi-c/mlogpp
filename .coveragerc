@@ -1,0 +1,17 @@
+[report]
+
+omit = */.local/*
+exclude_lines = 
+    def parse_error
+    def link_error
+    def gen_error
+
+    def __repr__
+    def __str__
+    def rrename
+    def generate
+
+    def parse_
+
+    def _generate
+    def _code_

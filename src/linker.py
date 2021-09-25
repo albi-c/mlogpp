@@ -2,18 +2,18 @@ from lexer import Position
 from error import link_error
 
 class Linker:
-    def link(self, codes: list) -> str:
+    def link(codes: list) -> str:
         offset = 0
         tmp = []
         for code in codes:
-            c, o = self._relocate(code, offset)
+            c, o = Linker._relocate(code, offset)
 
             tmp.append(c)
             offset += o
 
         return "\n".join(tmp)
     
-    def _relocate(self, code: str, offset: int) -> str:
+    def _relocate(code: str, offset: int) -> str:
         tmp = ""
         nl = 0
         for ln in code.strip().splitlines():
@@ -29,7 +29,7 @@ class Linker:
                 except ValueError:
                     link_error(Position(nl, len(spl[0]) + 1, ln, len(spl[1])), "Invalid jump address")
                 
-                ln = f"jump {pos + offset} {spl[2]}"
+                ln = f"jump {pos + offset} {spl[2]} {spl[3]} {spl[4]}"
 
             nl += 1
             tmp += ln + "\n"
