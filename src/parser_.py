@@ -1,4 +1,4 @@
-from lexer2 import TokenType, Token
+from lexer import TokenType, Token, Position
 from error import parse_error
 
 keywords = ["if", "else", "while", "for", "function", "repeat"]
@@ -8,7 +8,8 @@ class Node:
         return i * " " + "Node\n"
 
 class CodeNode(Node):
-    def __init__(self, code: list):
+    def __init__(self, pos: Position, code: list):
+        self.pos = pos
         self.code = code
     
     def generate(self, i = 0) -> str:
@@ -19,20 +20,22 @@ class CodeNode(Node):
         return tmp
     
     def rrename(self, vars_: dict) -> Node:
-        return CodeNode([n.rrename(vars_) for n in self.code])
+        return CodeNode(self.pos, [n.rrename(vars_) for n in self.code])
 
 class ValueNode(Node):
-    def __init__(self, value: str):
+    def __init__(self, pos: Position, value: str):
+        self.pos = pos
         self.value = value
     
     def generate(self, i) -> str:
         return i * " " +  "ValueNode: " + str(self.value) + "\n"
     
     def rrename(self, vars_: dict) -> str:
-        return ValueNode(vars_.get(self.value, self.value))
+        return ValueNode(self.pos, vars_.get(self.value, self.value))
 
 class AtomNode(Node):
-    def __init__(self, value):
+    def __init__(self, pos: Position, value):
+        self.pos = pos
         self.value = value
     
     def generate(self, i) -> str:
@@ -42,7 +45,8 @@ class AtomNode(Node):
         return self.value.rrename(vars_)
 
 class AssignmentNode(Node):
-    def __init__(self, left: str, atype: str, right: Node):
+    def __init__(self, pos: Position, left: str, atype: str, right: Node):
+        self.pos = pos
         self.left = left
         self.atype = atype
         self.right = right
@@ -51,10 +55,11 @@ class AssignmentNode(Node):
         return i * " " + "AssignmentNode: \n" + (i + 1) * " " + f"{self.left} {self.atype} {self.right.generate(0)}"
     
     def rrename(self, vars_: dict) -> Node:
-        return AssignmentNode(vars_.get(self.left, self.left), self.atype, self.right.rrename(vars_))
+        return AssignmentNode(self.pos, vars_.get(self.left, self.left), self.atype, self.right.rrename(vars_))
 
 class ExpressionNode(Node):
-    def __init__(self, left, right = None):
+    def __init__(self, pos: Position, left, right = None):
+        self.pos = pos
         self.left = left
         self.right = right
     
@@ -66,10 +71,11 @@ class ExpressionNode(Node):
         return i * " " + f"ExpressionNode: \n{self.left.generate(i + 1)}{tmp}"
     
     def rrename(self, vars_: dict) -> Node:
-        return ExpressionNode(self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
+        return ExpressionNode(self.pos, self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
 
 class CompExpressionNode(Node):
-    def __init__(self, left, right = None):
+    def __init__(self, pos: Position, left, right = None):
+        self.pos = pos
         self.left = left
         self.right = right
     
@@ -81,10 +87,11 @@ class CompExpressionNode(Node):
         return i * " " + f"CompExpressionNode: \n{self.left.generate(i + 1)}{tmp}"
     
     def rrename(self, vars_: dict) -> Node:
-        return CompExpressionNode(self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
+        return CompExpressionNode(self.pos, self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
 
 class ArithExpNode(Node):
-    def __init__(self, left, right = None):
+    def __init__(self, pos: Position, left, right = None):
+        self.pos = pos
         self.left = left
         self.right = right
     
@@ -96,10 +103,11 @@ class ArithExpNode(Node):
         return i * " " + f"ArithExpNode: \n{self.left.generate(i + 1)}{tmp}"
     
     def rrename(self, vars_: dict) -> Node:
-        return ArithExpNode(self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
+        return ArithExpNode(self.pos, self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
 
 class TermNode(Node):
-    def __init__(self, left, right = None):
+    def __init__(self, pos: Position, left, right = None):
+        self.pos = pos
         self.left = left
         self.right = right
     
@@ -111,10 +119,11 @@ class TermNode(Node):
         return i * " " + f"TermNode: \n{self.left.generate(i + 1)}{tmp}"
     
     def rrename(self, vars_: dict) -> Node:
-        return TermNode(self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
+        return TermNode(self.pos, self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
 
 class FactorNode(Node):
-    def __init__(self, left, sign: bool):
+    def __init__(self, pos: Position, left, sign: bool):
+        self.pos = pos
         self.left = left
         self.sign = sign
     
@@ -122,10 +131,11 @@ class FactorNode(Node):
         return i * " " + f"FactorNode: \n{'+' if self.sign else '-'}{self.left.generate(i + 1)}"
     
     def rrename(self, vars_: dict) -> Node:
-        return FactorNode(self.left.rrename(vars_), self.sign)
+        return FactorNode(self.pos, self.left.rrename(vars_), self.sign)
 
 class CallNode(Node):
-    def __init__(self, function, is_call: bool, params: list = []):
+    def __init__(self, pos: Position, function, is_call: bool, params: list = []):
+        self.pos = pos
         self.function = function
         self.is_call = is_call
         self.params = params
@@ -137,14 +147,15 @@ class CallNode(Node):
             return i * " " + f"CallNode [0]: {self.function.generate(i + 1)}\n"
     
     def rrename(self, vars_: dict) -> Node:
-        return CallNode(self.function if type(self.function) == str else self.function.rrename(vars_), self.is_call, [n.rrename(vars_) for n in self.params])
+        return CallNode(self.pos, self.function if type(self.function) == str else self.function.rrename(vars_), self.is_call, [n.rrename(vars_) for n in self.params])
 
 class KeywordNode(Node):
     def __init__(self):
         pass
 
 class IfNode(KeywordNode):
-    def __init__(self, condition: ExpressionNode, code: list, elsecode: list = None):
+    def __init__(self, pos: Position, condition: ExpressionNode, code: list, elsecode: list = None):
+        self.pos = pos
         self.condition = condition
         self.code = code
         self.elsecode = elsecode if elsecode is not None else []
@@ -160,10 +171,11 @@ class IfNode(KeywordNode):
         return tmp
     
     def rrename(self, vars_: dict) -> Node:
-        return IfNode(self.condition.rrename(vars_), [n.rrename(vars_) for n in self.code], [n.rrename(vars_) for n in self.elsecode])
+        return IfNode(self.pos, self.condition.rrename(vars_), [n.rrename(vars_) for n in self.code], [n.rrename(vars_) for n in self.elsecode])
 
 class WhileNode(KeywordNode):
-    def __init__(self, condition: ExpressionNode, code: list):
+    def __init__(self, pos: Position, condition: ExpressionNode, code: list):
+        self.pos = pos
         self.condition = condition
         self.code = code
     
@@ -175,10 +187,11 @@ class WhileNode(KeywordNode):
         return tmp
     
     def rrename(self, vars_: dict) -> Node:
-        return WhileNode(self.condition.rrename(vars_), [n.rrename(vars_) for n in self.code])
+        return WhileNode(self.pos, self.condition.rrename(vars_), [n.rrename(vars_) for n in self.code])
 
 class ForNode(KeywordNode):
-    def __init__(self, init: Node, condition: ExpressionNode, action: Node, code: list):
+    def __init__(self, pos: Position, init: Node, condition: ExpressionNode, action: Node, code: list):
+        self.pos = pos
         self.init = init
         self.condition = condition
         self.action = action
@@ -192,19 +205,21 @@ class ForNode(KeywordNode):
         return tmp
     
     def rrename(self, vars_: dict) -> Node:
-        return ForNode(self.init.rrename(vars_), self.condition.rrename(vars_), self.action.rrename(vars_), [n.rrename(vars_) for n in self.code])
+        return ForNode(self.pos, self.init.rrename(vars_), self.condition.rrename(vars_), self.action.rrename(vars_), [n.rrename(vars_) for n in self.code])
 
 class FunctionNode(KeywordNode):
-    def __init__(self, name: str, args: list, code: list):
+    def __init__(self, pos: Position, name: str, args: list, code: list):
+        self.pos = pos
         self.name = name
         self.args = args
         self.code = code
     
     def rrename(self, vars_: dict) -> Node:
-        return FunctionNode(self.name, self.args, [n.rrename(vars_) for n in self.code])
+        return FunctionNode(self.pos, self.name, self.args, [n.rrename(vars_) for n in self.code])
 
 class RepeatNode(KeywordNode):
-    def __init__(self, amount: int, code: list):
+    def __init__(self, pos: Position, amount: int, code: list):
+        self.pos = pos
         self.amount = amount
         self.code = code
     
@@ -216,28 +231,31 @@ class RepeatNode(KeywordNode):
         return tmp
     
     def rrename(self, vars_: dict) -> Node:
-        return RepeatNode(self.amount, [n.rrename(vars_) for n in self.code])
+        return RepeatNode(self.pos, self.amount, [n.rrename(vars_) for n in self.code])
 
 class NativeNode(KeywordNode):
-    def __init__(self, code: str):
+    def __init__(self, pos: Position, code: str):
+        self.pos = pos
         self.code = code
     
     def rrename(self, vars_: dict) -> Node:
-        return NativeNode(self.code)
+        return NativeNode(self.pos, self.code)
 
 class ReturnNode(KeywordNode):
-    def __init__(self, value):
+    def __init__(self, pos: Position, value):
+        self.pos = pos
         self.value = value
     
     def rrename(self, vars_: dict) -> Node:
-        return ReturnNode(self.value.rrename(vars_))
+        return ReturnNode(self.pos, self.value.rrename(vars_))
 
 class LoopActionNode(KeywordNode):
-    def __init__(self, action: str):
+    def __init__(self, pos: Position, action: str):
+        self.pos = pos
         self.action = action
     
     def rrename(self, vars_: dict) -> Node:
-        return LoopActionNode(self.action)
+        return LoopActionNode(self.pos, self.action)
 
 class Parser:
     def parse(self, tokens: list) -> CodeNode:
@@ -248,7 +266,7 @@ class Parser:
         while self.has_token():
             nodes.append(self.parse_AnyNode())
 
-        return CodeNode(nodes)
+        return CodeNode(self.tokens[0].pos(), nodes)
     
     def has_token(self) -> bool:
         return self.pos < len(self.tokens) - 1
@@ -276,13 +294,13 @@ class Parser:
 
             if id_.value == "return":
                 self.pos -= 1
-                return ReturnNode(self.parse_ExpressionNode())
+                return ReturnNode(id_.pos(), self.parse_ExpressionNode())
             elif id_.value in ["break", "continue"]:
                 self.pos -= 1
-                return LoopActionNode(id_.value)
+                return LoopActionNode(id_.pos(), id_.value)
             
             if n.type == TokenType.SET:
-                return AssignmentNode(id_.value, n.value, self.parse_ExpressionNode())
+                return AssignmentNode(id_.pos(), id_.value, n.value, self.parse_ExpressionNode())
             elif n.type == TokenType.LPAREN:
                 if id_.value in keywords:
                     if not can_be_special:
@@ -310,7 +328,7 @@ class Parser:
                             else:
                                 parse_error(id_, "Unexpected token")
                     
-                    return CallNode(id_.value, True, p)
+                    return CallNode(id_.pos(), id_.value, True, p)
             elif n.type == TokenType.ID:
                 if id_.value == "function":
                     self.pos -= 2
@@ -328,7 +346,7 @@ class Parser:
         elif id_.type == TokenType.DOT:
             n = self.next_token(TokenType.STRING)
 
-            return NativeNode(n.value[1:-1])
+            return NativeNode(id_.pos(), n.value[1:-1])
         
         parse_error(id_, "Unexpected token")
     
@@ -343,7 +361,7 @@ class Parser:
                 self.pos -= 1
                 break
         
-        return ExpressionNode(c, l if len(l) > 0 else None)
+        return ExpressionNode(c.pos, c, l if len(l) > 0 else None)
 
     def parse_CompExpressionNode(self) -> CompExpressionNode:
         e = self.parse_ArithExpNode()
@@ -356,7 +374,7 @@ class Parser:
                 self.pos -= 1
                 break
         
-        return CompExpressionNode(e, c if len(c) > 0 else None)
+        return CompExpressionNode(e.pos, e, c if len(c) > 0 else None)
     
     def parse_ArithExpNode(self) -> ArithExpNode:
         t = self.parse_TermNode()
@@ -369,7 +387,7 @@ class Parser:
                 self.pos -= 1
                 break
         
-        return ArithExpNode(t, a if len(a) > 0 else None)
+        return ArithExpNode(t.pos, t, a if len(a) > 0 else None)
     
     def parse_TermNode(self) -> TermNode:
         f = self.parse_FactorNode()
@@ -382,7 +400,7 @@ class Parser:
                 self.pos -= 1
                 break
         
-        return TermNode(f, m if len(m) > 0 else None)
+        return TermNode(f.pos, f, m if len(m) > 0 else None)
     
     def parse_FactorNode(self) -> FactorNode:
         sign = True
@@ -393,7 +411,7 @@ class Parser:
                     sign = not sign
             elif n.type in [TokenType.ID, TokenType.STRING, TokenType.NUMBER, TokenType.LPAREN]:
                 self.pos -= 1
-                return FactorNode(self.parse_CallNode(), sign)
+                return FactorNode(n.pos(), self.parse_CallNode(), sign)
             else:
                 parse_error(n, "Unexpected token")
     
@@ -427,17 +445,17 @@ class Parser:
             else:
                 self.pos -= 1
         
-        return CallNode(a, is_call, p)
+        return CallNode(a.pos, a, is_call, p)
     
     def parse_AtomNode(self) -> AtomNode:
         n = self.next_token()
         
         if n.type in [TokenType.ID, TokenType.STRING, TokenType.NUMBER]:
-            return AtomNode(ValueNode(n.value))
+            return AtomNode(n.pos(), ValueNode(n.pos(), n.value))
         elif n.type == TokenType.LPAREN:
             e = self.parse_ExpressionNode()
             self.next_token()
-            return AtomNode(e)
+            return AtomNode(n.pos(), e)
         else:
             parse_error(n, "Unexpected token")
     
@@ -474,13 +492,13 @@ class Parser:
                                 self.pos -= 1
                                 ec.append(self.parse_AnyNode())
                         
-                        return IfNode(e, c, ec)
+                        return IfNode(id_.pos(), e, c, ec)
                     else:
                         self.pos -= 1
 
-                return IfNode(e, c)
+                return IfNode(id_.pos(), e, c)
             elif id_.value == "while":
-                return WhileNode(e, c)
+                return WhileNode(id_.pos(), e, c)
         elif id_.value == "for":
             self.next_token(TokenType.LPAREN)
 
@@ -504,7 +522,7 @@ class Parser:
                     self.pos -= 1
                     c.append(self.parse_AnyNode())
 
-            return ForNode(init, cond, action, c)
+            return ForNode(id_.pos(), init, cond, action, c)
         elif id_.value == "function":
             id_ = self.next_token(TokenType.ID)
 
@@ -537,7 +555,7 @@ class Parser:
                     self.pos -= 1
                     c.append(self.parse_AnyNode())
             
-            return FunctionNode(id_.value, args, c)
+            return FunctionNode(id_.pos(), id_.value, args, c)
         elif id_.value == "repeat":
             self.next_token(TokenType.LPAREN)
             amount = self.next_token(TokenType.NUMBER)
@@ -553,6 +571,6 @@ class Parser:
                     self.pos -= 1
                     c.append(self.parse_AnyNode())
             
-            return RepeatNode(int(amount.value), c)
+            return RepeatNode(id_.pos(), int(amount.value), c)
         
         parse_error(id_, "Unexpected token")

@@ -3,7 +3,6 @@ from enum import Enum
 
 import pyperclip
 
-from preprocessor import Preprocessor
 from lexer import Lexer
 from parser_ import Parser
 from generator import Generator
@@ -26,12 +25,16 @@ parser.add_argument("-O0", "--optimize0", help="disable optimization (WARNING: c
 parser.add_argument("-O1", "--optimize1", help="set optimization level to 1", action="store_true")
 parser.add_argument("-O2", "--optimize2", help="set optimization level to 2", action="store_true")
 
+parser.add_argument("-v", "--verbose", help="print additional information", action="store_true")
+
 args = parser.parse_args()
 
 omethod = IOMethod.CLIP
 ofile = ""
 
 optlevel = 2
+
+verbose = False
 
 for k, v in vars(args).items():
     if v:
@@ -41,6 +44,8 @@ for k, v in vars(args).items():
                 ofile = v
         elif k.startswith("optimize"):
             optlevel = int(k[-1])
+        elif k == "verbose":
+            verbose = v
 
 for fn in args.file:
     if not os.path.isfile(fn):
@@ -64,8 +69,7 @@ for data in datas:
         outs.append(data[1])
         continue
 
-    out = Preprocessor().preprocess(data[1])
-    out = Lexer().lex(out)
+    out = Lexer.preprocess(Lexer.lex(data[1]))
     out = Parser().parse(out)
     out = Generator().generate(out, optimization_levels[optlevel])
     outs.append(out)
@@ -79,6 +83,9 @@ if omethod == IOMethod.FILE:
     with open(ofile, "w+") as f:
         f.write(out)
 elif omethod == IOMethod.STD:
-    print(out)
+    print(out, end=("\n\n" if verbose else "\n"))
 elif omethod == IOMethod.CLIP:
     pyperclip.copy(out)
+
+if verbose:
+    print(f"Output: {len(out.strip())} characters, {len(out.strip().split())} words, {len(out.strip().splitlines())} lines")

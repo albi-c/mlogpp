@@ -1,3 +1,6 @@
+from lexer import Position
+from error import link_error
+
 class Linker:
     def link(self, codes: list) -> str:
         offset = 0
@@ -15,16 +18,16 @@ class Linker:
         nl = 0
         for ln in code.strip().splitlines():
             if ln.startswith("jump "):
-                spl = ln.split(" ", 2)
+                spl = ln.split(" ")
 
-                if len(spl) != 3:
-                    raise ValueError("Invalid linker input")
+                if len(spl) != 5:
+                    link_error(Position(nl, 0, ln, len(ln)), "Invalid jump instruction")
 
                 pos = spl[1]
                 try:
                     pos = int(pos)
                 except ValueError:
-                    raise RuntimeError("Invalid linker input")
+                    link_error(Position(nl, len(spl[0]) + 1, ln, len(spl[1])), "Invalid jump address")
                 
                 ln = f"jump {pos + offset} {spl[2]}"
 
@@ -32,23 +35,3 @@ class Linker:
             tmp += ln + "\n"
         
         return tmp.strip(), nl
-
-if __name__ == "__main__":
-    l = Linker()
-    print(l.link([
-"""\
-print 10
-printflush message1
-
-
-""",
-"""\
-print 20
-printflush message1
-jump 0 always _ _
-""",
-"""\
-print 30
-printflush message1
-jump 0 always _ _"""
-    ]))

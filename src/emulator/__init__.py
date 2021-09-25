@@ -1,4 +1,4 @@
-from parser_ import EParser, EInstruction
+from parser_ import EParser
 from vm import EVM
 from building import EBuilding, EBuildingType
 

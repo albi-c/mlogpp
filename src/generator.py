@@ -1,6 +1,7 @@
 import re, math
 
 from parser_ import *
+from gerror import gen_error
 
 GEN_REGEXES = {
     "LABEL": re.compile(r"^<[a-zA-Z_@][a-zA-Z_0-9]*$"),
@@ -126,13 +127,6 @@ class Generator:
         return "\n".join([l for l in code.strip().splitlines() if l.strip()])
     
     def _code_node_join(self, node: Node, to_pos: int = None) -> str:
-        # code = ""
-        # for c in node.code[:(to_pos + 1 if to_pos is not None else len(node.code))]:
-        #     r = self._generate(c)
-        #     code += (r if type(r) == str else r[0]) + "\n"
-        
-        # return "\n".join([l for l in code.strip().splitlines() if l.strip()])
-
         return self._code_join(node.code, to_pos)
     
     def optimize(self, code: str, optimize_options: dict = None) -> str:
@@ -349,7 +343,7 @@ class Generator:
                 if name in labels:
                     tmp2 += f"jump {labels[name]} equal {op1} {op2}\n"
                 else:
-                    raise RuntimeError(f"Unknown label \"{name}\"")
+                    gen_error(None, f"Unknown label \"{name}\"")
                 continue
             
             if name == "":
@@ -358,7 +352,7 @@ class Generator:
                 if name in labels:
                     tmp2 += f"jump {labels[name]} {'always' if not cond else 'notEqual' if invert else 'equal'} {cvar} true\n"
                 else:
-                    raise RuntimeError(f"Unknown label \"{name}\"")
+                    gen_error(None, f"Unknown label \"{name}\"")
         
         tmp = ""
         lnc = len(tmp2.strip().splitlines())
@@ -379,7 +373,7 @@ class Generator:
         t = type(node)
 
         if t == Node:
-            raise RuntimeError("Invalid AST")
+            gen_error(node, "Invalid node")
         elif t == CodeNode:
             return "\n".join([str(self._generate(c)) for c in node.code])
         elif t == ValueNode:
@@ -398,7 +392,7 @@ class Generator:
                 at = node.atype
                 op = "add" if at == "+=" else "sub" if at == "-=" else "mul" if at == "*=" else "div" if at == "/=" else ""
                 if op == "":
-                    raise RuntimeError("Invalid AST")
+                    gen_error(node, f"Invalid operator: \"{at}\"")
                 
                 tmp, var = self._generate(node.right)
                 return f"{tmp}\nop {op} {node.left} {node.left} {var}"
@@ -409,7 +403,7 @@ class Generator:
                 for r in node.right:
                     op = "land" if r[0] == "&&" else "or" if r[0] == "||" else ""
                     if op == "":
-                        raise RuntimeError("Invalid AST")
+                        gen_error(node, f"Invalid operator: \"{r[0]}\"")
                     
                     tmp2, var2 = self._generate(r[1])
                     tmp += f"\n{tmp2}\nop {op} {var} {var} {var2}"
@@ -423,7 +417,7 @@ class Generator:
                     op = "equal" if r[0] == "==" else "lessThan" if r[0] == "<" else "greaterThan" if r[0] == ">" else "lessThanEq" if r[0] == "<=" \
                         else "greaterThanEq" if r[0] == ">=" else "notEqual" if r[0] == "!=" else "strictEqual" if r[0] == "===" else ""
                     if op == "":
-                        raise RuntimeError("Invalid AST")
+                        gen_error(node, f"Invalid operator: \"{r[0]}\"")
                     
                     tmp2, var2 = self._generate(r[1])
                     tmp += f"\n{tmp2}\nop {op} {var} {var} {var2}"
@@ -436,7 +430,7 @@ class Generator:
                 for r in node.right:
                     op = "add" if r[0] == "+" else "sub" if r[0] == "-" else ""
                     if op == "":
-                        raise RuntimeError("Invalid AST")
+                        gen_error(node, f"Invalid operator: \"{r[0]}\"")
                     
                     tmp2, var2 = self._generate(r[1])
                     tmp += f"\n{tmp2}\nop {op} {var} {var} {var2}"
@@ -449,7 +443,7 @@ class Generator:
                 for r in node.right:
                     op = "mul" if r[0] == "*" else "div" if r[0] == "/" else "pow" if r[0] == "**" else ""
                     if op == "":
-                        raise RuntimeError("Invalid AST")
+                        gen_error(node, f"Invalid operator: \"{r[0]}\"")
                     
                     tmp2, var2 = self._generate(r[1])
                     tmp += f"\n{tmp2}\nop {op} {var} {var} {var2}"
@@ -614,7 +608,7 @@ class Generator:
             return f".{node.code}"
         elif t == ReturnNode:
             if len(self.func_stack) < 1:
-                raise RuntimeError("Cannot call return when not in a function")
+                gen_error(node, "Cannot return when not in a function")
             
             fname = self.func_stack[-1]
             rvar = f"__f_{fname}_retv"
@@ -625,7 +619,7 @@ class Generator:
                 return f"{tmp}\nset {rvar} {var}\nset @counter __f_{fname}_ret", rvar
         elif t == LoopActionNode:
             if len(self.loop_stack) < 1:
-                raise RuntimeError(f"Cannot call {node.action} when not in a loop")
+                gen_error(node, "Cannot break or continue when not in a loop")
             
             loop = self.loop_stack[-1]
 
@@ -634,9 +628,9 @@ class Generator:
             elif node.action == "continue":
                 return f">{loop[0]}"
             
-            raise RuntimeError(f"Unknown function {node.action}")
+            raise RuntimeError(f"Invalid AST")
         
-        raise RuntimeError(f"Unknown node {node}")
+        gen_error(node, "Unknown node")
 
     def get_tmp_var(self) -> str:
         self.tmpv += 1

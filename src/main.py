@@ -1,5 +1,5 @@
 # from preprocessor import Preprocessor
-from lexer2 import Lexer
+from lexer import Lexer
 from parser_ import Parser
 from generator import Generator
 
