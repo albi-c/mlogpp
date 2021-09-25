@@ -29,7 +29,7 @@ LEX_REGEXES = {
     TokenType.RBRACE: re.compile(r"^\}$"),
     TokenType.COMMA: re.compile(r"^,$"),
     TokenType.SEMICOLON: re.compile(r"^;$"),
-    TokenType.OPERATOR: re.compile(r"^[+\-*/]|(\*\*)|(<=)|(>=)|(==)|(\!=)|<|>$"),
+    TokenType.OPERATOR: re.compile(r"^[+\-*/]|(\*\*)|(===)|(<=)|(>=)|(==)|(\!=)|<|>$"),
     TokenType.SET: re.compile(r"^=|(\+=)|(\-=)|(\*=)|(\/=)$"),
     TokenType.LOGIC: re.compile(r"^(\&\&)|(\|\|)$"),
     TokenType.DOT: re.compile(r"^\.$")
@@ -57,7 +57,7 @@ class Lexer:
         toks = []
         tok = ""
 
-        for c in code:
+        for i, c in enumerate(code):
             matched = self.match(tok)
 
             tok += c
@@ -76,6 +76,10 @@ class Lexer:
                 continue
             elif matched == TokenType.NUMBER and matches == TokenType.NONE and c == ".":
                 continue
+            elif tok == "==":
+                if i < len(code) - 1:
+                    if code[i + 1] == "=":
+                        continue
 
             if ((matched != TokenType.NONE) and (matches == TokenType.NONE)) or ((matched != matches) and matched != TokenType.NONE):
                 if tok in ["+=", "-=", "*=", "/=", ">=", "<=", "==", "**"]:

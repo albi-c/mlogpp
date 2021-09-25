@@ -8,7 +8,7 @@ GEN_REGEXES = {
     "CJMP":  re.compile(r"^>[a-zA-Z_@][a-zA-Z_0-9]* \!?[a-zA-Z_0-9@]+$"),
     "EJMP":  re.compile(r"^>[a-zA-Z_@][a-zA-Z_0-9]* [a-zA-Z_0-9@]+ == [a-zA-Z_0-9@]+$"),
 
-    "TMPS":  re.compile(r"^set __tmp[0-9]+ \S+$"),
+    "TMPS":  re.compile(r"^set __tmp[0-9]+ .+$"),
     "TMPOP": re.compile(r"^op [a-zA-Z]+( [a-zA-Z_@][a-zA-Z_0-9]*){2} .+$"),
 
     "MJUMP": re.compile(r"^jump [0-9]+ [a-zA-Z]+ [a-zA-Z_0-9@]+ [a-zA-Z_0-9@]+$"),
@@ -28,8 +28,8 @@ PRECALC = {
     "idiv": lambda a, b: a // b,
     "mod": lambda a, b: a % b,
     "pow": lambda a, b: a ** b,
-    "equal": lambda a, b: a == b,
-    "notEqual": lambda a, b: a != b,
+    # "equal": lambda a, b: a == b,
+    # "notEqual": lambda a, b: a != b,
     "land": lambda a, b: a and b,
     "lessThan": lambda a, b: a < b,
     "lessThanEq": lambda a, b: a <= b,
@@ -52,6 +52,7 @@ PRECALC = {
     "sqrt": lambda a, _: math.sqrt(a)
 
     # not implemented: angle, length, noise, rand, sin, cos, tan, asin, acos, atan
+    # equal and notEqual is not implemented because it uses type conversion
 }
 
 NATIVE_RETURN_POS = {
@@ -59,12 +60,14 @@ NATIVE_RETURN_POS = {
     "op": 1,
     "read": 0,
     "getlink": 0,
-    "sensor": 0
+    "sensor": 0,
+    "lookup": 1
 }
 
 PARAM_NO_TMP = {
     "set": [0],
     "op": [1],
+    "lookup": [0, 1],
     "read": [0],
     "drawflush": [0],
     "printflush": [0],
@@ -72,6 +75,7 @@ PARAM_NO_TMP = {
     "radar": [6],
     "sensor": [0],
     "uradar": [6],
+    "ubind": [0],
     "ulocate": [4, 5, 6, 7]
 }
 
@@ -84,6 +88,7 @@ native_functions = [
     "radar",
     "sensor",
     "set", "op",
+    "wait", "lookup",
     "end", "jump",
     "ubind", "ucontrol", "uradar", "ulocate"
 ]
@@ -97,6 +102,7 @@ native_functions_params = {
     "radar": 6,
     "sensor": 3,
     "set": 2, "op": 4,
+    "wait": 1, "lookup": 3,
     "end": 0, "jump": 4,
     "ubind": 1, "ucontrol":6, "uradar": 6, "ulocate": 7
 }
@@ -113,13 +119,23 @@ class Generator:
 
         return self.postprocess(self.optimize(code, optimize_options))
     
-    def _code_node_join(self, node: Node, to_pos: int = None) -> str:
+    def _code_join(self, codel: list, to_pos: int = None) -> str:
         code = ""
-        for c in node.code[:(to_pos + 1 if to_pos is not None else len(node.code))]:
+        for c in codel[:(to_pos + 1 if to_pos is not None else len(codel))]:
             r = self._generate(c)
             code += (r if type(r) == str else r[0]) + "\n"
         
         return "\n".join([l for l in code.strip().splitlines() if l.strip()])
+    
+    def _code_node_join(self, node: Node, to_pos: int = None) -> str:
+        # code = ""
+        # for c in node.code[:(to_pos + 1 if to_pos is not None else len(node.code))]:
+        #     r = self._generate(c)
+        #     code += (r if type(r) == str else r[0]) + "\n"
+        
+        # return "\n".join([l for l in code.strip().splitlines() if l.strip()])
+
+        return self._code_join(node.code, to_pos)
     
     def optimize(self, code: str, optimize_options: dict = None) -> str:
         options = {
@@ -407,7 +423,7 @@ class Generator:
             if node.right is not None:
                 for r in node.right:
                     op = "equal" if r[0] == "==" else "lessThan" if r[0] == "<" else "greaterThan" if r[0] == ">" else "lessThanEq" if r[0] == "<=" \
-                        else "greaterThanEq" if r[0] == ">=" else "notEqual" if r[0] == "!=" else ""
+                        else "greaterThanEq" if r[0] == ">=" else "notEqual" if r[0] == "!=" else "strictEqual" if r[0] == "===" else ""
                     if op == "":
                         raise RuntimeError("Invalid AST")
                     
@@ -498,11 +514,21 @@ class Generator:
         elif t == IfNode:
             tmp2, var = self._generate(node.condition)
 
-            l_e = self.get_tmp_label()
+            if not node.elsecode:
+                l_e = self.get_tmp_label()
 
-            tmp = f"{tmp2}\n>{l_e} !{var}\n"
-            tmp += self._code_node_join(node)
-            tmp += f"\n<{l_e}"
+                tmp = f"{tmp2}\n>{l_e} !{var}\n"
+                tmp += self._code_node_join(node)
+                tmp += f"\n<{l_e}"
+            else:
+                l_s = self.get_tmp_label()
+                l_e = self.get_tmp_label()
+
+                tmp = f"{tmp2}\n>{l_s} !{var}\n"
+                tmp += self._code_node_join(node)
+                tmp += f"\n>{l_e}\n<{l_s}\n"
+                tmp += self._code_join(node.elsecode)
+                tmp += f"\n<{l_e}"
 
             return tmp
         elif t == WhileNode:

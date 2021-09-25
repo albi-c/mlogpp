@@ -14,7 +14,7 @@ class IOMethod(Enum):
     STD  = 1
     CLIP = 2
 
-parser = argparse.ArgumentParser(description="Mindustry logic compiler")
+parser = argparse.ArgumentParser(description="Mindustry logic compiler", prog="mlog++")
 
 parser.add_argument("file", type=str, help="input file(s)", nargs="+")
 

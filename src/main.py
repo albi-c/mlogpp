@@ -36,14 +36,16 @@ for (i = 0; i < @links; i += 1) {
 """
 
 test_code3 = """
-x = -10
-if (x != 10) {
-    print(10)
-    print(read(y, cell1, 10))
-    print(getlink(z, 2))
-    #print(y)
+x = 10
+if (x === 10) {
+    print("x === 10")
 }
-print(20)
+if (x > 10) {
+    print("x > 10")
+} else {
+    print("x <= 10")
+}
+printflush(message1)
 """
 
 p = Preprocessor()

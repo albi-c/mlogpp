@@ -1,7 +1,7 @@
 from re import T
 from lexer import TokenType, Token
 
-keywords = ["if", "while", "for", "function", "repeat"]
+keywords = ["if", "else", "while", "for", "function", "repeat"]
 
 class Node:
     def generate(self, i = 0) -> str:
@@ -144,19 +144,37 @@ class KeywordNode(Node):
         pass
 
 class IfNode(KeywordNode):
-    def __init__(self, condition: ExpressionNode, code: list):
+    def __init__(self, condition: ExpressionNode, code: list, elsecode: list = None):
         self.condition = condition
         self.code = code
+        self.elsecode = elsecode if elsecode is not None else []
     
     def generate(self, i) -> str:
         tmp = i * " " + f"IfNode ({self.condition.generate(i + 1)}) {{"
         for c in self.code:
             tmp += c.generate(i + 1)
+        tmp += i * " " + "} {\n"
+        for c in self.elsecode:
+            tmp += c.generate(i + 1)
         tmp += i * " " + "}\n"
         return tmp
     
     def rrename(self, vars_: dict) -> Node:
-        return IfNode(self.condition.rrename(vars_), [n.rrename(vars_) for n in self.code])
+        return IfNode(self.condition.rrename(vars_), [n.rrename(vars_) for n in self.code], [n.rrename(vars_) for n in self.elsecode])
+
+# class ElseNode(KeywordNode):
+#     def __init__(self, code: list):
+#         self.code = code
+    
+#     def generate(self, i) -> str:
+#         tmp = i * " " + f"ElseNode {{"
+#         for c in self.code:
+#             tmp += c.generate(i + 1)
+#         tmp += i * " " + "}\n"
+#         return tmp
+    
+#     def rrename(self, vars_: dict) -> Node:
+#         return ElseNode([n.rrename(vars_) for n in self.code])
 
 class WhileNode(KeywordNode):
     def __init__(self, condition: ExpressionNode, code: list):
@@ -320,6 +338,12 @@ class Parser:
                     return self.parse_KeywordNode()
                 else:
                     raise RuntimeError(f"Unexpected \"{n.value}\"")
+            elif n.type == TokenType.LBRACE:
+                if id_.value == "else":
+                    self.pos -= 2
+                    return self.parse_KeywordNode()
+                else:
+                     raise RuntimeError(f"Unexpected \"{n.value}\"")
             else:
                 raise RuntimeError(f"Unexpected \"{n.value}\"")
         elif id_.type == TokenType.DOT:
@@ -347,7 +371,7 @@ class Parser:
         c = []
         while self.has_token():
             n = self.next_token()
-            if n.type == TokenType.OPERATOR and n.value in ["==", "!=", "<", ">", "<=", ">="]:
+            if n.type == TokenType.OPERATOR and n.value in ["==", "!=", "<", ">", "<=", ">=", "==="]:
                 c.append((n.value, self.parse_ArithExpNode()))
             else:
                 self.pos -= 1
@@ -457,6 +481,24 @@ class Parser:
                     c.append(self.parse_AnyNode())
             
             if id_.value == "if":
+                if self.has_token():
+                    n = self.next_token()
+                    if n.type == TokenType.ID and n.value == "else":
+                        self.next_token(TokenType.LBRACE)
+
+                        ec = []
+                        while True:
+                            n = self.next_token()
+                            if n.type == TokenType.RBRACE:
+                                break
+                            else:
+                                self.pos -= 1
+                                ec.append(self.parse_AnyNode())
+                        
+                        return IfNode(e, c, ec)
+                    else:
+                        self.pos -= 1
+
                 return IfNode(e, c)
             elif id_.value == "while":
                 return WhileNode(e, c)
