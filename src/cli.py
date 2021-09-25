@@ -26,6 +26,9 @@ parser.add_argument("-O1", "--optimize1", help="set optimization level to 1", ac
 parser.add_argument("-O2", "--optimize2", help="set optimization level to 2", action="store_true")
 
 parser.add_argument("-v", "--verbose", help="print additional information", action="store_true")
+parser.add_argument("-l", "--lines", help="print line numbers when output to stdout is selected", action="store_true")
+
+parser.add_argument("-V", "--version", action="version", version="mlog++ 1.0")
 
 args = parser.parse_args()
 
@@ -83,7 +86,16 @@ if omethod == IOMethod.FILE:
     with open(ofile, "w+") as f:
         f.write(out)
 elif omethod == IOMethod.STD:
-    print(out, end=("\n\n" if verbose else "\n"))
+    if vars(args)["lines"]:
+        lines = out.splitlines()
+        maxline = len(str(len(lines)))
+        for i, ln in enumerate(lines):
+            print(f"{str(i).zfill(maxline)}: {ln}")
+    else:
+        print(out)
+    
+    if verbose:
+        print()
 elif omethod == IOMethod.CLIP:
     pyperclip.copy(out)
 
