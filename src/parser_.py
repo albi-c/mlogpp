@@ -1,5 +1,5 @@
-from re import T
-from lexer import TokenType, Token
+from lexer2 import TokenType, Token
+from error import parse_error
 
 keywords = ["if", "else", "while", "for", "function", "repeat"]
 
@@ -162,20 +162,6 @@ class IfNode(KeywordNode):
     def rrename(self, vars_: dict) -> Node:
         return IfNode(self.condition.rrename(vars_), [n.rrename(vars_) for n in self.code], [n.rrename(vars_) for n in self.elsecode])
 
-# class ElseNode(KeywordNode):
-#     def __init__(self, code: list):
-#         self.code = code
-    
-#     def generate(self, i) -> str:
-#         tmp = i * " " + f"ElseNode {{"
-#         for c in self.code:
-#             tmp += c.generate(i + 1)
-#         tmp += i * " " + "}\n"
-#         return tmp
-    
-#     def rrename(self, vars_: dict) -> Node:
-#         return ElseNode([n.rrename(vars_) for n in self.code])
-
 class WhileNode(KeywordNode):
     def __init__(self, condition: ExpressionNode, code: list):
         self.condition = condition
@@ -274,19 +260,12 @@ class Parser:
         if self.has_token():
             self.pos += 1
 
-            while self.tokens[self.pos].type == TokenType.SEPARATOR:
-                if self.has_token():
-                    self.pos += 1
-                else:
-                    break
-
-            if ttype is not None:
-                if self.tokens[self.pos].type != ttype:
-                    raise RuntimeError(f"Unexpected \"{self.tokens[self.pos].value}\"")
+            if self.tokens[self.pos].type != ttype and ttype is not None:
+                parse_error(self.tokens[self.pos], "Unexpected token")
 
             return self.tokens[self.pos]
         
-        raise RuntimeError("Unexpected EOF")
+        parse_error(self.tokens[-1], "Unexpected EOF")
     
     # node parsers
 
@@ -307,7 +286,7 @@ class Parser:
             elif n.type == TokenType.LPAREN:
                 if id_.value in keywords:
                     if not can_be_special:
-                        raise RuntimeError(f"Unexpected \"{id_.value}\"")
+                        parse_error(id_, "Unexpected token")
                     
                     self.pos -= 2
                     return self.parse_KeywordNode()
@@ -322,14 +301,14 @@ class Parser:
                             if e:
                                 p.append(self.parse_ExpressionNode())
                             else:
-                                raise RuntimeError(f"Unexpected \"{n.value}\"")
+                                parse_error(id_, "Unexpected token")
                         else:
                             if not e:
                                 self.pos -= 1
                                 p.append(self.parse_ExpressionNode())
                                 e = True
                             else:
-                                raise RuntimeError(f"Unexpected \"{n.value}\"")
+                                parse_error(id_, "Unexpected token")
                     
                     return CallNode(id_.value, True, p)
             elif n.type == TokenType.ID:
@@ -337,21 +316,21 @@ class Parser:
                     self.pos -= 2
                     return self.parse_KeywordNode()
                 else:
-                    raise RuntimeError(f"Unexpected \"{n.value}\"")
+                    parse_error(n, "Unexpected token")
             elif n.type == TokenType.LBRACE:
                 if id_.value == "else":
                     self.pos -= 2
                     return self.parse_KeywordNode()
                 else:
-                     raise RuntimeError(f"Unexpected \"{n.value}\"")
+                     parse_error(n, "Unexpected token")
             else:
-                raise RuntimeError(f"Unexpected \"{n.value}\"")
+                parse_error(n, "Unexpected token")
         elif id_.type == TokenType.DOT:
             n = self.next_token(TokenType.STRING)
 
             return NativeNode(n.value[1:-1])
         
-        raise RuntimeError(f"Unexpected \"{id_.value}\"")
+        parse_error(id_, "Unexpected token")
     
     def parse_ExpressionNode(self) -> ExpressionNode:
         c = self.parse_CompExpressionNode()
@@ -416,7 +395,7 @@ class Parser:
                 self.pos -= 1
                 return FactorNode(self.parse_CallNode(), sign)
             else:
-                raise RuntimeError(f"Unexpected \"{n.value}\"")
+                parse_error(n, "Unexpected token")
     
     def parse_CallNode(self) -> CallNode:
         a = self.parse_AtomNode()
@@ -429,7 +408,7 @@ class Parser:
                 is_call = True
 
                 if not self.has_token():
-                    raise RuntimeError(f"Unexpected EOF")
+                    parse_error(n, "Unexpected EOF")
                 
                 n = self.next_token()
                 if n.type == TokenType.RPAREN:
@@ -444,7 +423,7 @@ class Parser:
                         elif n.type == TokenType.COMMA:
                             pass
                         else:
-                            raise RuntimeError(f"Unexpected \"{n.value}\"")
+                            parse_error(n, "Unexpected token")
             else:
                 self.pos -= 1
         
@@ -460,7 +439,7 @@ class Parser:
             self.next_token()
             return AtomNode(e)
         else:
-            raise RuntimeError(f"Unexpected \"{n.value}\"")
+            parse_error(n, "Unexpected token")
     
     def parse_KeywordNode(self) -> KeywordNode:
         id_ = self.next_token()
@@ -537,15 +516,15 @@ class Parser:
                 n = self.next_token()
                 if n.type == TokenType.RPAREN:
                     if last == TokenType.COMMA:
-                        raise RuntimeError(f"Unexpected \"{n.value}\"")
+                        parse_error(n, "Unexpected token")
                     break
                 elif n.type == TokenType.COMMA:
                     if last == TokenType.COMMA:
-                        raise RuntimeError(f"Unexpected \"{n.value}\"")
+                        parse_error(n, "Unexpected token")
                     pass
                 elif n.type == TokenType.ID:
                     if last == TokenType.ID:
-                        raise RuntimeError(f"Unexpected \"{n.value}\"")
+                        parse_error(n, "Unexpected token")
                     args.append(n.value)
 
             c = []
@@ -576,4 +555,4 @@ class Parser:
             
             return RepeatNode(int(amount.value), c)
         
-        raise RuntimeError(f"Unexpected \"{id_.value}\"")
+        parse_error(id_, "Unexpected token")

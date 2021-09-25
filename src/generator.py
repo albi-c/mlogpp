@@ -28,8 +28,6 @@ PRECALC = {
     "idiv": lambda a, b: a // b,
     "mod": lambda a, b: a % b,
     "pow": lambda a, b: a ** b,
-    # "equal": lambda a, b: a == b,
-    # "notEqual": lambda a, b: a != b,
     "land": lambda a, b: a and b,
     "lessThan": lambda a, b: a < b,
     "lessThanEq": lambda a, b: a <= b,

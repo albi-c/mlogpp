@@ -1,5 +1,5 @@
-from preprocessor import Preprocessor
-from lexer import Lexer
+# from preprocessor import Preprocessor
+from lexer2 import Lexer
 from parser_ import Parser
 from generator import Generator
 
@@ -48,11 +48,17 @@ if (x > 10) {
 printflush(message1)
 """
 
-p = Preprocessor()
-c = p.preprocess(test_code3)
+test_code4 = """
+x = 10.5
+const y = 20.5
 
-l = Lexer()
-r = l.lex(c)
+#compare
+
+print(x === y)
+printflush(message1)
+"""
+
+r = Lexer.preprocess(Lexer.lex(test_code4))
 
 p = Parser()
 a = p.parse(r)
