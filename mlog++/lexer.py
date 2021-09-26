@@ -1,5 +1,5 @@
 from enum import Enum
-import re, sys
+import re, sys, os
 
 from . import arrows
 from .formatting import Format
@@ -82,6 +82,26 @@ class Token:
         return self.type == other.type and self.value == other.value
 
 class Lexer:
+    def resolve_includes(code: str) -> str:
+        tmp = ""
+        for i, ln in enumerate(code.splitlines()):
+            if ln.startswith("%"):
+                fn = ln[1:]
+
+                if not os.path.isfile(fn):
+                    print(f"{Format.ERROR}Error on line {i + 1}: Cannot import file \"{fn}\"{Format.RESET}\n\nHere:\n{ln}\n{arrows.generate(0, len(ln))}")
+                    sys.exit(1)
+                
+                with open(fn, "r") as f:
+                    data = f.read()
+                
+                tmp += data + "\n"
+                continue
+            
+            tmp += ln + "\n"
+        
+        return tmp
+
     def lex(code: str) -> list:
         toks = []
         tok = ""

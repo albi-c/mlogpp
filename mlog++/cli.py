@@ -28,7 +28,7 @@ parser.add_argument("-O2", "--optimize2", help="set optimization level to 2", ac
 parser.add_argument("-v", "--verbose", help="print additional information", action="store_true")
 parser.add_argument("-l", "--lines", help="print line numbers when output to stdout is selected", action="store_true")
 
-parser.add_argument("-V", "--version", action="version", version="mlog++ 1.0")
+parser.add_argument("-V", "--version", action="version", version="mlog++ 1.1")
 
 args = parser.parse_args()
 
@@ -72,7 +72,7 @@ for data in datas:
         outs.append(data[1])
         continue
 
-    out = Lexer.preprocess(Lexer.lex(data[1]))
+    out = Lexer.preprocess(Lexer.lex(Lexer.resolve_includes(data[1])))
     out = Parser().parse(out)
     out = Generator().generate(out, optimization_levels[optlevel])
     outs.append(out)

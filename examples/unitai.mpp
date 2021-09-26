@@ -1,10 +1,15 @@
-const PLAYER_DISTANCE = 8
+const DISTANCE = 8
 const UNIT = @zenith
 
 ubind(UNIT)
 uradar(player, ally, flying, distance, 0, 1, player)
 
-ucontrol(approach, player.x, player.y, PLAYER_DISTANCE)
+if (player === null) {
+    ucontrol(approach, @thisx, @thisy, DISTANCE)
+    end()
+}
+
+ucontrol(approach, player.x, player.y, DISTANCE)
 
 shooting = player.shooting
 

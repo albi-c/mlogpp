@@ -31,6 +31,11 @@ class ValueNode(Node):
         return i * " " +  "ValueNode: " + str(self.value) + "\n"
     
     def rrename(self, vars_: dict) -> str:
+        if "." in self.value:
+            spl = self.value.split(".")
+            if len(spl) == 2:
+                return ValueNode(self.pos, vars_.get(spl[0], spl[0]) + "." + spl[1])
+        
         return ValueNode(self.pos, vars_.get(self.value, self.value))
 
 class AtomNode(Node):
