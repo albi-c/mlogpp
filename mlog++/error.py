@@ -4,7 +4,7 @@ from .lexer import Token, Position
 from . import arrows
 from .formatting import Format
 
-PARSE_ERROR_DEBUG = False
+PARSE_ERROR_DEBUG = True
 LINK_ERROR_DEBUG  = False
 
 def parse_error(tok: Token, msg: str) -> None:

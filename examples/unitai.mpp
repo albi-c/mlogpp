@@ -1,0 +1,25 @@
+const PLAYER_DISTANCE = 8
+const UNIT = @zenith
+
+ubind(UNIT)
+uradar(player, ally, flying, distance, 0, 1, player)
+
+ucontrol(approach, player.x, player.y, PLAYER_DISTANCE)
+
+ucontrol(target, x, y, 0)
+
+shooting = player.shooting
+
+ucontrol(target, player.shootX, player.shootY, shooting)
+
+if (!shooting) {
+    ucontrol(target, 0, 0, 0)
+
+    uradar(enemy, any, any, distance, 0, 1, enemy)
+
+    if (enemy === null) {
+        end()
+    }
+
+    ucontrol(targetp, enemy, 1)
+}

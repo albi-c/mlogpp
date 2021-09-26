@@ -30,7 +30,7 @@ LEX_REGEXES = {
     TokenType.RBRACE: re.compile(r"^\}$"),
     TokenType.COMMA: re.compile(r"^,$"),
     TokenType.SEMICOLON: re.compile(r"^;$"),
-    TokenType.OPERATOR: re.compile(r"^[+\-*/]|(\*\*)|(===)|(<=)|(>=)|(==)|(\!=)|<|>$"),
+    TokenType.OPERATOR: re.compile(r"^[+\-*/!]|(\*\*)|(===)|(<=)|(>=)|(==)|(\!=)|<|>$"),
     TokenType.SET: re.compile(r"^=|(\+=)|(\-=)|(\*=)|(\/=)$"),
     TokenType.LOGIC: re.compile(r"^(\&\&)|(\|\|)$"),
     TokenType.DOT: re.compile(r"^\.$")

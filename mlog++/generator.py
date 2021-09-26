@@ -18,7 +18,9 @@ GEN_REGEXES = {
 
     "VARA":  re.compile(r"^(set \S+ \S+)|(op [a-zA-Z]+( \S+){3})$"),
 
-    "NUM":   re.compile(r"^[0-9]+(\.[0-9]+)?$")
+    "NUM":   re.compile(r"^[0-9]+(\.[0-9]+)?$"),
+
+    "IATTR": re.compile(r"^[a-zA-Z_@][a-zA-Z_0-9]*\.[a-zA-Z_@][a-zA-Z_0-9]*$")
 }
 
 PRECALC = {
@@ -381,6 +383,11 @@ class Generator:
                 var = str(node.value)
             else:
                 var = self.get_tmp_var()
+
+            if GEN_REGEXES["IATTR"].fullmatch(node.value):
+                spl = node.value.split(".")
+                return f"sensor {var} {spl[0]} @{spl[1]}", var
+
             return f"set {var} {node.value}" if not self.no_generate_tmp else "", var
         elif t == AtomNode:
             return self._generate(node.value)
@@ -454,6 +461,8 @@ class Generator:
 
             if not node.sign:
                 tmp += f"\nop sub {var} 0 {var}"
+            if node.not_:
+                tmp += f"\nop not {var} {var} _"
             
             return tmp, var
         elif t == CallNode:

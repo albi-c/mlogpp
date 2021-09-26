@@ -122,16 +122,17 @@ class TermNode(Node):
         return TermNode(self.pos, self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
 
 class FactorNode(Node):
-    def __init__(self, pos: Position, left, sign: bool):
+    def __init__(self, pos: Position, left, sign: bool, not_: bool):
         self.pos = pos
         self.left = left
         self.sign = sign
+        self.not_ = not_
     
     def generate(self, i) -> str:
-        return i * " " + f"FactorNode: \n{'+' if self.sign else '-'}{self.left.generate(i + 1)}"
+        return i * " " + f"FactorNode: \n{'!' if self._not else ''}{'+' if self.sign else '-'}{self.left.generate(i + 1)}"
     
     def rrename(self, vars_: dict) -> Node:
-        return FactorNode(self.pos, self.left.rrename(vars_), self.sign)
+        return FactorNode(self.pos, self.left.rrename(vars_), self.sign, self.not_)
 
 class CallNode(Node):
     def __init__(self, pos: Position, function, is_call: bool, params: list = []):
@@ -319,14 +320,14 @@ class Parser:
                             if e:
                                 p.append(self.parse_ExpressionNode())
                             else:
-                                parse_error(id_, "Unexpected token")
+                                parse_error(t, "Unexpected token")
                         else:
                             if not e:
                                 self.pos -= 1
                                 p.append(self.parse_ExpressionNode())
                                 e = True
                             else:
-                                parse_error(id_, "Unexpected token")
+                                parse_error(t, "Unexpected token")
                     
                     return CallNode(id_.pos(), id_.value, True, p)
             elif n.type == TokenType.ID:
@@ -404,14 +405,17 @@ class Parser:
     
     def parse_FactorNode(self) -> FactorNode:
         sign = True
+        not_ = False
         while self.has_token():
             n = self.next_token()
-            if n.type == TokenType.OPERATOR and n.value in ["+", "-"]:
+            if n.type == TokenType.OPERATOR and n.value in ["+", "-", "!"]:
                 if n.value == "-":
                     sign = not sign
+                elif n.value == "!":
+                    not_ = not not_
             elif n.type in [TokenType.ID, TokenType.STRING, TokenType.NUMBER, TokenType.LPAREN]:
                 self.pos -= 1
-                return FactorNode(n.pos(), self.parse_CallNode(), sign)
+                return FactorNode(n.pos(), self.parse_CallNode(), sign, not_)
             else:
                 parse_error(n, "Unexpected token")
     
@@ -451,6 +455,14 @@ class Parser:
         n = self.next_token()
         
         if n.type in [TokenType.ID, TokenType.STRING, TokenType.NUMBER]:
+            if self.has_token() and n.type == TokenType.ID:
+                n_ = self.next_token()
+                if n_.type == TokenType.DOT:
+                    n_ = self.next_token(TokenType.ID)
+                    return AtomNode(n.pos(), ValueNode(n.pos(), f"{n.value}.{n_.value}"))
+                else:
+                    self.pos -= 1
+            
             return AtomNode(n.pos(), ValueNode(n.pos(), n.value))
         elif n.type == TokenType.LPAREN:
             e = self.parse_ExpressionNode()
