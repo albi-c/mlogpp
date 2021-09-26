@@ -7,9 +7,12 @@ GEN_REGEXES = {
     "LABEL": re.compile(r"^<[a-zA-Z_@][a-zA-Z_0-9]*$"),
     "JUMP":  re.compile(r"^>[a-zA-Z_@][a-zA-Z_0-9]*$"),
     "CJMP":  re.compile(r"^>[a-zA-Z_@][a-zA-Z_0-9]* \!?[a-zA-Z_0-9@]+$"),
-    "EJMP":  re.compile(r"^>[a-zA-Z_@][a-zA-Z_0-9]* [a-zA-Z_0-9@]+ == [a-zA-Z_0-9@]+$"),
+    "EJMP":  re.compile(r"^>[a-zA-Z_@][a-zA-Z_0-9]* [a-zA-Z_0-9@]+ ((==)|(\!=)|(>=)|(<=)|>|<) [a-zA-Z_0-9@]+$"),
 
     "TMPS":  re.compile(r"^set __tmp[0-9]+ .+$"),
+    "TMPSE": re.compile(r"^sensor __tmp[0-9]+ \S+ \S+$"),
+    "TMPSA": re.compile(r"^set [a-zA-Z_@][a-zA-Z_0-9]* __tmp[0-9]+$"),
+
     "TMPOP": re.compile(r"^op [a-zA-Z]+( [a-zA-Z_@][a-zA-Z_0-9]*){2} .+$"),
 
     "MJUMP": re.compile(r"^jump [0-9]+ [a-zA-Z]+ [a-zA-Z_0-9@]+ [a-zA-Z_0-9@]+$"),
@@ -20,7 +23,10 @@ GEN_REGEXES = {
 
     "NUM":   re.compile(r"^[0-9]+(\.[0-9]+)?$"),
 
-    "IATTR": re.compile(r"^[a-zA-Z_@][a-zA-Z_0-9]*\.[a-zA-Z_@][a-zA-Z_0-9]*$")
+    "IATTR": re.compile(r"^[a-zA-Z_@][a-zA-Z_0-9]*\.[a-zA-Z_@][a-zA-Z_0-9]*$"),
+
+    "TCOMP": re.compile(r"^op ((equal)|(notEqual)|(greaterThan)|(lessThan)|(greaterThanEq)|(lessThanEq)) __tmp[0-9]+ \S+ \S+$"),
+    "TJUMP": re.compile(r"^>__mpp[0-9]+ !__tmp[0-9]+$")
 }
 
 PRECALC = {
@@ -78,6 +84,24 @@ PARAM_NO_TMP = {
     "uradar": [6],
     "ubind": [0],
     "ulocate": [4, 5, 6, 7]
+}
+
+JUMP_CONDITIONS_REPLACE = {
+    "equal": "!=",
+    "notEqual": "==",
+    "greaterThan": "<=",
+    "lessThan": ">=",
+    "greaterThanEq": "<",
+    "lessThanEq": ">"
+}
+
+JUMP_CONDITION = {
+    "==": "equal",
+    "!=": "notEqual",
+    ">": "greaterThan",
+    "<": "lessThan",
+    ">=": "greaterThanEq",
+    "<=": "lessThanEq"
 }
 
 native_functions = [
@@ -204,6 +228,31 @@ class Generator:
                     if uses[name] == 2 and name in lns[i + n_lines]:
                             lns[i + n_lines] = lns[i + n_lines].replace(name, val)
                             found = True
+                            continue
+
+            elif GEN_REGEXES["TMPSE"].fullmatch(ln):
+                spl = ln.split(" ", 3)
+                name = spl[1]
+
+                if i < len(lns) - n_lines:
+                    if uses[name] == 2 and GEN_REGEXES["TMPSA"].fullmatch(lns[i + n_lines]):
+                        spl_ = lns[i + n_lines].split(" ", 2)
+                        if name == spl_[2]:
+                            lns[i + n_lines] = f"sensor {spl_[1]} {spl[2]} {spl[3]}"
+                            found = True
+                            continue
+            
+            elif GEN_REGEXES["TCOMP"].fullmatch(ln):
+                spl = ln.split(" ", 4)
+                cond = spl[1]
+                op1 = spl[3]
+                op2 = spl[4]
+
+                if i < len(lns) - n_lines:
+                    if uses[name] == 2 and GEN_REGEXES["TJUMP"].fullmatch(lns[i + n_lines]):
+                        spl_ = lns[i + n_lines].split(" ", 1)
+                        if spl_[1][1:] == spl[2] and cond in JUMP_CONDITIONS_REPLACE:
+                            lns[i + n_lines] = f"{spl_[0]} {op1} {JUMP_CONDITIONS_REPLACE[cond]} {op2}"
                             continue
                 
             tmp += ln + "\n"
@@ -341,9 +390,15 @@ class Generator:
                 spl = ln.split()
                 name = spl[0][1:]
                 op1 = spl[1]
+                cond = spl[2]
+
+                if not cond in JUMP_CONDITION:
+                    gen_error(None, f"Unknown jump condition \"{cond}\"")
+                cond = JUMP_CONDITION[cond]
+
                 op2 = spl[3]
                 if name in labels:
-                    tmp2 += f"jump {labels[name]} equal {op1} {op2}\n"
+                    tmp2 += f"jump {labels[name]} {cond} {op1} {op2}\n"
                 else:
                     gen_error(None, f"Unknown label \"{name}\"")
                 continue
