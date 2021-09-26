@@ -1,6 +1,6 @@
 import shlex, math, random, re
 
-from building import EBuilding, EBuildingType
+from .building import EBuilding, EBuildingType
 
 REGEX_NUM = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 

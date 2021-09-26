@@ -1,9 +1,9 @@
 import sys, inspect
 
-from lexer import Token, Position
-import arrows
-from formatting import Format
-from parser_ import Node
+from .lexer import Token, Position
+from . import arrows
+from .formatting import Format
+from .parser_ import Node
 
 GEN_ERROR_DEBUG = False
 

@@ -3,10 +3,10 @@ from enum import Enum
 
 import pyperclip
 
-from lexer import Lexer
-from parser_ import Parser
-from generator import Generator
-from linker import Linker
+from .lexer import Lexer
+from .parser_ import Parser
+from .generator import Generator
+from .linker import Linker
 
 class IOMethod(Enum):
     FILE = 0

@@ -1,5 +1,5 @@
-from lexer import TokenType, Token, Position
-from error import parse_error
+from .lexer import TokenType, Token, Position
+from .error import parse_error
 
 keywords = ["if", "else", "while", "for", "function", "repeat"]
 

@@ -1,8 +1,8 @@
 import sys, inspect
 
-from lexer import Token, Position
-import arrows
-from formatting import Format
+from .lexer import Token, Position
+from . import arrows
+from .formatting import Format
 
 PARSE_ERROR_DEBUG = False
 LINK_ERROR_DEBUG  = False

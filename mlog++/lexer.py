@@ -1,8 +1,8 @@
 from enum import Enum
 import re, sys
 
-import arrows
-from formatting import Format
+from . import arrows
+from .formatting import Format
 
 class TokenType(Enum):
     NONE      = 0

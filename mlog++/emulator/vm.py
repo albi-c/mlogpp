@@ -1,4 +1,4 @@
-from parser_ import EInstruction
+from .parser_ import EInstruction
 
 class EVMSignal(Exception):
     pass

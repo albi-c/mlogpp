@@ -1,5 +1,5 @@
-from lexer import Position
-from error import link_error
+from .lexer import Position
+from .error import link_error
 
 class Linker:
     def link(codes: list) -> str:

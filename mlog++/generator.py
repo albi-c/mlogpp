@@ -1,7 +1,7 @@
 import re, math
 
-from parser_ import *
-from gerror import gen_error
+from .parser_ import *
+from .gerror import gen_error
 
 GEN_REGEXES = {
     "LABEL": re.compile(r"^<[a-zA-Z_@][a-zA-Z_0-9]*$"),
