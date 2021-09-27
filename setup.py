@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setuptools.setup(
     name="mlogpp",
-    version="1.1",
+    version="1.2",
     author="albi-c",
     description="mlog++ to mindustry logic compiler",
     long_description=long_description,

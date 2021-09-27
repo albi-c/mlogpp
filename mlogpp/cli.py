@@ -28,7 +28,7 @@ parser.add_argument("-O2", "--optimize2", help="set optimization level to 2", ac
 parser.add_argument("-v", "--verbose", help="print additional information", action="store_true")
 parser.add_argument("-l", "--lines", help="print line numbers when output to stdout is selected", action="store_true")
 
-parser.add_argument("-V", "--version", action="version", version="mlog++ 1.1")
+parser.add_argument("-V", "--version", action="version", version="mlog++ 1.2")
 
 args = parser.parse_args()
 
