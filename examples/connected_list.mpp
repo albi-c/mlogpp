@@ -6,14 +6,3 @@ for (i = 0; i < @links; i += 1) {
 }
 
 printflush(message1)
-
-extern x
-extern func(a, b, c)
-
-function func(a, b, c) {
-    return a + b * c
-}
-
-func(10, 20, 30)
-
-print(x)
