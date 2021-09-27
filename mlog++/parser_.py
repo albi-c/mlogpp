@@ -1,7 +1,6 @@
 from .lexer import TokenType, Token, Position
 from .error import parse_error
-
-keywords = ["if", "else", "while", "for", "function", "repeat"]
+from . import functions
 
 class Node:
     def generate(self, i = 0) -> str:
@@ -306,8 +305,14 @@ class Parser:
                 return LoopActionNode(id_.pos(), id_.value)
             
             if n.type == TokenType.SET:
+                if id_.value in functions.special:
+                    parse_error(n, "Cannot override a keyword")
+                
                 return AssignmentNode(id_.pos(), id_.value, n.value, self.parse_ExpressionNode())
             elif n.type == TokenType.DOT:
+                if id_.value in functions.special:
+                    parse_error(n, "Cannot use property of a keyword")
+
                 node = self.parse_AnyNode()
                 if type(node) != AssignmentNode:
                     parse_error(n, "Unexpected token")
@@ -316,7 +321,7 @@ class Parser:
 
                 return node
             elif n.type == TokenType.LPAREN:
-                if id_.value in keywords:
+                if id_.value in functions.keywords:
                     if not can_be_special:
                         parse_error(id_, "Unexpected token")
                     

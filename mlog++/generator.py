@@ -2,6 +2,7 @@ import re, math
 
 from .parser_ import *
 from .gerror import gen_error
+from . import functions
 
 GEN_REGEXES = {
     "LABEL": re.compile(r"^<[a-zA-Z_@][a-zA-Z_0-9]*$"),
@@ -59,7 +60,7 @@ PRECALC = {
     "sqrt": lambda a, _: math.sqrt(a)
 
     # not implemented: angle, length, noise, rand, sin, cos, tan, asin, acos, atan
-    # equal and notEqual is not implemented because it uses type conversion
+    # equal and notEqual are not implemented because they use type conversion
 }
 
 NATIVE_RETURN_POS = {
@@ -104,33 +105,48 @@ JUMP_CONDITION = {
     "<=": "lessThanEq"
 }
 
-native_functions = [
-    "read", "write",
-    "draw", "drawflush",
-    "print", "printflush",
-    "getlink",
-    "control",
-    "radar",
-    "sensor",
-    "set", "op",
-    "wait", "lookup",
-    "end", "jump",
-    "ubind", "ucontrol", "uradar", "ulocate"
-]
+# native_functions = [
+#     "read", "write",
+#     "draw", "drawflush",
+#     "print", "printflush",
+#     "getlink",
+#     "control",
+#     "radar",
+#     "sensor",
+#     "set", "op",
+#     "wait", "lookup",
+#     "end", "jump",
+#     "ubind", "ucontrol", "uradar", "ulocate"
+# ]
 
-native_functions_params = {
-    "read": 3, "write": 3,
-    "draw": 8, "drawflush": 1,
-    "print": 1, "printflush": 1,
-    "getlink": 2,
-    "control": 5,
-    "radar": 6,
-    "sensor": 3,
-    "set": 2, "op": 4,
-    "wait": 1, "lookup": 3,
-    "end": 0, "jump": 4,
-    "ubind": 1, "ucontrol":6, "uradar": 6, "ulocate": 7
-}
+# native_functions_params = {
+#     "read": 3, "write": 3,
+#     "draw": 8, "drawflush": 1,
+#     "print": 1, "printflush": 1,
+#     "getlink": 2,
+#     "control": 5,
+#     "radar": 6,
+#     "sensor": 3,
+#     "set": 2, "op": 4,
+#     "wait": 1, "lookup": 3,
+#     "end": 0, "jump": 4,
+#     "ubind": 1, "ucontrol":6, "uradar": 6, "ulocate": 7
+# }
+
+# builtin_functions = [
+#     "mod", "pow", "and", "or", "xor", "not", "max", "min", "abs", "log", "log10", "ceil", "floor" "sqrt", "sin", "cos", "tan", "asin", "acos", "atan"
+# ]
+
+# # default is 1
+# builtin_functions_params = {
+#     "mod": 2,
+#     "pow": 2,
+#     "and": 2,
+#     "or": 2,
+#     "xor": 2,
+#     "max": 2,
+#     "min": 2
+# }
 
 class Generator:
     def generate(self, node: CodeNode, optimize_options: dict = None) -> str:
@@ -533,7 +549,10 @@ class Generator:
                 if type(node.function) != str:
                         node.function = self._generate(node.function)[0].split()[-1]
 
-                is_native = node.function in native_functions
+                is_native = node.function in functions.native
+                is_builtin = node.function in functions.builtin
+
+                print(node.function, is_native, is_builtin)
 
                 tmp = ""
                 params = []
@@ -550,13 +569,13 @@ class Generator:
                     if i in pnt:
                         self.no_generate_tmp = onogen
 
-                    if is_native:
+                    if is_native or is_builtin:
                         tmp += f"{tmp2}\n"
                     else:
                         tmp += f"{tmp2}\nset __f_{node.function}_arg_{i} {var}\n"
                 
                 if is_native:
-                    req = native_functions_params[node.function]
+                    req = functions.native_params[node.function]
                     while len(params) < req:
                         params.append("_")
                     
@@ -566,6 +585,12 @@ class Generator:
                         retvar = params[retpos]
                     
                     return f"{tmp}{node.function} {' '.join(params)}", retvar
+                elif is_builtin:
+                    nparams = functions.builtin_params.get(node.function, functions.builtin_params_default)
+                    if nparams != len(params):
+                        gen_error(node, f"Incorrect number of parameters to function (expected {nparams}, got {len(params)})")
+
+                    return f"{tmp}op {node.function} __f_{node.function}_retv {params[0] if nparams >= 1 else '_'} {params[1] if nparams >= 2 else '_'}", f"__f_{node.function}_retv"
                 else:
                     return f"{tmp}op add __f_{node.function}_ret @counter 1\nset @counter __f_{node.function}", f"__f_{node.function}_retv"
             else:
