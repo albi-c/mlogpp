@@ -1,0 +1,13 @@
+POWER_NODE = node1
+
+capacity = POWER_NODE.powerNetCapacity
+stored = POWER_NODE.powerNetStored
+in = POWER_NODE.powerNetIn
+out = POWER_NODE.powerNetOut
+
+batteryFill = stored / capacity
+
+draw(clear, 0, 0, 0)
+draw(color, 255 - (255 * batteryFill), 255 * batteryFill, 0, 255)
+draw(rect, 0, 0, batteryFill * 80, 10)
+drawflush(display1)

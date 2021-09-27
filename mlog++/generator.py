@@ -7,7 +7,7 @@ GEN_REGEXES = {
     "LABEL": re.compile(r"^<[a-zA-Z_@][a-zA-Z_0-9]*$"),
     "JUMP":  re.compile(r"^>[a-zA-Z_@][a-zA-Z_0-9]*$"),
     "CJMP":  re.compile(r"^>[a-zA-Z_@][a-zA-Z_0-9]* \!?[a-zA-Z_0-9@]+$"),
-    "EJMP":  re.compile(r"^>[a-zA-Z_@][a-zA-Z_0-9]* [a-zA-Z_0-9@]+ ((==)|(\!=)|(>=)|(<=)|>|<) [a-zA-Z_0-9@]+$"),
+    "EJMP":  re.compile(r"^>[a-zA-Z_@][a-zA-Z_0-9]* [a-zA-Z_0-9@\.]+ ((==)|(\!=)|(>=)|(<=)|>|<) [a-zA-Z_0-9@\.]+$"),
 
     "TMPS":  re.compile(r"^set __tmp[0-9]+ .+$"),
     "TMPSE": re.compile(r"^sensor __tmp[0-9]+ \S+ \S+$"),
@@ -449,6 +449,11 @@ class Generator:
         elif t == AssignmentNode:
             if node.atype == "=":
                 tmp, var = self._generate(node.right)
+
+                if GEN_REGEXES["IATTR"].fullmatch(node.left):
+                    spl = node.left.split(".", 1)
+                    return f"{tmp}\ncontrol {spl[1]} {spl[0]} {var} _ _ _"
+
                 return f"{tmp}\nset {node.left} {var}"
             elif node.atype in ["+=", "-=", "*=", "/="]:
                 at = node.atype

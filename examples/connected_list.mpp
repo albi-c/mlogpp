@@ -1,0 +1,8 @@
+for (i = 0; i < @links; i += 1) {
+    getlink(building, i)
+
+    print(building)
+    print("\n")
+}
+
+printflush(message1)

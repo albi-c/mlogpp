@@ -1,0 +1,20 @@
+MIN_CRYOFLUID = 10
+
+for (i = 0; i < @links; i += 1) {
+    getlink(reactor, i)
+
+    cryo = reactor.cryofluid
+
+    print(reactor)
+    print(": ")
+    print(cryo)
+    print("\n")
+
+    if (cryo < MIN_CRYOFLUID) {
+        reactor.enabled = false
+    } else {
+        reactor.enabled = true
+    }
+}
+
+printflush(message1)

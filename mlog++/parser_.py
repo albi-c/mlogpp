@@ -134,7 +134,7 @@ class FactorNode(Node):
         self.not_ = not_
     
     def generate(self, i) -> str:
-        return i * " " + f"FactorNode: \n{'!' if self._not else ''}{'+' if self.sign else '-'}{self.left.generate(i + 1)}"
+        return i * " " + f"FactorNode: \n{'!' if self.not_ else ''}{'+' if self.sign else '-'}{self.left.generate(i + 1)}"
     
     def rrename(self, vars_: dict) -> Node:
         return FactorNode(self.pos, self.left.rrename(vars_), self.sign, self.not_)
@@ -307,6 +307,14 @@ class Parser:
             
             if n.type == TokenType.SET:
                 return AssignmentNode(id_.pos(), id_.value, n.value, self.parse_ExpressionNode())
+            elif n.type == TokenType.DOT:
+                node = self.parse_AnyNode()
+                if type(node) != AssignmentNode:
+                    parse_error(n, "Unexpected token")
+                
+                node.left = id_.value + "." + node.left
+
+                return node
             elif n.type == TokenType.LPAREN:
                 if id_.value in keywords:
                     if not can_be_special:

@@ -127,7 +127,7 @@ class Lexer:
                         print(f"{Format.ERROR}Error on line {li + 1}, column {i + 1}: Invalid token \"{tok}\"{Format.RESET}\n\nHere:\n{ln}\n{arrows.generate(i - len(tok), len(tok))}")
                         sys.exit(1)
                     elif tok.strip():
-                        toks.append(Token(Lexer._match(tok), tok, li, i - len(tok), ln))
+                        toks.append(Token(Lexer._match(tok), tok, li + 1, i - len(tok), ln))
                         tok = ""
                     
                     continue
@@ -151,11 +151,11 @@ class Lexer:
 
                 if ((matched != TokenType.NONE) and (matches == TokenType.NONE)) or ((matched != matches) and matched != TokenType.NONE):
                     if tok in ["+=", "-=", "*=", "/=", ">=", "<=", "==", "**"]:
-                        toks.append(Token(Lexer._match(tok), tok, li, i - len(tok), ln))
+                        toks.append(Token(Lexer._match(tok), tok, li + 1, i - len(tok), ln))
                         tok = ""
                     else:
                         tok = tok[:-1]
-                        toks.append(Token(Lexer._match(tok), tok, li, i - len(tok), ln))
+                        toks.append(Token(Lexer._match(tok), tok, li + 1, i - len(tok), ln))
                         tok = c
 
                 prev = c
@@ -165,7 +165,7 @@ class Lexer:
                         toks.pop()
             
             if Lexer._match(tok) != TokenType.NONE:
-                toks.append(Token(Lexer._match(tok), tok, li, i - len(tok), ln))
+                toks.append(Token(Lexer._match(tok), tok, li + 1, i - len(tok), ln))
                 tok = ""
             elif tok.strip():
                 print(f"{Format.ERROR}Error on line {li + 1}, column {i + 1}: Invalid token \"{tok}\"{Format.RESET}\n\nHere:\n{ln}\n{arrows.generate(i - len(tok), len(tok))}")
