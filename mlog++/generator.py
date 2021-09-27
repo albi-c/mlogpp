@@ -1,8 +1,8 @@
 import re, math
 
 from .parser_ import *
-from .gerror import gen_error
-from . import functions
+from .gerror import gen_error, gen_undefined_error
+from . import functions, gerror
 
 GEN_REGEXES = {
     "LABEL": re.compile(r"^<[a-zA-Z_@][a-zA-Z_0-9]*$"),
@@ -27,7 +27,9 @@ GEN_REGEXES = {
     "IATTR": re.compile(r"^[a-zA-Z_@][a-zA-Z_0-9]*\.[a-zA-Z_@][a-zA-Z_0-9]*$"),
 
     "TCOMP": re.compile(r"^op ((equal)|(notEqual)|(greaterThan)|(lessThan)|(greaterThanEq)|(lessThanEq)) __tmp[0-9]+ \S+ \S+$"),
-    "TJUMP": re.compile(r"^>__mpp[0-9]+ !__tmp[0-9]+$")
+    "TJUMP": re.compile(r"^>__mpp[0-9]+ !__tmp[0-9]+$"),
+
+    "VARU":  re.compile(r"^[a-zA-Z_][a-zA-Z_0-9]*$")
 }
 
 PRECALC = {
@@ -72,6 +74,18 @@ NATIVE_RETURN_POS = {
     "lookup": 1
 }
 
+NATIVE_CONST_INPUTS = {
+    "draw": [0],
+    "control": [0],
+    "sensor": [1],
+    "op": [0],
+    "jump": [1],
+    "radar": [0, 1, 2, 3],
+    "ucontrol": [0],
+    "uradar": [0, 1, 2, 3],
+    "ulocate": [0, 1]
+}
+
 PARAM_NO_TMP = {
     "set": [0],
     "op": [1],
@@ -105,56 +119,16 @@ JUMP_CONDITION = {
     "<=": "lessThanEq"
 }
 
-# native_functions = [
-#     "read", "write",
-#     "draw", "drawflush",
-#     "print", "printflush",
-#     "getlink",
-#     "control",
-#     "radar",
-#     "sensor",
-#     "set", "op",
-#     "wait", "lookup",
-#     "end", "jump",
-#     "ubind", "ucontrol", "uradar", "ulocate"
-# ]
-
-# native_functions_params = {
-#     "read": 3, "write": 3,
-#     "draw": 8, "drawflush": 1,
-#     "print": 1, "printflush": 1,
-#     "getlink": 2,
-#     "control": 5,
-#     "radar": 6,
-#     "sensor": 3,
-#     "set": 2, "op": 4,
-#     "wait": 1, "lookup": 3,
-#     "end": 0, "jump": 4,
-#     "ubind": 1, "ucontrol":6, "uradar": 6, "ulocate": 7
-# }
-
-# builtin_functions = [
-#     "mod", "pow", "and", "or", "xor", "not", "max", "min", "abs", "log", "log10", "ceil", "floor" "sqrt", "sin", "cos", "tan", "asin", "acos", "atan"
-# ]
-
-# # default is 1
-# builtin_functions_params = {
-#     "mod": 2,
-#     "pow": 2,
-#     "and": 2,
-#     "or": 2,
-#     "xor": 2,
-#     "max": 2,
-#     "min": 2
-# }
-
 class Generator:
-    def generate(self, node: CodeNode, optimize_options: dict = None) -> str:
+    def generate(self, node: AST, optimize_options: dict = None) -> str:
         self.tmpv = 0
         self.tmpl = 0
         self.func_stack = []
         self.loop_stack = []
         self.no_generate_tmp = False
+        self.var_list = set(self._generate_var_list(node))
+
+        print(self.var_list)
 
         code = self._code_node_join(node)
 
@@ -457,7 +431,15 @@ class Generator:
 
             if GEN_REGEXES["IATTR"].fullmatch(node.value):
                 spl = node.value.split(".")
+
+                if spl[0] not in self.var_list:
+                    gen_undefined_error(node, spl[0])
+                
                 return f"sensor {var} {spl[0]} @{spl[1]}", var
+            
+            if type(node.value) == str and not (node.value.startswith("\"") and node.value.endswith("\"")):
+                if GEN_REGEXES["VARU"].fullmatch(node.value) and node.value not in self.var_list:
+                    gen_undefined_error(node, node.value)
 
             return f"set {var} {node.value}" if not self.no_generate_tmp else "", var
         elif t == AtomNode:
@@ -563,11 +545,19 @@ class Generator:
                         onogen = self.no_generate_tmp
                         self.no_generate_tmp = True
                     
+                    nci = NATIVE_CONST_INPUTS.get(node.function, [])
+
+                    if i in nci:
+                        gerror.push_undefined(False)
+                    
                     tmp2, var = self._generate(arg)
                     params.append(var)
 
                     if i in pnt:
                         self.no_generate_tmp = onogen
+                    
+                    if i in nci:
+                        gerror.pop_undefined()
 
                     if is_native or is_builtin:
                         tmp += f"{tmp2}\n"
@@ -724,6 +714,63 @@ class Generator:
             
             raise RuntimeError(f"Invalid AST")
         
+        gen_error(node, "Unknown node")
+    
+    def _var_list_join(self, lists: list) -> list:
+        tmp = []
+        for l in lists:
+            tmp += l
+        return tmp
+    
+    def _generate_var_list(self, node: Node) -> list:
+        t = type(node)
+        
+        if t in [AST, CodeNode]:
+            return self._var_list_join([self._generate_var_list(n) for n in node.code])
+        elif t == ValueNode:
+            return [node.value] if type(node.value) == str and not (node.value.startswith("\"") and node.value.endswith("\"")) else []
+        elif t == AtomNode:
+            return self._generate_var_list(node.value)
+        elif t == AssignmentNode:
+            return [node.left] if node.atype == "=" else [] + self._generate_var_list(node.right)
+        elif t in [ExpressionNode, CompExpressionNode, ArithExpNode, TermNode]:
+            tmp = []
+            tmp += self._generate_var_list(node.left)
+            if node.right is not None:
+                for _, e in node.right:
+                    tmp += self._generate_var_list(e)
+            return tmp
+        elif t == FactorNode:
+            return self._generate_var_list(node.left)
+        elif t == CallNode:
+            if node.is_call:
+                tmp = []
+                for i in PARAM_NO_TMP.get(node.function, []):
+                    if i < len(node.params):
+                        vl = self._generate_var_list(node.params[i])
+                        tmp += vl
+                return [f"__f_{node.function}_retv"] + tmp
+            else:
+                return self._generate_var_list(node.function)
+        elif t in [IfNode, WhileNode, ForNode, RepeatNode, FunctionNode]:
+            tmp = self._var_list_join([self._generate_var_list(n) for n in node.code])
+            if t in [IfNode, WhileNode, ForNode]:
+                tmp += self._generate_var_list(node.condition)
+            if t == IfNode and node.elsecode is not None:
+                tmp += self._var_list_join([self._generate_var_list(n) for n in node.elsecode])
+            if t == ForNode:
+                tmp += self._generate_var_list(node.init)
+                tmp += self._generate_var_list(node.action)
+            if t == FunctionNode:
+                tmp += node.args
+            return tmp
+        elif t == NativeNode:
+            return []
+        elif t == ReturnNode:
+            return self._generate_var_list(node.value)
+        elif t == LoopActionNode:
+            return []
+
         gen_error(node, "Unknown node")
 
     def get_tmp_var(self) -> str:

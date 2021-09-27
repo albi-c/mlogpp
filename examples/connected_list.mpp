@@ -6,3 +6,5 @@ for (i = 0; i < @links; i += 1) {
 }
 
 printflush(message1)
+
+print(x)

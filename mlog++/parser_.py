@@ -6,12 +6,26 @@ class Node:
     def generate(self, i = 0) -> str:
         return i * " " + "Node\n"
 
+class AST(Node):
+    def __init__(self, code: list):
+        self.code = code
+    
+    def generate(self, i = 0) -> str:
+        tmp = i * " " + "AST {\n"
+        for c in self.code:
+            tmp += c.generate(i + 1)
+        tmp += i * " " + "}\n"
+        return tmp
+    
+    def rrename(self, vars_: dict):
+        return AST([n.rrename(vars_) for n in self.code])
+
 class CodeNode(Node):
     def __init__(self, pos: Position, code: list):
         self.pos = pos
         self.code = code
     
-    def generate(self, i = 0) -> str:
+    def generate(self, i) -> str:
         tmp = i * " " + "CodeNode {\n"
         for c in self.code:
             tmp += c.generate(i + 1)
@@ -271,7 +285,7 @@ class Parser:
         while self.has_token():
             nodes.append(self.parse_AnyNode())
 
-        return CodeNode(self.tokens[0].pos(), nodes)
+        return AST(nodes)
     
     def has_token(self) -> bool:
         return self.pos < len(self.tokens) - 1
