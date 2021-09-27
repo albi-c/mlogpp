@@ -276,6 +276,14 @@ class LoopActionNode(KeywordNode):
     def rrename(self, vars_: dict) -> Node:
         return LoopActionNode(self.pos, self.action)
 
+class ExternNode(Node):
+    def __init__(self, pos: Position, name: str):
+        self.pos = pos
+        self.name = name
+    
+    def rrename(self, vars_: dict) -> Node:
+        return ExternNode(self.pos, self.name)
+
 class Parser:
     def parse(self, tokens: list) -> CodeNode:
         self.tokens = tokens
@@ -317,6 +325,33 @@ class Parser:
             elif id_.value in ["break", "continue"]:
                 self.pos -= 1
                 return LoopActionNode(id_.pos(), id_.value)
+            elif id_.value == "extern":
+                if n.type != TokenType.ID:
+                    parse_error(n, "Unexpected token")
+                
+                n_ = self.next_token()
+                if n_.type == TokenType.LPAREN:
+                    args = []
+                    last = TokenType.LPAREN
+                    n__ = n
+                    while True:
+                        n = self.next_token()
+                        if n.type == TokenType.RPAREN:
+                            if last == TokenType.COMMA:
+                                parse_error(n, "Unexpected token")
+                            break
+                        elif n.type == TokenType.COMMA:
+                            if last == TokenType.COMMA:
+                                parse_error(n, "Unexpected token")
+                            pass
+                        elif n.type == TokenType.ID:
+                            if last == TokenType.ID:
+                                parse_error(n, "Unexpected token")
+                            args.append(n.value)
+                    return ExternNode(id_.pos(), functions.gen_signature(n__.value, args))
+                
+                self.pos -= 1
+                return ExternNode(id_.pos(), n.value)
             
             if n.type == TokenType.SET:
                 if id_.value in functions.special:

@@ -1,3 +1,6 @@
+def gen_signature(name: str, params: list):
+    return f"{name}:{len(params)}"
+
 native = [
     "read", "write",
     "draw", "drawflush",

@@ -128,6 +128,14 @@ class Generator:
         self.no_generate_tmp = False
         self.var_list = set(self._generate_var_list(node))
 
+        funcs = []
+        for v in self.var_list:
+            if ":" in v:
+                spl = v.split(":", 1)
+                if spl[0] in funcs:
+                    gen_error(None, f"Redefinition of function \"{spl[0]}\"")
+                funcs.append(spl[0])
+
         print(self.var_list)
 
         code = self._code_node_join(node)
@@ -534,6 +542,23 @@ class Generator:
                 is_native = node.function in functions.native
                 is_builtin = node.function in functions.builtin
 
+                if not is_native and not is_builtin:
+                    signature = functions.gen_signature(node.function, node.params)
+                    found = False
+
+                    for v in self.var_list:
+                        if v == signature:
+                            found = True
+                            break
+
+                        if ":" in v:
+                            spl = v.split(":")
+                            if spl[0] == node.function:
+                                gen_error(node, f"Incorrect number of parameters to function (expected {spl[1]}, got {len(node.params)})")
+                    
+                    if not found:
+                        gen_error(node, f"Undefined function \"{node.function}\"")
+
                 print(node.function, is_native, is_builtin)
 
                 tmp = ""
@@ -713,6 +738,8 @@ class Generator:
                 return f">{loop[0]}"
             
             raise RuntimeError(f"Invalid AST")
+        elif t == ExternNode:
+            return ""
         
         gen_error(node, "Unknown node")
     
@@ -762,7 +789,8 @@ class Generator:
                 tmp += self._generate_var_list(node.init)
                 tmp += self._generate_var_list(node.action)
             if t == FunctionNode:
-                tmp += node.args
+                tmp += [f"__f_{node.name}_arg_{i}" for i, _ in enumerate(node.args)]
+                tmp += [functions.gen_signature(node.name, node.args)]
             return tmp
         elif t == NativeNode:
             return []
@@ -770,6 +798,8 @@ class Generator:
             return self._generate_var_list(node.value)
         elif t == LoopActionNode:
             return []
+        elif t == ExternNode:
+            return [node.name]
 
         gen_error(node, "Unknown node")
 
