@@ -10,6 +10,18 @@ mlog++ to mindustry logic compiler
 ## Installation:
 `pip install mlogpp`
 
+## Usage:
+`python -m <file(s) to compile> [options]`
+
+### Options:
+* `-o:f`, `--output-file` - output to file
+* `-o:s`, `--output-stdout` - output to stdout
+* `-o:c`, `--output-clip` - output to clipboard (default)
+* `-O[0-2]`, `--optimize[0-2]` - optimization level (default is 2)
+* `-v`, `--verbose` - output more information
+* `-l`, `--lines` - print line numbers when output is stdout
+* `-V`, `--version` - print version and exit
+
 ## Examples:
 ### Hello, World:
 ```javascript
@@ -169,3 +181,15 @@ Prints `5`
         * rally
         * battery
         * reactor
+
+* mathematical functions (replacement for `op`):
+    * mod
+    * pow
+    * and, or, xor, not
+    * max, min
+    * abs
+    * log, log10
+    * ceil, floor
+    * sqrt
+    * sin, cos, tan
+    * asin, acos, atan
