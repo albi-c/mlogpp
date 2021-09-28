@@ -126,7 +126,7 @@ class Generator:
         self.func_stack = []
         self.loop_stack = []
         self.no_generate_tmp = False
-        self.var_list = set(self._generate_var_list(node))
+        self.var_list = set(self._generate_var_list(node) + ["true", "false", "null"])
 
         funcs = []
         for v in self.var_list:
@@ -135,8 +135,6 @@ class Generator:
                 if spl[0] in funcs:
                     gen_error(None, f"Redefinition of function \"{spl[0]}\"")
                 funcs.append(spl[0])
-
-        print(self.var_list)
 
         code = self._code_node_join(node)
 
@@ -558,8 +556,6 @@ class Generator:
                     
                     if not found:
                         gen_error(node, f"Undefined function \"{node.function}\"")
-
-                print(node.function, is_native, is_builtin)
 
                 tmp = ""
                 params = []

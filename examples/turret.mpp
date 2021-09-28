@@ -1,0 +1,13 @@
+for (i = 0; i < @links; i += 1) {
+    getlink(turret, i)
+
+    radar(enemy, any, any, distance, turret, 1, enemy)
+
+    if (enemy === null) {
+        control(shoot, turret, enemy, false)
+        i += 1
+        continue
+    }
+
+    control(shootp, turret, enemy, true)
+}
