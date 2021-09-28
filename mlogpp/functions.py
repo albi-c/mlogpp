@@ -17,16 +17,16 @@ native = [
 
 native_params = {
     "read": 3, "write": 3,
-    "draw": 8, "drawflush": 1,
+    "draw": 7, "drawflush": 1,
     "print": 1, "printflush": 1,
     "getlink": 2,
-    "control": 5,
+    "control": 6,
     "radar": 6,
     "sensor": 3,
     "set": 2, "op": 4,
     "wait": 1, "lookup": 3,
     "end": 0, "jump": 4,
-    "ubind": 1, "ucontrol":6, "uradar": 6, "ulocate": 7
+    "ubind": 1, "ucontrol":6, "uradar": 6, "ulocate": 8
 }
 
 builtin = [
