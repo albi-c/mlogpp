@@ -177,7 +177,7 @@ Prints `5`
         * generator
         * turret
         * factory
-        * reapair
+        * repair
         * rally
         * battery
         * reactor

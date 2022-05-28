@@ -241,6 +241,7 @@ class Generator:
             elif GEN_REGEXES["TCOMP"].fullmatch(ln):
                 spl = ln.split(" ", 4)
                 cond = spl[1]
+                name = spl[2]
                 op1 = spl[3]
                 op2 = spl[4]
 
@@ -438,12 +439,12 @@ class Generator:
             if GEN_REGEXES["IATTR"].fullmatch(node.value):
                 spl = node.value.split(".")
 
-                if spl[0] not in self.var_list:
+                if spl[0] not in self.var_list and not spl[0].startswith("@") and spl[0].value[-1] not in "0123456789":
                     gen_undefined_error(node, spl[0])
                 
                 return f"sensor {var} {spl[0]} @{spl[1]}", var
             
-            if type(node.value) == str and not (node.value.startswith("\"") and node.value.endswith("\"")):
+            if type(node.value) == str and not (node.value.startswith("\"") and node.value.endswith("\"")) and node.value != "_" and node.value[-1] not in "0123456789":
                 if GEN_REGEXES["VARU"].fullmatch(node.value) and node.value not in self.var_list:
                     gen_undefined_error(node, node.value)
 

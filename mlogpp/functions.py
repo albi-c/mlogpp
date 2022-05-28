@@ -39,7 +39,8 @@ builtin = [
     "ceil", "floor",
     "sqrt",
     "sin", "cos", "tan",
-    "asin", "acos", "atan"
+    "asin", "acos", "atan",
+    "len"
 ]
 
 builtin_params_default = 1
@@ -50,7 +51,8 @@ builtin_params = {
     "or": 2,
     "xor": 2,
     "max": 2,
-    "min": 2
+    "min": 2,
+    "len": 2
 }
 
 keywords = ["if", "else", "while", "for", "function", "repeat"]
