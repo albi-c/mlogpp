@@ -115,7 +115,7 @@ Prints `5`
             * strictEqual - doesn't coerce types
             * land - logic and
             * angle - angle of vector
-            * length - length of vector
+            * len - length of vector
             * noise - simplex noise
             * rand - random number
 * wait `time`
