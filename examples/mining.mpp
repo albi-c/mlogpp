@@ -37,11 +37,13 @@ if (switch1.enabled) {
         first = @unit
         ucontrol(flag, DEPOSIT_FLAG)
         while (true) {
+            if (@unit.totalItems > 0) {
+                ucontrol(flag, DEPOSIT_FLAG)
+            }
             ubind(UNIT)
             if (@unit == first) {
                 break
             }
-            ucontrol(flag, DEPOSIT_FLAG)
         }
     }
 

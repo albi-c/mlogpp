@@ -54,6 +54,13 @@ printflush(message1)
 ```
 Prints `5`
 
+### Memory cell access:
+```javascript
+cell1[0] = 10
+print(cell1[0])
+printflush(message1)
+```
+
 ## Builtin functions:
 * read `result`, `cell`, `position`
     * Read data from `cell` at `position` to `result`
