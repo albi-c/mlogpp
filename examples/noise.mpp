@@ -1,6 +1,6 @@
-const PM = 44
+const PM = 22
 const DS = 176
-const dsize = 176 / 44
+dsize = DS / PM
 
 for (rseed = 0; rseed >= 0; rseed += 1) {
     print(rseed)
@@ -8,7 +8,7 @@ for (rseed = 0; rseed >= 0; rseed += 1) {
 
     for (y = 0; y < dsize; y += 1) {
         for (x = 0; x < dsize; x += 1) {
-            op(noise, val, x, y + rseed)
+            op(noise, val, x + rseed, y + rseed)
             op(abs, val, val)
             val *= 255
             draw(color, val, val, val, 255)

@@ -1,0 +1,86 @@
+UNIT = @mono
+VAULT = vault1
+DEPOSIT_FLAG = 45689
+
+x = 0
+y = 0
+
+print("[orange]Miner v1.0\nEnable switch and click\n on an ore to mine\n")
+
+if (cell1[0] == 1) {
+    x = cell1[1]
+    y = cell1[2]
+
+    print("[green]Coordinates set\n X: ")
+    print(x)
+    print("\n Y: ")
+    print(y)
+} else {
+    print("[red]Coordinates not set")
+}
+printflush(message1)
+
+if (switch1.enabled) {
+    radar(player, ally, any, distance, hail1, 0, player)
+
+    if (player.shooting) {
+        x = floor(player.shootX)
+        y = floor(player.shootY)
+
+        cell1[0] = 1
+        cell1[1] = x
+        cell1[2] = y
+
+        switch1.enabled = false
+
+        ubind(UNIT)
+        first = @unit
+        ucontrol(flag, DEPOSIT_FLAG)
+        while (true) {
+            ubind(UNIT)
+            if (@unit == first) {
+                break
+            }
+            ucontrol(flag, DEPOSIT_FLAG)
+        }
+    }
+
+    end()
+}
+
+if (cell1[0] == 0) {
+    end()
+}
+
+ubind(UNIT)
+if (@unit.flag == DEPOSIT_FLAG) {
+    if (VAULT === null) {
+        ulocate(building, core, false, _, cx, cy, cf, core)
+        if (cf) {
+            ucontrol(approach, cx, cy, 4)
+            .ucontrol within cx cy 6 drop _
+            if (drop) {
+                ucontrol(itemDrop, core, @unit.itemCapacity)
+                ucontrol(flag, 0)
+                ucontrol(approach, x, y, 4)
+            }
+        }
+    } else {
+        vx = VAULT.x
+        vy = VAULT.y
+        ucontrol(approach, vx, vy, 4)
+        .ucontrol within vx vy 6 drop _
+        if (drop) {
+            ucontrol(itemDrop, VAULT, @unit.itemCapacity)
+            ucontrol(flag, 0)
+            ucontrol(approach, x, y, 4)
+        }
+    }
+} else {
+    ucontrol(approach, x, y, 4)
+    ucontrol(mine, x, y)
+
+    if (@unit.totalItems == @unit.itemCapacity) {
+        ucontrol(flag, DEPOSIT_FLAG)
+    }
+}

@@ -41,15 +41,41 @@ class ValueNode(Node):
         self.value = value
     
     def generate(self, i) -> str:
-        return i * " " +  "ValueNode: " + str(self.value) + "\n"
+        return i * " " + "ValueNode: " + str(self.value) + "\n"
     
-    def rrename(self, vars_: dict) -> str:
+    def rrename(self, vars_: dict) -> Node:
         if "." in self.value:
             spl = self.value.split(".")
             if len(spl) == 2:
                 return ValueNode(self.pos, vars_.get(spl[0], spl[0]) + "." + spl[1])
         
         return ValueNode(self.pos, vars_.get(self.value, self.value))
+
+class IndexNode(Node):
+    def __init__(self, pos: Position, var: str, index: Node):
+        self.pos = pos
+        self.var = var
+        self.index = index
+    
+    def generate(self, i) -> str:
+        return i * " " + "IndexNode: " + str(self.var) + ", " + self.index.generate(i + 1) + "\n"
+    
+    def rrename(self, vars_: dict) -> Node:
+        return IndexNode(self.pos, vars_.get(self.var, self.var), self.index.rrename(vars_))
+
+class IndexAssignNode(Node):
+    def __init__(self, pos: Position, var: str, index: Node, atype: str, val: Node):
+        self.pos = pos
+        self.var = var
+        self.index = index
+        self.atype = atype
+        self.val = val
+    
+    def generate(self, i) -> str:
+        return i * " " + "IndexNode: " + str(self.var) + ", " + self.index.generate(i + 1) + ", " + self.atype + ", " + self.val.generate(i + 1) + "\n"
+    
+    def rrename(self, vars_: dict) -> Node:
+        return IndexNode(self.pos, vars_.get(self.var, self.var), self.index.rrename(vars_), self.atype, self.val.rrename(vars_))
 
 class AtomNode(Node):
     def __init__(self, pos: Position, value):
@@ -369,6 +395,18 @@ class Parser:
                 node.left = id_.value + "." + node.left
 
                 return node
+            elif n.type == TokenType.LBRACK:
+                if id_.value in functions.special:
+                    parse_error(n, "Cannot use keyword as a memory cell")
+                
+                node = self.parse_ExpressionNode()
+
+                self.next_token(TokenType.RBRACK)
+                a = self.next_token(TokenType.SET)
+
+                val = self.parse_ExpressionNode()
+
+                return IndexAssignNode(id_.pos(), id_.value, node, a.value, val)
             elif n.type == TokenType.LPAREN:
                 if id_.value in functions.keywords:
                     if not can_be_special:
@@ -527,6 +565,10 @@ class Parser:
                 if n_.type == TokenType.DOT:
                     n_ = self.next_token(TokenType.ID)
                     return AtomNode(n.pos(), ValueNode(n.pos(), f"{n.value}.{n_.value}"))
+                elif n_.type == TokenType.LBRACK:
+                    n_ = self.parse_ExpressionNode()
+                    self.next_token(TokenType.RBRACK)
+                    return AtomNode(n.pos(), IndexNode(n.pos(), n.value, n_))
                 else:
                     self.pos -= 1
             

@@ -438,9 +438,6 @@ class Generator:
 
             if GEN_REGEXES["IATTR"].fullmatch(node.value):
                 spl = node.value.split(".")
-
-                if spl[0] not in self.var_list and not spl[0].startswith("@") and spl[0].value[-1] not in "0123456789":
-                    gen_undefined_error(node, spl[0])
                 
                 return f"sensor {var} {spl[0]} @{spl[1]}", var
             
@@ -449,6 +446,12 @@ class Generator:
                     gen_undefined_error(node, node.value)
 
             return f"set {var} {node.value}" if not self.no_generate_tmp else "", var
+        elif t == IndexNode:
+            var = self.get_tmp_var()
+
+            tmp, var_ = self._generate(node.index)
+            
+            return f"{tmp}\nread {var} {node.var} {var_}", var
         elif t == AtomNode:
             return self._generate(node.value)
         elif t == AssignmentNode:
@@ -468,6 +471,24 @@ class Generator:
                 
                 tmp, var = self._generate(node.right)
                 return f"{tmp}\nop {op} {node.left} {node.left} {var}"
+        elif t == IndexAssignNode:
+            if node.atype == "=":
+                itmp, ivar = self._generate(node.index)
+                vtmp, vvar = self._generate(node.val)
+
+                return f"{itmp}\n{vtmp}\nwrite {vvar} {node.var} {ivar}"
+            elif node.atype in ["+=", "-=", "*=", "/="]:
+                itmp, ivar = self._generate(node.index)
+                vtmp, vvar = self._generate(node.val)
+
+                at = node.atype
+                op = "add" if at == "+=" else "sub" if at == "-=" else "mul" if at == "*=" else "div" if at == "/=" else ""
+                if op == "":
+                    gen_error(node, f"Invalid operator: \"{at}\"")
+                
+                tval = self.get_tmp_var()
+
+                return f"{itmp}\n{vtmp}\nread {tval} {node.var} {ivar}\nop {op} {tval} {tval} {vvar}\nwrite {tval} {node.var} {ivar}"
         elif t == ExpressionNode:
             tmp, var = self._generate(node.left)
 
@@ -635,7 +656,7 @@ class Generator:
             l_v = self.get_tmp_label()
             l_e = self.get_tmp_label()
 
-            self.loop_stack.append((l_v, l_e))
+            self.loop_stack.append((l_v, l_e, Node()))
 
             tmp = f"<{l_v}\n{tmp2}\n>{l_e} !{var}\n"
             tmp += self._code_node_join(node)
@@ -658,7 +679,7 @@ class Generator:
             l_v = self.get_tmp_label()
             l_e = self.get_tmp_label()
 
-            self.loop_stack.append((l_v, l_e))
+            self.loop_stack.append((l_v, l_e, node.action))
 
             tmp = f"{itmp}\n<{l_v}\n{ctmp}\n>{l_e} !{cvar}\n"
             tmp += self._code_node_join(node)
@@ -732,13 +753,13 @@ class Generator:
             if node.action == "break":
                 return f">{loop[1]}"
             elif node.action == "continue":
-                return f">{loop[0]}"
+                return f"{self._generate(loop[2])}\n>{loop[0]}"
             
             raise RuntimeError(f"Invalid AST")
         elif t == ExternNode:
             return ""
         
-        gen_error(node, "Unknown node")
+        gen_error(node, f"Unknown node ({node})")
     
     def _var_list_join(self, lists: list) -> list:
         tmp = []
@@ -753,10 +774,14 @@ class Generator:
             return self._var_list_join([self._generate_var_list(n) for n in node.code])
         elif t == ValueNode:
             return [node.value] if type(node.value) == str and not (node.value.startswith("\"") and node.value.endswith("\"")) else []
+        elif t == IndexNode:
+            return self._generate_var_list(node.index)
         elif t == AtomNode:
             return self._generate_var_list(node.value)
         elif t == AssignmentNode:
             return [node.left] if node.atype == "=" else [] + self._generate_var_list(node.right)
+        elif t == IndexAssignNode:
+            return []
         elif t in [ExpressionNode, CompExpressionNode, ArithExpNode, TermNode]:
             tmp = []
             tmp += self._generate_var_list(node.left)
@@ -798,7 +823,7 @@ class Generator:
         elif t == ExternNode:
             return [node.name]
 
-        gen_error(node, "Unknown node")
+        gen_error(node, f"Unknown node ({node})")
 
     def get_tmp_var(self) -> str:
         self.tmpv += 1

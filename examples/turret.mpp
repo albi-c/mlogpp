@@ -5,7 +5,6 @@ for (i = 0; i < @links; i += 1) {
 
     if (enemy === null) {
         control(shoot, turret, enemy, false)
-        i += 1
         continue
     }
 

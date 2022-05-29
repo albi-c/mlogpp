@@ -91,6 +91,7 @@ Prints `5`
 * radar `filter0` ... `filter2`, `sort`, `block`, `order`, `result`
     * Find an unit near `block` and store it in `result`
     * Filters:
+        * any
         * enemy
         * ally
         * player

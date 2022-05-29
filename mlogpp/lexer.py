@@ -13,12 +13,14 @@ class TokenType(Enum):
     RPAREN    = 6
     LBRACE    = 7
     RBRACE    = 8
-    COMMA     = 9
-    SEMICOLON = 10
-    OPERATOR  = 11
-    SET       = 12
-    LOGIC     = 13
-    DOT       = 14
+    LBRACK    = 9
+    RBRACK    = 10
+    COMMA     = 11
+    SEMICOLON = 12
+    OPERATOR  = 13
+    SET       = 14
+    LOGIC     = 15
+    DOT       = 16
 
 LEX_REGEXES = {
     TokenType.ID: re.compile(r"^[a-zA-Z_@][a-zA-Z_0-9]*$"),
@@ -28,6 +30,8 @@ LEX_REGEXES = {
     TokenType.RPAREN: re.compile(r"^\)$"),
     TokenType.LBRACE: re.compile(r"^\{$"),
     TokenType.RBRACE: re.compile(r"^\}$"),
+    TokenType.LBRACK: re.compile(r"^\[$"),
+    TokenType.RBRACK: re.compile(r"^\]$"),
     TokenType.COMMA: re.compile(r"^,$"),
     TokenType.SEMICOLON: re.compile(r"^;$"),
     TokenType.OPERATOR: re.compile(r"^[+\-*/!]|(\*\*)|(===)|(<=)|(>=)|(==)|(\!=)|<|>$"),
