@@ -6,17 +6,19 @@ x = 0
 y = 0
 
 print("[orange]Miner v1.0\nEnable switch and click\n on an ore to mine\n")
+print("[yellow]Selected unit: ")
+print(UNIT)
 
 if (cell1[0] == 1) {
     x = cell1[1]
     y = cell1[2]
 
-    print("[green]Coordinates set\n X: ")
+    print("\n[green]Coordinates set\n X: ")
     print(x)
     print("\n Y: ")
     print(y)
 } else {
-    print("[red]Coordinates not set")
+    print("\n[red]Coordinates not set")
 }
 printflush(message1)
 
@@ -24,8 +26,8 @@ if (switch1.enabled) {
     radar(player, ally, any, distance, hail1, 0, player)
 
     if (player.shooting) {
-        x = floor(player.shootX)
-        y = floor(player.shootY)
+        x = floor(player.shootX + 0.5)
+        y = floor(player.shootY + 0.5)
 
         cell1[0] = 1
         cell1[1] = x
