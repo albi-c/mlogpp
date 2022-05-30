@@ -194,6 +194,19 @@ class CallNode(Node):
     def rrename(self, vars_: dict) -> Node:
         return CallNode(self.pos, self.function if type(self.function) == str else self.function.rrename(vars_), self.is_call, [n.rrename(vars_) for n in self.params])
 
+class SubCallNode(Node):
+    def __init__(self, pos: Position, function: str, params: list = []):
+        self.pos = pos
+        self.function = function
+        self.params = params
+    
+    def generate(self, i) -> str:
+        return i * " " + f"SubCallNode: {self.function}({','.join(self.params)})\n"
+    
+    def rrename(self, vars_: dict) -> Node:
+        return SubCallNode(self.pos, self.function, [n.rrename(vars_) for n in self.params])
+
+
 class KeywordNode(Node):
     def __init__(self):
         pass
@@ -385,6 +398,35 @@ class Parser:
                 
                 return AssignmentNode(id_.pos(), id_.value, n.value, self.parse_ExpressionNode())
             elif n.type == TokenType.DOT:
+                if id_.value in functions.native_sub:
+                    n_ = self.next_token(TokenType.ID)
+                    
+                    if not n_.value in functions.native_sub[id_.value]:
+                        parse_error(n_, "Invalid subcommand")
+
+                    self.next_token(TokenType.LPAREN)
+
+                    e = False
+                    p = []
+                    while True:
+                        t = self.next_token()
+                        if t.type == TokenType.RPAREN:
+                            break
+                        elif t.type == TokenType.COMMA:
+                            if e:
+                                p.append(self.parse_ExpressionNode())
+                            else:
+                                parse_error(t, "Unexpected token")
+                        else:
+                            if not e:
+                                self.pos -= 1
+                                p.append(self.parse_ExpressionNode())
+                                e = True
+                            else:
+                                parse_error(t, "Unexpected token")
+                    
+                    return SubCallNode(id_.pos(), f"{id_.value}.{n_.value}", p)
+
                 if id_.value in functions.special:
                     parse_error(n, "Cannot use property of a keyword")
 

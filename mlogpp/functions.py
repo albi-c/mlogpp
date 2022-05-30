@@ -29,6 +29,48 @@ native_params = {
     "ubind": 1, "ucontrol":6, "uradar": 6, "ulocate": 8
 }
 
+native_sub = {
+    "draw": {
+        "clear": 3,
+        "color": 4,
+        "stroke": 1,
+        "line": 4,
+        "rect": 4,
+        "lineRect": 4,
+        "poly": 5,
+        "linePoly": 5,
+        "triangle": 6,
+        "image": 5
+    },
+    "control": {
+        "enabled": 2,
+        "shoot": 4,
+        "shootp": 3,
+        "config": 2,
+        "color": 4
+    },
+    "ucontrol": {
+        "idle": 0,
+        "stop": 0,
+        "move": 2,
+        "approach": 3,
+        "boost": 1,
+        "pathfind": 0,
+        "target": 3,
+        "targetp": 2,
+        "itemDrop": 2,
+        "itemTake": 3,
+        "payDrop": 0,
+        "payTake": 1,
+        "payEnter": 0,
+        "mine": 2,
+        "flag": 1,
+        "build": 5,
+        "getBlock": 4,
+        "within": 4
+    }
+}
+
 builtin = [
     "mod",
     "pow",

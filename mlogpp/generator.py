@@ -74,6 +74,11 @@ NATIVE_RETURN_POS = {
     "lookup": 1
 }
 
+NATIVE_SUB_RETURN_POS = {
+    "ucontrol.getBlock": 2,
+    "ucontrol.within": 3
+}
+
 NATIVE_CONST_INPUTS = {
     "draw": [0],
     "control": [0],
@@ -630,6 +635,27 @@ class Generator:
                 tmp, var = self._generate(node.function)
 
                 return tmp, var
+        elif t == SubCallNode:
+            spl = node.function.split(".")
+            req = functions.native_params[spl[0]]
+
+            tmp = ""
+            params = []
+            for i, arg in enumerate(node.params):
+                tmp_, var = self._generate(arg)
+
+                tmp += f"{tmp_}\n"
+                params.append(var)
+            
+            while len(params) < req - 1:
+                params.append("_")
+            
+            retpos = NATIVE_SUB_RETURN_POS.get(node.function, -1)
+            retvar = "null"
+            if retpos != -1:
+                retvar = params[retpos]
+            
+            return f"{tmp}{spl[0]} {spl[1]} {' '.join(params)}", retvar
         elif t == IfNode:
             tmp2, var = self._generate(node.condition)
 
@@ -801,6 +827,11 @@ class Generator:
                 return [f"__f_{node.function}_retv"] + tmp
             else:
                 return self._generate_var_list(node.function)
+        elif t == SubCallNode:
+            if node.function in NATIVE_SUB_RETURN_POS:
+                return self._generate_var_list(node.params[NATIVE_SUB_RETURN_POS[node.function]])
+            
+            return []
         elif t in [IfNode, WhileNode, ForNode, RepeatNode, FunctionNode]:
             tmp = self._var_list_join([self._generate_var_list(n) for n in node.code])
             if t in [IfNode, WhileNode, ForNode]:
