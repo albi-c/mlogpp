@@ -83,7 +83,7 @@ if (@unit.flag == DEPOSIT_FLAG) {
         vx = VAULT.x
         vy = VAULT.y
         ucontrol.approach(vx, vy, 4)
-        ucontrol.within(cx, cy, 6, drop)
+        ucontrol.within(vx, vy, 6, drop)
         if (drop) {
             ucontrol.itemDrop(VAULT, @unit.itemCapacity)
             ucontrol.flag(0)
