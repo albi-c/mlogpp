@@ -60,6 +60,15 @@ cell1[0] = 10
 print(cell1[0])
 printflush(message1)
 ```
+Prints `10`
+
+### Subcommands:
+```javascript
+ubind(@mega)
+ucontrol.move(@thisx, @thisy)
+```
+
+Makes all `@mega` units move to the processor
 
 ## Builtin functions:
 * read `result`, `cell`, `position`
