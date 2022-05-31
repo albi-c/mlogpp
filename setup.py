@@ -3,9 +3,12 @@ import setuptools
 with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
+with open("mlogpp/__init__.py", encoding="utf-8") as f:
+    exec(f.read())
+
 setuptools.setup(
     name="mlogpp",
-    version="1.4",
+    version=__version__,
     author="albi-c",
     description="mlog++ to mindustry logic compiler",
     long_description=long_description,

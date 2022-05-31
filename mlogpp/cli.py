@@ -7,6 +7,7 @@ from .lexer import Lexer
 from .parser_ import Parser
 from .generator import Generator
 from .linker import Linker
+from . import __version__
 
 class IOMethod(Enum):
     FILE = 0
@@ -28,7 +29,7 @@ parser.add_argument("-O2", "--optimize2", help="set optimization level to 2 (def
 parser.add_argument("-v", "--verbose", help="print additional information", action="store_true")
 parser.add_argument("-l", "--lines", help="print line numbers when output to stdout is selected", action="store_true")
 
-parser.add_argument("-V", "--version", action="version", version="mlog++ 1.3")
+parser.add_argument("-V", "--version", action="version", version=f"mlog++ {__version__}")
 
 args = parser.parse_args()
 
