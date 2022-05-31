@@ -1,17 +1,12 @@
 # mlog++
 
-mlog++ to mindustry logic compiler
-
-## Features:
-* compiler
-* linker
-* emulator (work in progress)
+high level mindustry logic language
 
 ## Installation:
 `pip install mlogpp`
 
 ## Usage:
-`python -m <file(s) to compile> [options]`
+`python -m mlogpp <file(s) to compile> [options]`
 
 ### Options:
 * `-o:f`, `--output-file` - output to file
