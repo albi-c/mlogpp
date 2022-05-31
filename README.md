@@ -70,7 +70,32 @@ ucontrol.move(@thisx, @thisy)
 
 Makes all `@mega` units move to the processor
 
-## Builtin functions:
+## Features:
+* variables \
+  `x = 1`
+* comments \
+  `# comment`
+* memory cell access \
+  `cell1[0] = cell1[1]`
+* functions \
+  `function f(x, y) { return x + y }`
+* subcommands \
+  `ucontrol.move(1, 2)`
+* if / else \
+  `if (a == b) { print("a") } else { print("b") }`
+* while loops \
+  `while (a > b) { b += 1 }`
+* for loops \
+  `for (i = 0; i < 10; i += 1) { print(i) }`
+* break / continue
+* imports \
+  `%library.mpp`
+* native functions \
+  `ubind(@mega)`
+* native code \
+  `.op atan a b c`
+
+## Native functions:
 * read `result`, `cell`, `position`
     * Read data from `cell` at `position` to `result`
 * write `data`, `cell`, `position`

@@ -86,6 +86,7 @@ class Token:
         return self.type == other.type and self.value == other.value
 
 class Lexer:
+    @staticmethod
     def resolve_includes(code: str) -> str:
         tmp = ""
         for i, ln in enumerate(code.splitlines()):
@@ -106,6 +107,7 @@ class Lexer:
         
         return tmp
 
+    @staticmethod
     def lex(code: str) -> list:
         toks = []
         tok = ""
@@ -177,6 +179,7 @@ class Lexer:
 
         return toks
 
+    @staticmethod
     def _match(token: str) -> TokenType:
         for t, r in LEX_REGEXES.items():
             if r.fullmatch(token):
@@ -184,6 +187,7 @@ class Lexer:
         
         return TokenType.NONE
     
+    @staticmethod
     def _matchtp(tokens: list, pos: int, pattern: list, *patterns: list) -> bool:
         for p in patterns:
             if len(p) != len(pattern):
@@ -200,9 +204,11 @@ class Lexer:
         
         return matches
     
+    @staticmethod
     def stringify_tokens(tokens: list) -> str:
         return "\n".join([str(t) for t in tokens])
     
+    @staticmethod
     def preprocess(tokens: list) -> list:
         tmp = tokens.copy()
 
