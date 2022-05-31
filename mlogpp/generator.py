@@ -447,7 +447,7 @@ class Generator:
                 return f"sensor {var} {spl[0]} @{spl[1]}", var
             
             if type(node.value) == str and not (node.value.startswith("\"") and node.value.endswith("\"")) and node.value != "_" and node.value[-1] not in "0123456789":
-                if GEN_REGEXES["VARU"].fullmatch(node.value) and node.value not in self.var_list:
+                if GEN_REGEXES["VARU"].fullmatch(node.value) and node.value not in self.var_list and node.value not in functions.builtin:
                     gen_undefined_error(node, node.value)
 
             return f"set {var} {node.value}" if not self.no_generate_tmp else "", var

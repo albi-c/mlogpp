@@ -15,7 +15,7 @@ class IOMethod(Enum):
 
 parser = argparse.ArgumentParser(description="Mindustry logic compiler", prog="mlog++")
 
-parser.add_argument("file", type=str, help="input file(s)", nargs="+")
+parser.add_argument("file", type=str, help="input file(s) [@clip for clipboard]", nargs="+")
 
 parser.add_argument("-o:f", "--output-file", help="write output to a file")
 parser.add_argument("-o:s", "--output-stdout", help="write output to stdout", action="store_true")
@@ -23,7 +23,7 @@ parser.add_argument("-o:c", "--output-clip", help="write output to clipboard (de
 
 parser.add_argument("-O0", "--optimize0", help="disable optimization (WARNING: creates extremely unoptimized code)", action="store_true")
 parser.add_argument("-O1", "--optimize1", help="set optimization level to 1", action="store_true")
-parser.add_argument("-O2", "--optimize2", help="set optimization level to 2", action="store_true")
+parser.add_argument("-O2", "--optimize2", help="set optimization level to 2 (default)", action="store_true")
 
 parser.add_argument("-v", "--verbose", help="print additional information", action="store_true")
 parser.add_argument("-l", "--lines", help="print line numbers when output to stdout is selected", action="store_true")
@@ -51,14 +51,17 @@ for k, v in vars(args).items():
             verbose = v
 
 for fn in args.file:
-    if not os.path.isfile(fn):
+    if not os.path.isfile(fn) and fn != "@clip":
         print(f"Error: input file \"{fn}\" does not exist")
         sys.exit(1)
 
 datas = []
 for fn in args.file:
-    with open(fn, "r") as f:
-        datas.append((fn, f.read()))
+    if fn == "@clip":
+        datas.append((fn, pyperclip.paste()))
+    else:
+        with open(fn, "r") as f:
+            datas.append((fn, f.read()))
 
 optimization_levels = {
     0: {"enable": False},

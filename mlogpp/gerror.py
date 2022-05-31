@@ -6,7 +6,7 @@ from .formatting import Format
 from .parser_ import Node
 
 GEN_ERROR_DEBUG  = False
-GEN_U_ERROR_DEBUG = False
+GEN_U_ERROR_DEBUG = True
 GEN_F_ERROR_DEBUG = False
 
 _undefined_stack = []
