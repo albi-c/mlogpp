@@ -4,10 +4,16 @@ from .lexer import Token, Position
 from . import arrows
 from .formatting import Format
 
+# debug flags
 PARSE_ERROR_DEBUG = False
 LINK_ERROR_DEBUG  = False
 
 def parse_error(tok: Token, msg: str) -> None:
+    """
+    raise parser error
+    """
+
+    # debug
     if PARSE_ERROR_DEBUG:
         curframe = inspect.currentframe()
         calframe = inspect.getouterframes(curframe, 2)
@@ -19,6 +25,11 @@ def parse_error(tok: Token, msg: str) -> None:
     sys.exit(1)
 
 def link_error(pos: Position, msg: str) -> None:
+    """
+    raise linker error
+    """
+
+    # debug
     if LINK_ERROR_DEBUG:
         curframe = inspect.currentframe()
         calframe = inspect.getouterframes(curframe, 2)

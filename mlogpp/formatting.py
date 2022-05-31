@@ -1,4 +1,8 @@
 class Format:
+    """
+    formatting codes
+    """
+
     RED   = "\033[91m"
     BLUE  = "\033[94m"
     GREEN = "\033[92m"

@@ -1,6 +1,10 @@
 def gen_signature(name: str, params: list):
+    """
+    generate a function signature
+    """
     return f"{name}:{len(params)}"
 
+# native functions
 native = [
     "read", "write",
     "draw", "drawflush",
@@ -15,6 +19,7 @@ native = [
     "ubind", "ucontrol", "uradar", "ulocate"
 ]
 
+# number of parameters to native functions
 native_params = {
     "read": 3, "write": 3,
     "draw": 7, "drawflush": 1,
@@ -29,6 +34,7 @@ native_params = {
     "ubind": 1, "ucontrol":6, "uradar": 6, "ulocate": 8
 }
 
+# native subcommands
 native_sub = {
     "draw": {
         "clear": 3,
@@ -77,6 +83,7 @@ native_sub = {
     }
 }
 
+# builtin operators
 builtin = [
     "mod",
     "pow",
@@ -91,6 +98,7 @@ builtin = [
     "len"
 ]
 
+# number of parameters to builtin operators
 builtin_params_default = 1
 builtin_params = {
     "mod": 2,
@@ -103,6 +111,8 @@ builtin_params = {
     "len": 2
 }
 
+# special keywords
 keywords = ["if", "else", "while", "for", "function", "repeat"]
 
+# special identifiers
 special = native + builtin + keywords
