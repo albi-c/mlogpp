@@ -4,8 +4,6 @@
 __pycache__/
 *.py[cod]
 
-*.mind
-
 .coverage
 
 dist/

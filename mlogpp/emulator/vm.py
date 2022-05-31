@@ -1,9 +1,9 @@
-from .parser_ import EInstruction
+from .parser_ import Instruction
 
-class EVMSignal(Exception):
+class VMSignal(Exception):
     pass
 
-class EVM:
+class VM:
     def __init__(self, ins: list):
         self.ins = ins
         self.env = {
@@ -30,21 +30,25 @@ class EVM:
             "print_buffer": ""
         }
     
-    def next_ins(self) -> EInstruction:
+    def next_ins(self) -> Instruction:
         if self.env["variables"]["@counter"] < len(self.ins) - 1:
             return self.ins[self.env["variables"]["@counter"]]
         
-        raise EVMSignal()
+        raise VMSignal()
     
-    def run(self) -> dict:
-        while True:
-            try:
-                i = self.next_ins()
-            except EVMSignal:
-                break
-            
-            self.env["variables"]["@counter"] += 1
-
-            i.execute(self.env)
+    def step(self) -> bool:
+        try:
+            i = self.next_ins()
+        except VMSignal:
+            return False
+        
+        self.env["variables"]["@counter"] += 1
+        i.execute(self.env)
+        
+        return True
+    
+    def cycle(self) -> dict:
+        while self.step():
+            pass
 
         return self.env

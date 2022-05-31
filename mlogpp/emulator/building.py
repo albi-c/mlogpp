@@ -1,17 +1,20 @@
 from enum import Enum
 
-class EBuildingType(Enum):
-    CELL    = "cell"
-    MESSAGE = "message"
+class BuildingType(Enum):
+    CELL      = "cell"
+    MESSAGE   = "message"
+    PROCESSOR = "processor"
 
-class EBuilding:
-    def __init__(self, type_: EBuildingType, name: str, params: dict = None):
+class Building:
+    def __init__(self, type_: BuildingType, name: str, params: dict):
         self.type = type_
         self.name = name
-        self.params = params if params is not None else {}
+        self.params = params
         self.state = {}
 
-        if type_ == EBuildingType.CELL:
+        if type_ == BuildingType.CELL:
             self.state["memory"] = [0 for _ in range(params["size"])]
-        elif type_ == EBuildingType.MESSAGE:
+        elif type_ == BuildingType.MESSAGE:
             self.state["text"] = ""
+        elif type_ == BuildingType.PROCESSOR:
+            self.state[""]

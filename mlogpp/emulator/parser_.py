@@ -1,6 +1,6 @@
 import shlex, math, random, re
 
-from .building import EBuilding, EBuildingType
+from .building import Building, BuildingType
 
 REGEX_NUM = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 
@@ -82,13 +82,13 @@ JUMP_CONDITIONS = {
     "always": lambda a, b: True
 }
 
-class EParserException(Exception):
+class ParserException(Exception):
     pass
 
-class EExecutionError(Exception):
+class ExecutionError(Exception):
     pass
 
-class EInstruction:
+class Instruction:
     def __init__(self, name: str, params: list = None):
         self.name = name
         self.params = params if params is not None else []
@@ -106,12 +106,12 @@ class EInstruction:
                 if value.endswith("\""):
                     return value[1:-1]
                 else:
-                    raise EExecutionError(f"Invalid string {value}")
+                    raise ExecutionError(f"Invalid string {value}")
             else:
                 if value in env["variables"]:
                     return env["variables"][value]
                 else:
-                    raise EExecutionError(f"Undefined variable \"{value}\"")
+                    raise ExecutionError(f"Undefined variable \"{value}\"")
 
         return value
     
@@ -121,16 +121,16 @@ class EInstruction:
             cell = self.resolve_value(self.params[1], env)
             pos = self.resolve_value(self.params[2], env)
 
-            if type(cell) != EBuilding or cell.type != EBuildingType.CELL:
-                raise EExecutionError(f"Invalid memory cell \"{cell}\"")
+            if type(cell) != Building or cell.type != BuildingType.CELL:
+                raise ExecutionError(f"Invalid memory cell \"{cell}\"")
             
             try:
                 pos = int(pos)
             except ValueError:
-                raise EExecutionError(f"Invalid memory cell position \"{pos}\"")
+                raise ExecutionError(f"Invalid memory cell position \"{pos}\"")
             
             if pos >= cell["params"]["size"]:
-                raise EExecutionError(f"Memory cell access out of bounds {pos}")
+                raise ExecutionError(f"Memory cell access out of bounds {pos}")
 
             env["variables"][target] = cell["state"]["memory"][pos]
         elif self.name == "write":
@@ -141,18 +141,18 @@ class EInstruction:
             try:
                 value = float(value)
             except ValueError:
-                raise EExecutionError(f"Invalid data to write into memory cell \"{pos}\"")
+                raise ExecutionError(f"Invalid data to write into memory cell \"{pos}\"")
 
-            if type(cell) != EBuilding or cell.type != EBuildingType.CELL:
-                raise EExecutionError(f"Invalid memory cell \"{cell}\"")
+            if type(cell) != Building or cell.type != BuildingType.CELL:
+                raise ExecutionError(f"Invalid memory cell \"{cell}\"")
             
             try:
                 pos = int(pos)
             except ValueError:
-                raise EExecutionError(f"Invalid memory cell position \"{pos}\"")
+                raise ExecutionError(f"Invalid memory cell position \"{pos}\"")
             
             if pos >= cell["params"]["size"]:
-                raise EExecutionError(f"Memory cell access out of bounds {pos}")
+                raise ExecutionError(f"Memory cell access out of bounds {pos}")
             
             cell["state"]["memory"][pos] = value
         elif self.name == "draw":
@@ -166,8 +166,8 @@ class EInstruction:
         elif self.name == "printflush":
             message = self.resolve_value(self.params[0], env)
 
-            if type(message) != EBuilding or message.type != EBuildingType.MESSAGE:
-                raise EExecutionError(f"Invalid message \"{message}\"")
+            if type(message) != Building or message.type != BuildingType.MESSAGE:
+                raise ExecutionError(f"Invalid message \"{message}\"")
             
             message.state["text"] = env["print_buffer"]
             env["print_buffer"] = ""
@@ -191,19 +191,19 @@ class EInstruction:
             b = self.resolve_value(self.params[3], env)
 
             if op not in OPERATORS:
-                raise EExecutionError(f"Invalid operator \"{op}\"")
+                raise ExecutionError(f"Invalid operator \"{op}\"")
             
             try:
                 if a not in  [None, True, False]:
                     a = float(a)
             except ValueError:
-                raise EExecutionError(f"Invalid operation input [a] \"{a}\"")
+                raise ExecutionError(f"Invalid operation input [a] \"{a}\"")
             
             try:
                 if b not in  [None, True, False]:
                     b = float(b)
             except ValueError:
-                raise EExecutionError(f"Invalid operation input [b] \"{b}\"")
+                raise ExecutionError(f"Invalid operation input [b] \"{b}\"")
             
             env["variables"][out] = OPERATORS[op](a, b)
         elif self.name == "end":
@@ -213,26 +213,26 @@ class EInstruction:
             try:
                 pos = int(pos)
             except ValueError:
-                raise EExecutionError(f"Invalid jump destination \"{pos}\"")
+                raise ExecutionError(f"Invalid jump destination \"{pos}\"")
             
             cond = self.params[1]
             a = self.resolve_value(self.params[2], env)
             b = self.resolve_value(self.params[2], env)
 
             if cond not in JUMP_CONDITIONS:
-                raise EExecutionError(f"Invalid jump condition \"{cond}\"")
+                raise ExecutionError(f"Invalid jump condition \"{cond}\"")
 
             try:
                 if a not in  [None, True, False]:
                     a = float(a)
             except ValueError:
-                raise EExecutionError(f"Invalid jump input [a] \"{a}\"")
+                raise ExecutionError(f"Invalid jump input [a] \"{a}\"")
             
             try:
                 if b not in  [None, True, False]:
                     b = float(b)
             except ValueError:
-                raise EExecutionError(f"Invalid jump input [b] \"{b}\"")
+                raise ExecutionError(f"Invalid jump input [b] \"{b}\"")
             
             if JUMP_CONDITIONS[cond](a, b):
                 env["variables"]["@counter"] = pos
@@ -245,11 +245,9 @@ class EInstruction:
         elif self.name == "ulocate":
             pass
 
-class EParser:
-    def __init__(self):
-        pass
-
-    def parse(self, code: str) -> list:
+class Parser:
+    @staticmethod
+    def parse(code: str) -> list:
         tmp = []
 
         for ln in code.splitlines():
@@ -261,14 +259,14 @@ class EParser:
             if len(spl) > 0:
                 if spl[0] in INSTRUCTIONS:
                     if INSTRUCTIONS[spl[0]] != len(spl) - 1:
-                        raise EParserException(f"Incorrect number of parameters to instructions ({len(spl) - 1}, expected {INSTRUCTIONS[spl[0]]})")
+                        raise ParserException(f"Incorrect number of parameters to instruction ({len(spl) - 1}, expected {INSTRUCTIONS[spl[0]]})")
                     
                     if spl[0] in UNSUPPORTED_INSTRUCTIONS:
                         print(f"WARNING: you are using an unsupported instruction ({spl[0]})")
                     
-                    tmp.append(EInstruction(spl[0], spl[1:] if len(spl) > 1 else []))
+                    tmp.append(Instruction(spl[0], spl[1:] if len(spl) > 1 else []))
                 else:
-                    raise EParserException(f"Invalid instruction \"{spl[0]}\"")
+                    raise ParserException(f"Invalid instruction \"{spl[0]}\"")
         
         print(tmp)
         return tmp
