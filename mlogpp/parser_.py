@@ -187,7 +187,7 @@ class CallNode(Node):
     
     def generate(self, i) -> str:
         if self.is_call:
-            return i * " " + f"CallNode [1]: {self.function}({','.join(self.params)})\n"
+            return i * " " + f"CallNode [1]: {self.function}({','.join([p.generate(i + 1) for p in self.params])})\n"
         else:
             return i * " " + f"CallNode [0]: {self.function.generate(i + 1)}\n"
     

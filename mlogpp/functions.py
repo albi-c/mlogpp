@@ -68,6 +68,12 @@ native_sub = {
         "build": 5,
         "getBlock": 4,
         "within": 4
+    },
+    "lookup": {
+        "block": 2,
+        "unit": 2,
+        "item": 2,
+        "liquid": 2
     }
 }
 

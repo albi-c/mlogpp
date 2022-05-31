@@ -29,7 +29,9 @@ GEN_REGEXES = {
     "TCOMP": re.compile(r"^op ((equal)|(notEqual)|(greaterThan)|(lessThan)|(greaterThanEq)|(lessThanEq)) __tmp[0-9]+ \S+ \S+$"),
     "TJUMP": re.compile(r"^>__mpp[0-9]+ !__tmp[0-9]+$"),
 
-    "VARU":  re.compile(r"^[a-zA-Z_][a-zA-Z_0-9]*$")
+    "VARU":  re.compile(r"^[a-zA-Z_][a-zA-Z_0-9]*$"),
+
+    "SFUNC": re.compile(r"^[a-z]+\.[a-z]+$")
 }
 
 PRECALC = {
@@ -76,7 +78,12 @@ NATIVE_RETURN_POS = {
 
 NATIVE_SUB_RETURN_POS = {
     "ucontrol.getBlock": 2,
-    "ucontrol.within": 3
+    "ucontrol.within": 3,
+
+    "lookup.block": 0,
+    "lookup.unit": 0,
+    "lookup.item": 0,
+    "lookup.liquid": 0
 }
 
 NATIVE_CONST_INPUTS = {
@@ -566,6 +573,11 @@ class Generator:
 
                 is_native = node.function in functions.native
                 is_builtin = node.function in functions.builtin
+
+                if GEN_REGEXES["SFUNC"].fullmatch(node.function):
+                    scn = SubCallNode(node.pos, node.function, node.params)
+                    self.var_list |= set(self._generate_var_list(scn))
+                    return self._generate(scn)
 
                 if not is_native and not is_builtin:
                     signature = functions.gen_signature(node.function, node.params)
