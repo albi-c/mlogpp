@@ -37,6 +37,9 @@ class Token:
     
     def __repr__(self) -> str:
         return f"Token({self.type}, \"{sanitize(self.value)}\", {repr(self.pos)})"
+    
+    def pos(self) -> Position:
+        return self.pos
 
 class Lexer:
     """
@@ -56,7 +59,7 @@ class Lexer:
         TokenType.RBRACK: re.compile(r"^\]$"),
         TokenType.COMMA: re.compile(r"^,$"),
         TokenType.SEMICOLON: re.compile(r"^;$"),
-        TokenType.OPERATOR: re.compile(r"^[+\-*/!]|(\*\*)|(===)|(<=)|(>=)|(==)|(\!=)|<|>$"),
+        TokenType.OPERATOR: re.compile(r"^[+\-*/!]|(\*\*)|(===)|(<=)|(>=)|(==)|(\!=)|<|>|~$"),
         TokenType.SET: re.compile(r"^=|(\+=)|(\-=)|(\*=)|(\/=)$"),
         TokenType.LOGIC: re.compile(r"^(\&\&)|(\|\|)$")
     }
@@ -123,6 +126,13 @@ class Lexer:
             # add last token
             tok = ln[i:].strip()
             if tok:
+                # check if remaining data can be joined with last token
+                jt = toks[-1].value + tok
+                if Lexer.match(jt) != TokenType.NONE:
+                    toks[-1].value += tok
+                    toks[-1].pos.end += len(tok)
+                    continue
+
                 if Lexer.match(tok) != TokenType.NONE:
                     toks.append(Token(Lexer.match(tok), tok, Position(lni, i - len(tok), i, ln)))
                 else:

@@ -12,44 +12,41 @@ class Linker:
         links generated code together
         """
 
-        offset = 0
-        tmp = []
-        for code in codes:
-            # relocate jumps
-            c, o = Linker._relocate(code, offset)
-
-            tmp.append(c)
-            offset += o
-
-        return "\n".join(tmp)
-    
-    @staticmethod
-    def _relocate(code: str, offset: int) -> str:
-        """
-        relocate jumps in compiled code
-        """
-
+        # find labels
+        code = "\n".join([ln for ln in "\n".join(codes).splitlines() if ln])
+        labels = {}
+        labelc = 0
         tmp = ""
-        nl = 0
-        for ln in code.strip().splitlines():
-            # check if line is a jump
-            if ln.startswith("jump "):
-                spl = ln.split(" ")
+        for i, ln in enumerate(code.splitlines()):
+            # is a label
+            if ln.startswith("<"):
+                labels[ln[1:]] = i - labelc
+                labelc += 1
+                continue
 
-                # check if jump has enough arguments
-                if len(spl) != 5:
-                    link_error(Position(nl, 0, ln, len(ln)), "Invalid jump instruction")
-
-                # check if jump address is valid
-                pos = spl[1]
-                try:
-                    pos = int(pos)
-                except ValueError:
-                    link_error(Position(nl, len(spl[0]) + 1, ln, len(spl[1])), "Invalid jump address")
-                
-                ln = f"jump {pos + offset} {spl[2]} {spl[3]} {spl[4]}"
-
-            nl += 1
             tmp += ln + "\n"
         
-        return tmp.strip(), nl
+        # resolve jumps
+        code = ""
+        for i, ln in enumerate(tmp.splitlines()):
+            # is a jump
+            if ln.startswith(">"):
+                # jump data
+                jd = ln[1:].split(" ", 1)
+
+                if len(jd) == 1:
+                    # always jump
+                    code += f"jump {labels[jd[0]]} always _ _\n"
+
+                elif len(jd) == 2:
+                    # conditional jump
+                    if jd[1].startswith("!"):
+                        code += f"jump {labels[jd[0]]} notEqual {jd[1][1:]} true\n"
+                    else:
+                        code += f"jump {labels[jd[0]]} notEqual {jd[1][1:]} false\n"
+                
+                continue
+            
+            code += ln + "\n"
+        
+        return code.strip()

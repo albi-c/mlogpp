@@ -26,7 +26,6 @@ class Preprocessor:
             
             # replace constant references with values
             for k, v in consts.items():
-                print(k, v, ln.replace(k, v))
                 ln = ln.replace(k, v)
             
             tmp += ln + "\n"

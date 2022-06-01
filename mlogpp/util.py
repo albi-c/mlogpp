@@ -23,6 +23,13 @@ class Position:
 
         return f"{' ' * (self.start - 1)}{'^' * (self.end - self.start)}"
     
+    def code_section(self) -> str:
+        """
+        get code section defined by the position
+        """
+
+        return self.code[self.start-1:self.end-1]
+    
     def __add__(self, other: "Position") -> "Position":
         """
         create a range of two positions

@@ -1,37 +1,25 @@
-def gen_signature(name: str, params: list):
-    """
-    generate a function signature
-    """
-    return f"{name}:{len(params)}"
-
 # native functions
-native = [
-    "read", "write",
-    "draw", "drawflush",
-    "print", "printflush",
-    "getlink",
-    "control",
-    "radar",
-    "sensor",
-    "set", "op",
-    "wait", "lookup",
-    "end", "jump",
-    "ubind", "ucontrol", "uradar", "ulocate"
-]
-
-# number of parameters to native functions
-native_params = {
+native = {
     "read": 3, "write": 3,
-    "draw": 7, "drawflush": 1,
+    "drawflush": 1,
     "print": 1, "printflush": 1,
     "getlink": 2,
-    "control": 6,
     "radar": 6,
     "sensor": 3,
     "set": 2, "op": 4,
-    "wait": 1, "lookup": 3,
+    "wait": 1,
     "end": 0, "jump": 4,
-    "ubind": 1, "ucontrol":6, "uradar": 6, "ulocate": 8
+    "ubind": 1, "uradar": 6
+}
+
+# return positions for native functions
+native_ret = {
+    "read": 0,
+    "getlink": 0,
+    "radar": 6,
+    "sensor": 0,
+    "uradar": 6,
+    "op": 1
 }
 
 # native subcommands
@@ -80,7 +68,35 @@ native_sub = {
         "unit": 2,
         "item": 2,
         "liquid": 2
+    },
+    "ulocate": {
+        "ore": 1,
+        "building": 2,
+        "spawn": 0,
+        "damaged": 0
     }
+}
+
+# generate list of native subcommand combinations
+native_sublist = []
+for k, v in native_sub.items():
+    for s in v.keys():
+        native_sublist.append(f"{k}.{s}")
+
+# native subcommands return positions
+native_sub_ret = {
+    "ucontrol.getBlock": (2,),
+    "ucontrol.within": (3,),
+
+    "lookup.block": (0,),
+    "lookup.unit": (0,),
+    "lookup.item": (0,),
+    "lookup.liquid": (0,),
+
+    "ulocate.ore": (3, 4, 5, 6),
+    "ulocate.building": (3, 4, 5, 6),
+    "ulocate.spawn": (3, 4, 5, 6),
+    "ulocate.damaged": (3, 4, 5, 6)
 }
 
 # builtin operators
@@ -111,8 +127,11 @@ builtin_params = {
     "len": 2
 }
 
+# special keywords with parentheses
+keywords_paren = ["if", "while", "for", "function", "repeat"]
+
 # special keywords
 keywords = ["if", "else", "while", "for", "function", "repeat"]
 
 # special identifiers
-special = native + builtin + keywords
+special = list(native.keys()) + builtin + keywords
