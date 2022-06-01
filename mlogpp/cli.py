@@ -4,6 +4,7 @@ from enum import Enum
 import pyperclip
 
 from .lexer import Lexer
+from .preprocess import Preprocessor
 from .parser_ import Parser
 from .generator import Generator
 from .linker import Linker
@@ -95,7 +96,7 @@ for data in datas:
         outs.append(data[1])
         continue
 
-    out = Lexer.preprocess(Lexer.lex(Lexer.resolve_includes(data[1])))
+    out = Preprocessor.preprocess(Lexer.lex(data[1]))
     out = Parser().parse(out)
     out = Generator().generate(out, optimization_levels[optlevel])
     # add to compiled files
