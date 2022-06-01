@@ -47,9 +47,6 @@ class Gen:
         generate a temporary variable
         """
 
-        # if v is not None and v.c:
-        #     return v
-
         Gen.VAR_COUNT += 1
         return Var(f"__tmp{Gen.VAR_COUNT-1}", True)
     

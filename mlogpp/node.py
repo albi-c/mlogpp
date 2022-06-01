@@ -15,16 +15,13 @@ class Node:
         return self.pos
     
     def generate(self):
-        # error("Invalid AST")
-        return "--C--"
+        error("Invalid AST")
     
     def get(self):
-        # error("Invalid AST")
-        return "--C--", Var("--V--", True)
+        error("Invalid AST")
     
     def set(self):
-        # error("Invalid AST")
-        return "--C--", Var("--V--", True)
+        error("Invalid AST")
 
 class CodeListNode(Node):
     """
@@ -213,7 +210,7 @@ class ExpressionNode(Node):
 
         if len(self.right) > 0:
             tmpv = Gen.temp_var(valv)
-            code = f"{valc}\nset {tmpv} {valv}" if valv.nc else valc
+            code = f"{valc}\nset {tmpv} {valv}"
 
             for r in self.right:
                 # determine operator
@@ -223,7 +220,9 @@ class ExpressionNode(Node):
                 
                 valc, valv = r[1].get()
 
-                code += f"\n{valc}\nop {op} {tmpv} {tmpv} {valv}"
+                tmpv2 = Gen.temp_var()
+                code += f"\n{valc}\nop {op} {tmpv2} {tmpv} {valv}"
+                tmpv = tmpv2
 
             return code, tmpv
 
@@ -248,7 +247,7 @@ class CompExpressionNode(Node):
 
         if len(self.right) > 0:
             tmpv = Gen.temp_var(valv)
-            code = f"{valc}\nset {tmpv} {valv}" if valv.nc else valc
+            code = f"{valc}\nset {tmpv} {valv}"
 
             for r in self.right:
                 # determine operator
@@ -259,7 +258,9 @@ class CompExpressionNode(Node):
                 
                 valc, valv = r[1].get()
 
-                code += f"\n{valc}\nop {op} {tmpv} {tmpv} {valv}"
+                tmpv2 = Gen.temp_var()
+                code += f"\n{valc}\nop {op} {tmpv2} {tmpv} {valv}"
+                tmpv = tmpv2
 
             return code, tmpv
 
@@ -284,7 +285,7 @@ class ArithExpressionNode(Node):
 
         if len(self.right) > 0:
             tmpv = Gen.temp_var(valv)
-            code = f"{valc}\nset {tmpv} {valv}" if valv.nc else valc
+            code = f"{valc}\nset {tmpv} {valv}"
 
             for r in self.right:
                 # determine operator
@@ -294,7 +295,9 @@ class ArithExpressionNode(Node):
                 
                 valc, valv = r[1].get()
 
-                code += f"\n{valc}\nop {op} {tmpv} {tmpv} {valv}"
+                tmpv2 = Gen.temp_var()
+                code += f"\n{valc}\nop {op} {tmpv2} {tmpv} {valv}"
+                tmpv = tmpv2
 
             return code, tmpv
 
@@ -319,7 +322,7 @@ class TermNode(Node):
 
         if len(self.right) > 0:
             tmpv = Gen.temp_var(valv)
-            code = f"{valc}\nset {tmpv} {valv}" if valv.nc else valc
+            code = f"{valc}\nset {tmpv} {valv}"
 
             for r in self.right:
                 # determine operator
@@ -329,7 +332,9 @@ class TermNode(Node):
                 
                 valc, valv = r[1].get()
 
-                code += f"\n{valc}\nop {op} {tmpv} {tmpv} {valv}"
+                tmpv2 = Gen.temp_var()
+                code += f"\n{valc}\nop {op} {tmpv2} {tmpv} {valv}"
+                tmpv = tmpv2
 
             return code, tmpv
 
@@ -349,7 +354,7 @@ class FactorNode(Node):
     def get(self):
         valc, valv = self.value.get()
         tmpv = Gen.temp_var(valv)
-        code = f"{valc}\nset {tmpv} {valv}" if valv.nc else valc
+        code = f"{valc}\nset {tmpv} {valv}"
 
         if not self.flags["sign"]:
             code += f"\nop sub {tmpv} 0 {tmpv}"
@@ -477,6 +482,3 @@ class FunctionNode(Node):
     
     def get_pos(self) -> Position:
         return self.pos
-    
-    def generate(self):
-        pass

@@ -17,7 +17,13 @@ class Optimizer:
         optimize generated code
         """
 
-        return Optimizer._single_use_tmp(code)
+        while True:
+            code, changed = Optimizer._single_use_tmp(code)
+
+            if not changed:
+                break
+        
+        return code
 
     def _single_use_tmp(code: str) -> str:
         """
@@ -30,14 +36,17 @@ class Optimizer:
             if c > 0:
                 uses[f"__tmp{i}"] = c
         
+        changed = False
         values = {}
         tmp = ""
         for i, ln in enumerate(code.splitlines()):
             if Optimizer.REGEXES["SU_SET"].fullmatch(ln):
                 spl = ln.split(" ", 2)
-                values[spl[1]] = spl[2]
-                continue
+                if uses.get(spl[1], -1) == 2:
+                    values[spl[1]] = spl[2]
+                    changed = True
+                    continue
             
             tmp += " ".join([values.get(part, part) for part in ln.split(" ")]) + "\n"
         
-        return tmp.strip()
+        return tmp.strip(), changed

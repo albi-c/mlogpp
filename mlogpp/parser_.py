@@ -99,6 +99,7 @@ class Parser:
             elif tok.type == TokenType.COMMA:
                 if last == TokenType.COMMA:
                     parse_error(tok.pos, "Unexpected token")
+                last = TokenType.COMMA
                 continue
             
             elif tok.type == TokenType.ID:
@@ -466,7 +467,6 @@ class Parser:
 
         elif tok.value == "function":
             name = self.next_token(TokenType.ID)
-            self.next_token(TokenType.LPAREN)
             args = self.parse_funcArgVars()
 
             self.func_stack.append(name.value)

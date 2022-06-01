@@ -8,6 +8,7 @@ from .preprocess import Preprocessor
 from .parser_ import Parser
 from .optimizer import Optimizer
 from .linker import Linker
+from .error import MlogError
 from . import __version__
 
 # input/output method
@@ -72,13 +73,6 @@ for fn in args.file:
         with open(fn, "r") as f:
             datas.append((fn, f.read()))
 
-# optimization level presets to pass to the optimizer
-optimization_levels = {
-    0: {"enable": False},
-    1: {"unused": False},
-    2: {}
-}
-
 # compile all files
 outs = []
 for data in datas:
@@ -87,11 +81,16 @@ for data in datas:
         outs.append(data[1])
         continue
     
-    out = Preprocessor.preprocess(data[1])
-    out = Lexer.lex(out)
-    out = Parser().parse(out)
-    out = out.generate()
-    out = Optimizer.optimize(out)
+    try:
+        out = Preprocessor.preprocess(data[1])
+        out = Lexer.lex(out)
+        out = Parser().parse(out)
+        out = out.generate()
+        # out = Optimizer.optimize(out)
+    except MlogError as e:
+        e.print()
+        raise e
+        sys.exit(1)
 
     # add to compiled files
     outs.append(out)
