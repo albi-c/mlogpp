@@ -47,6 +47,14 @@ class Optimizer:
                     changed = True
                     continue
             
-            tmp += " ".join([values.get(part, part) for part in ln.split(" ")]) + "\n"
+            # tmp += " ".join([values.get(part, part) for part in ln.split(" ")]) + "\n"
+            tmp += ln + "\n"
         
-        return tmp.strip(), changed
+        print(values)
+
+        code = ""
+        for i, ln in enumerate(tmp.strip().splitlines()):
+            # code += ln + "\n"
+            code += " ".join([values.get(part, part) for part in ln.split(" ")]) + "\n"
+        
+        return code.strip(), changed

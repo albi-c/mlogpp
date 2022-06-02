@@ -86,7 +86,7 @@ for data in datas:
         out = Lexer.lex(out)
         out = Parser().parse(out)
         out = out.generate()
-        # out = Optimizer.optimize(out)
+        out = Optimizer.optimize(out)
     except MlogError as e:
         e.print()
         raise e
