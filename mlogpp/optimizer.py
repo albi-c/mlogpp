@@ -22,8 +22,12 @@ class Optimizer:
         optimize generated code
         """
 
-        for i in range(1, 1025):
-            code, _ = Optimizer._single_use_tmp(code, i)
+        for i in range(1, len(code.splitlines()) + 1):
+            while True:
+                code, found = Optimizer._single_use_tmp(code, i)
+
+                if not found:
+                    break
         
         return code
 
@@ -33,8 +37,8 @@ class Optimizer:
         """
 
         uses = {}
-        for i in range(1, Gen.VAR_COUNT + 1):
-            c = len(re.findall(f"__tmp{i}\\D", code))
+        for i in range(0, Gen.VAR_COUNT + 1):
+            c = len(re.findall(f"__tmp{i}\\D?", code))
             if c > 0:
                 uses[f"__tmp{i}"] = c
         
@@ -51,9 +55,7 @@ class Optimizer:
 
                 if i < len(lns) - forward:
                     if uses.get(name, 0) == 2 and name in lns[fi]:
-                        print(f"TMP_SET({forward}) 1   {lns[fi]}")
                         lns[fi] = " ".join([val if part == name else part for part in lns[fi].split(" ")])
-                        print(f"TMP_SET({forward}) 2   {lns[fi]}")
                         found = True
                         continue
             
@@ -65,7 +67,7 @@ class Optimizer:
                     if uses.get(name, 0) == 2 and Optimizer.REGEXES["TA_SET"].fullmatch(lns[fi]):
                         spl_ = lns[fi].split(" ", 2)
                         if name == spl_[2]:
-                            lns[fi] = f"sensor {spl_[1]} {spl[2]} {spl[3]}"
+                            lns[fi] = f"read {spl_[1]} {spl[2]} {spl[3]}"
                             found = True
                             continue
             
