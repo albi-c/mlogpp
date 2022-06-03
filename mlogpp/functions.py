@@ -4,7 +4,7 @@ native = {
     "drawflush": 1,
     "print": 1, "printflush": 1,
     "getlink": 2,
-    "radar": 6,
+    "radar": 7,
     "sensor": 3,
     "set": 2, "op": 4,
     "wait": 1,

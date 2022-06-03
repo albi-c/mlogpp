@@ -89,7 +89,7 @@ for data in datas:
         out = Optimizer.optimize(out)
     except MlogError as e:
         e.print()
-        raise e
+        # raise e
         sys.exit(1)
 
     # add to compiled files

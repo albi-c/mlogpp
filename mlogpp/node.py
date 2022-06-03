@@ -142,6 +142,8 @@ class CallNode(Node):
         self.func = func
         self.args = args
 
+        self._ret_var = None
+
     def get_pos(self) -> Position:
         if len(self.args) > 0:
             return self.pos + self.args[-1].get_pos()
@@ -151,8 +153,10 @@ class CallNode(Node):
     def generate(self):
         if self.func in functions.native:
             nargs = functions.native[self.func]
+            retvar = "_"
             if self.func in functions.native_ret:
                 nargs -= 1
+                retvar = Gen.temp_var()
             
             if len(self.args) != nargs:
                 gen_error(self.get_pos(), f"Invalid number of arguments to function (expected {nargs}, got {len(self.args)})")
@@ -165,7 +169,10 @@ class CallNode(Node):
                 args.append(av)
             
             if self.func in functions.native_ret:
-                args.insert(functions.native_ret[self.func], f"__f_{self.func}_retv")
+                args.insert(functions.native_ret[self.func], retvar)
+                self._ret_var = retvar
+            else:
+                self._ret_var = "_"
             
             code += f"{self.func} {' '.join(map(str, args))}"
             return code
@@ -202,13 +209,14 @@ class CallNode(Node):
         for i, arg in enumerate(self.args):
             valc, valv = arg.get()
             code += f"{valc}\nset __f_{self.func}_a{i} {valv}\n"
+            self._ret_var = Var(f"__f_{self.func}_ret", True)
 
         code += f"op add __f_{self.func}_ret @counter 1\nset @counter __f_{self.func}"
 
         return code
     
     def get(self):
-        return self.generate(), Var(f"__f_{self.func}_retv", True)
+        return self.generate(), self._ret_var
     
     def drename(self, vars):
         return CallNode(self.pos, self.func, [a.drename(vars) for a in self.args])

@@ -12,6 +12,8 @@ class Optimizer:
         "TMP_SET": re.compile(r"^set __tmp\d+ .+$"),\
         # reading to temporary variable
         "TMP_READ": re.compile(r"^read __tmp\d+ \S+ \S+$"),
+        # operation to temporary variable
+        "TMP_OP": re.compile(r"^op [a-zA-Z]+ __tmp\d+ \S+ \S+$"),
 
         # assigning from temporary variable
         "TA_SET": re.compile(r"^set [a-zA-Z_@][a-zA-Z_0-9]* __tmp\d+$")
@@ -21,8 +23,15 @@ class Optimizer:
         """
         optimize generated code
         """
+        
+        for i in range(1, 11):
+            while True:
+                code, found = Optimizer._single_use_tmp(code, i)
 
-        for i in range(1, len(code.splitlines()) + 1):
+                if not found:
+                    break
+        
+        for i in range(10, 0, -1):
             while True:
                 code, found = Optimizer._single_use_tmp(code, i)
 
@@ -38,9 +47,11 @@ class Optimizer:
 
         uses = {}
         for i in range(0, Gen.VAR_COUNT + 1):
-            c = len(re.findall(f"__tmp{i}\\D?", code))
+            c = len(re.findall(f"(__tmp{i}\\D)|(__tmp{i}$)", code))
             if c > 0:
                 uses[f"__tmp{i}"] = c
+        
+        print(forward, uses)
         
         found = False
         lns = code.splitlines()
@@ -68,6 +79,18 @@ class Optimizer:
                         spl_ = lns[fi].split(" ", 2)
                         if name == spl_[2]:
                             lns[fi] = f"read {spl_[1]} {spl[2]} {spl[3]}"
+                            found = True
+                            continue
+            
+            elif Optimizer.REGEXES["TMP_OP"].fullmatch(ln):
+                spl = ln.split(" ", 4)
+                name = spl[2]
+
+                if i < len(lns) - forward:
+                    if uses.get(name, 0) == 2 and Optimizer.REGEXES["TA_SET"].fullmatch(lns[fi]):
+                        spl_ = lns[fi].split(" ", 2)
+                        if name == spl_[2]:
+                            lns[fi] = f"op {spl[1]} {spl_[1]} {spl[3]} {spl[4]}"
                             found = True
                             continue
             
