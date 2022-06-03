@@ -22,6 +22,9 @@ class Node:
     
     def set(self):
         error("Invalid AST")
+    
+    def drename(self, vars):
+        error("Invalid AST")
 
 class CodeListNode(Node):
     """
@@ -41,6 +44,9 @@ class CodeListNode(Node):
     
     def generate(self):
         return "\n".join([ln for ln in "\n".join([node.generate() for node in self.code]).splitlines() if ln])
+    
+    def drename(self, vars):
+        return CodeListNode(self.pos, [c.drename(vars) for c in self.code])
 
 class ReturnNode(Node):
     """
@@ -58,6 +64,9 @@ class ReturnNode(Node):
 
     def generate(self):
         return f"set __f_{self.func}_retv {self.value.get()}"
+    
+    def drename(self, vars):
+        return ReturnNode(self.pos, self.func, self.value.drename(vars))
 
 class LoopActionNode(Node):
     ACTIONS = ["break", "continue"]
@@ -76,6 +85,9 @@ class LoopActionNode(Node):
             return f">{self.name}_e"
         elif self.action == "continue":
             return f">{self.name}_s"
+    
+    def drename(self, vars):
+        return self
 
 class ExternNode(Node):
     def __init__(self, pos: Position, name: str):
@@ -88,6 +100,9 @@ class ExternNode(Node):
     
     def generate(self):
         return ""
+    
+    def drename(self, vars):
+        return self
 
 class AssignmentNode(Node):
     def __init__(self, pos: Position, var: Node, op: str, value: Node):
@@ -116,6 +131,9 @@ class AssignmentNode(Node):
             varc, varv = self.var.set()
             valc, valv = self.value.get()
             return f"{vasc}\n{valc}\nop {op} {varv} {vasv} {valv}\n{varc}"
+    
+    def drename(self, vars):
+        return AssignmentNode(self.pos, self.var.drename(vars), self.op, self.value.drename(vars))
 
 class CallNode(Node):
     def __init__(self, pos: Position, func: str, args: list):
@@ -185,12 +203,15 @@ class CallNode(Node):
             valc, valv = arg.get()
             code += f"{valc}\nset __f_{self.func}_a{i} {valv}\n"
 
-        code += f"op add __f_{self.func}_ret @counter 1\nset @counter __f_{self.func}_addr"
+        code += f"op add __f_{self.func}_ret @counter 1\nset @counter __f_{self.func}"
 
         return code
     
     def get(self):
         return self.generate(), Var(f"__f_{self.func}_retv", True)
+    
+    def drename(self, vars):
+        return CallNode(self.pos, self.func, [a.drename(vars) for a in self.args])
 
 class ExpressionNode(Node):
     def __init__(self, pos: Position, left: Node, right: list):
@@ -228,6 +249,9 @@ class ExpressionNode(Node):
 
         else:
             return valc, valv
+    
+    def drename(self, vars):
+        return ExpressionNode(self.pos, self.left.drename(vars), [(r[0], r[1].drename(vars)) for r in self.right])
 
 class CompExpressionNode(Node):
     def __init__(self, pos: Position, left: Node, right: list):
@@ -266,6 +290,9 @@ class CompExpressionNode(Node):
 
         else:
             return valc, valv
+    
+    def drename(self, vars):
+        return CompExpressionNode(self.pos, self.left.drename(vars), [(r[0], r[1].drename(vars)) for r in self.right])
 
 class ArithExpressionNode(Node):
     def __init__(self, pos: Position, left: Node, right: list):
@@ -303,6 +330,9 @@ class ArithExpressionNode(Node):
 
         else:
             return valc, valv
+    
+    def drename(self, vars):
+        return ArithExpressionNode(self.pos, self.left.drename(vars), [(r[0], r[1].drename(vars)) for r in self.right])
 
 class TermNode(Node):
     def __init__(self, pos: Position, left: Node, right: list):
@@ -340,6 +370,9 @@ class TermNode(Node):
 
         else:
             return valc, valv
+    
+    def drename(self, vars):
+        return TermNode(self.pos, self.left.drename(vars), [(r[0], r[1].drename(vars)) for r in self.right])
 
 class FactorNode(Node):
     def __init__(self, pos: Position, value: Node, flags: dict):
@@ -364,6 +397,9 @@ class FactorNode(Node):
             code += f"\nop flip {tmpv} {tmpv} _"
         
         return code, tmpv
+    
+    def drename(self, vars):
+        return FactorNode(self.pos, self.value.drename(vars), self.flags)
 
 class ValueNode(Node):
     def __init__(self, pos: Position, value: str):
@@ -388,6 +424,9 @@ class ValueNode(Node):
             return f"control {spl[1]} {spl[0]} {tmpv} _ _", tmpv
 
         return "", Var(self.value, False)
+    
+    def drename(self, vars):
+        return ValueNode(self.pos, vars.get(self.value, self.value))
 
 class IndexedValueNode(Node):
     def __init__(self, pos: Position, value: str, idx: Node):
@@ -408,6 +447,9 @@ class IndexedValueNode(Node):
         tmpv = Gen.temp_var()
         ic, iv = self.idx.get()
         return f"{ic}\nwrite {tmpv} {self.value} {iv}", tmpv
+    
+    def drename(self, vars):
+        return IndexedValueNode(self.pos, vars.get(self.value, self.value), self.idx.drename(vars))
 
 class IfNode(Node):
     def __init__(self, pos: Position, cond: Node, code: Node, elseCode: Node):
@@ -433,6 +475,9 @@ class IfNode(Node):
         else:
             el = Gen.temp_lab()
             return f"{condc}\n>{el} !{condv}\n{code}\n<{el}"
+    
+    def drename(self, vars):
+        return IfNode(self.pos, self.cond.drename(vars), self.code.drename(vars), self.elseCode.drename(vars))
 
 class WhileNode(Node):
     def __init__(self, pos: Position, name: str, cond: Node, code: Node):
@@ -450,6 +495,9 @@ class WhileNode(Node):
         code = self.code.generate().strip()
 
         return f"<{self.name}_s\n{condc}\n>{self.name}_e !{condv}\n{code}\n>{self.name}_s\n<{self.name}_e"
+    
+    def drename(self, vars):
+        return WhileNode(self.pos, self.name, self.cond.drename(vars), self.code.drename(vars))
 
 class ForNode(Node):
     def __init__(self, pos: Position, name: str, init: Node, cond: Node, action: Node, code: Node):
@@ -471,6 +519,9 @@ class ForNode(Node):
         code = self.code.generate().strip()
 
         return f"{init}\n<{self.name}_s\n{condc}\n>{self.name}_e !{condv}\n{code}\n{action}\n>{self.name}_s\n<{self.name}_e"
+    
+    def drename(self, vars):
+        return ForNode(self.pos, self.name, self.init.drename(vars), self.cond.drename(vars), self.action.drename(vars), self.code.drename(vars))
 
 class FunctionNode(Node):
     def __init__(self, pos: Position, name: str, args: list, code: Node):
@@ -482,3 +533,16 @@ class FunctionNode(Node):
     
     def get_pos(self) -> Position:
         return self.pos
+    
+    def generate(self):
+        args = {arg: f"__f_{self.name}_a{i}" for i, arg in enumerate(self.args)}
+
+        end_label = Gen.temp_lab()
+        code = f"op add __f_{self.name} @counter 1\n>{end_label}\n"
+        code += self.code.drename(args).generate()
+        code += f"\nset @counter __f_{self.name}_ret\n<{end_label}"
+
+        return code
+    
+    def drename(self, vars):
+        return self

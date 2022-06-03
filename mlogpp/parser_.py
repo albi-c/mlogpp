@@ -463,7 +463,7 @@ class Parser:
             code = self.parse_codeBlock()
             self.loop_stack.pop()
 
-            return ForNode(tok.pos, name, init, cond, action, CodeListNode(action, code))
+            return ForNode(tok.pos, name, init, cond, action, CodeListNode(action.get_pos(), code))
 
         elif tok.value == "function":
             name = self.next_token(TokenType.ID)
@@ -473,6 +473,6 @@ class Parser:
             code = self.parse_codeBlock()
             self.func_stack.pop()
 
-            return FunctionNode(tok.pos, name.value, args, code)
+            return FunctionNode(tok.pos, name.value, args, CodeListNode(name.pos, code))
         
         parse_error(tok.pos, "Unexpected token")
