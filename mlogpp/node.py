@@ -159,7 +159,7 @@ class CallNode(Node):
                 retvar = Gen.temp_var()
             
             if len(self.args) != nargs:
-                gen_error(self.get_pos(), f"Invalid number of arguments to function (expected {nargs}, got {len(self.args)})")
+                gen_error(self.get_pos(), f"Invalid number of arguments to function \"{self.func}\" (expected {nargs}, got {len(self.args)})")
             
             code = ""
             args = []
@@ -186,7 +186,7 @@ class CallNode(Node):
             sr = functions.native_sub_ret.get(self.func, tuple())
             
             if len(self.args) != nargs:
-                gen_error(self.get_pos(), f"Invalid number of arguments to function (expected {nargs}, got {len(self.args)})")
+                gen_error(self.get_pos(), f"Invalid number of arguments to function \"{self.func}\" (expected {nargs}, got {len(self.args)})")
             
             code1 = ""
             code2 = ""
@@ -204,6 +204,25 @@ class CallNode(Node):
             
             code1 += f"{spl[0]} {spl[1]} {' '.join(map(str, args))}" + code2
             return code1
+        
+        elif self.func in functions.builtin:
+            if len(self.args) != functions.builtin_params.get(self.func, functions.builtin_params_default):
+                gen_error(self.get_pos(), f"Invalid number of arguments to function \"{self.func}\" (expected {nargs}, got {len(self.args)})")
+            
+            retvar = Gen.temp_var()
+            self._ret_var = retvar
+            
+            code = ""
+            args = []
+            for a in self.args:
+                ac, av = a.get()
+                code += f"{ac}\n"
+                args.append(av)
+            
+            while len(args) < 2:
+                args.append("_")
+            
+            return f"{code}\nop {self.func} {retvar} {' '.join(map(str, args))}"
 
         code = ""
         for i, arg in enumerate(self.args):

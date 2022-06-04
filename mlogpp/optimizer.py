@@ -20,7 +20,7 @@ class Optimizer:
         "TA_SET": re.compile(r"^set [a-zA-Z_@][a-zA-Z_0-9]* __tmp\d+$"),
 
         # precalculatable operation
-        "PC_OP": re.compile(r"op [a-zA-Z]+ \S+ \d+ \d+")
+        "PC_OP": re.compile(r"op [a-zA-Z]+ \S+ \d+(\.\d+)? \d+(\.\d+)?")
     }
 
     def optimize(code: str) -> str:
@@ -30,14 +30,18 @@ class Optimizer:
         
         for i in range(1, 11):
             while True:
+                code, _ = Optimizer._precalc_optimize(code)
                 code, found = Optimizer._single_use_tmp(code, i)
+                code, _ = Optimizer._precalc_optimize(code)
 
                 if not found:
                     break
         
         for i in range(10, 0, -1):
             while True:
+                code, _ = Optimizer._precalc_optimize(code)
                 code, found = Optimizer._single_use_tmp(code, i)
+                code, _ = Optimizer._precalc_optimize(code)
 
                 if not found:
                     break
@@ -112,4 +116,33 @@ class Optimizer:
         precalculate values where possible
         """
 
+        lns = code.splitlines()
+        tmp = ""
+        found = False
+        for ln in lns:
+            if Optimizer.REGEXES["PC_OP"].fullmatch(ln):
+                spl = ln.split(" ", 4)
+
+                op = spl[1]
+                name = spl[2]
+
+                a = float(spl[3])
+                b = float(spl[4])
+                if a.is_integer():
+                    a = int(a)
+                if b.is_integer():
+                    b = int(b)
+
+                if op in PRECALC:
+                    try:
+                        result = PRECALC[op](a, b)
+                    except TypeError:
+                        pass
+                    else:
+                        ln = f"set {name} {result}"
+                        found = True
+
+
+            tmp += ln + "\n"
         
+        return tmp.strip(), found

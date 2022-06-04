@@ -11,7 +11,7 @@ native = {
     "set": 2, "op": 4,
     "wait": 1,
     "end": 0, "jump": 4,
-    "ubind": 1, "uradar": 6
+    "ubind": 1, "uradar": 6, "ulocate": 8
 }
 
 # return positions for native functions
@@ -70,12 +70,6 @@ native_sub = {
         "unit": 2,
         "item": 2,
         "liquid": 2
-    },
-    "ulocate": {
-        "ore": 1,
-        "building": 2,
-        "spawn": 0,
-        "damaged": 0
     }
 }
 
