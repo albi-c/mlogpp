@@ -1,6 +1,7 @@
 import re
 
 from .generator import Gen
+from .functions import PRECALC
 
 class Optimizer:
     """
@@ -16,7 +17,10 @@ class Optimizer:
         "TMP_OP": re.compile(r"^op [a-zA-Z]+ __tmp\d+ \S+ \S+$"),
 
         # assigning from temporary variable
-        "TA_SET": re.compile(r"^set [a-zA-Z_@][a-zA-Z_0-9]* __tmp\d+$")
+        "TA_SET": re.compile(r"^set [a-zA-Z_@][a-zA-Z_0-9]* __tmp\d+$"),
+
+        # precalculatable operation
+        "PC_OP": re.compile(r"op [a-zA-Z]+ \S+ \d+ \d+")
     }
 
     def optimize(code: str) -> str:
@@ -47,11 +51,13 @@ class Optimizer:
 
         uses = {}
         for i in range(0, Gen.VAR_COUNT + 1):
-            c = len(re.findall(f"(__tmp{i}\\D)|(__tmp{i}$)", code))
+            # split bu whitespaces
+            s = re.split("\\s+", code)
+            # count variable usage
+            c = s.count(f"__tmp{i}")
+
             if c > 0:
                 uses[f"__tmp{i}"] = c
-        
-        print(forward, uses)
         
         found = False
         lns = code.splitlines()
@@ -59,6 +65,7 @@ class Optimizer:
         for i, ln in enumerate(lns):
             fi = i + forward
 
+            # setting value to temporary variable
             if Optimizer.REGEXES["TMP_SET"].fullmatch(ln):
                 spl = ln.split(" ", 2)
                 name = spl[1]
@@ -70,6 +77,7 @@ class Optimizer:
                         found = True
                         continue
             
+            # reading from memory cell to temporary variable
             elif Optimizer.REGEXES["TMP_READ"].fullmatch(ln):
                 spl = ln.split(" ", 3)
                 name = spl[1]
@@ -82,6 +90,7 @@ class Optimizer:
                             found = True
                             continue
             
+            # operation to temporary variable
             elif Optimizer.REGEXES["TMP_OP"].fullmatch(ln):
                 spl = ln.split(" ", 4)
                 name = spl[2]
@@ -97,3 +106,10 @@ class Optimizer:
             tmp += ln + "\n"
         
         return tmp.strip(), found
+    
+    def _precalc_optimize(code: str) -> str:
+        """
+        precalculate values where possible
+        """
+
+        

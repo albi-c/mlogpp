@@ -80,9 +80,18 @@ PRECALC = {
     "log10": lambda a, _: math.log10(a),
     "floor": lambda a, _: math.floor(a),
     "ceil": lambda a, _: math.ceil(a),
-    "sqrt": lambda a, _: math.sqrt(a)
+    "sqrt": lambda a, _: math.sqrt(a),
+    "angle": lambda a, b: math.atan2(b, a) * 180 / math.pi,
+    "length": lambda a, b: math.sqrt(a * a + b * b),
+    "noise": lambda a, b: (random.randint(0, 2000) - 1000) / 1000,
+    "rand": lambda a, _: random.randint(0, a),
+    "sin": lambda a, _: math.sin(a),
+    "cos": lambda a, _: math.cos(a),
+    "tan": lambda a, _: math.tan(a),
+    "asin": lambda a, _: math.asin(a),
+    "acos": lambda a, _: math.acos(a),
+    "atan": lambda a, _: math.atan(a)
 
-    # not implemented: angle, length, noise, rand, sin, cos, tan, asin, acos, atan
     # equal and notEqual are not implemented because they use type conversion
 }
 
