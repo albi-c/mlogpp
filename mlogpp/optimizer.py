@@ -15,6 +15,8 @@ class Optimizer:
         "TMP_READ": re.compile(r"^read __tmp\d+ \S+ \S+$"),
         # operation to temporary variable
         "TMP_OP": re.compile(r"^op [a-zA-Z]+ __tmp\d+ \S+ \S+$"),
+        # sensor to temporary variable
+        "TMP_SENS": re.compile(r"^sensor __tmp\d+ \S+ \S+$"),
 
         # assigning from temporary variable
         "TA_SET": re.compile(r"^set [a-zA-Z_@][a-zA-Z_0-9]* __tmp\d+$"),
@@ -104,6 +106,19 @@ class Optimizer:
                         spl_ = lns[fi].split(" ", 2)
                         if name == spl_[2]:
                             lns[fi] = f"op {spl[1]} {spl_[1]} {spl[3]} {spl[4]}"
+                            found = True
+                            continue
+            
+            # sensor to temporary variable
+            elif Optimizer.REGEXES["TMP_SENS"].fullmatch(ln):
+                spl = ln.split(" ", 3)
+                name = spl[1]
+
+                if i < len(lns) - forward:
+                    if uses.get(name, 0) == 2 and Optimizer.REGEXES["TA_SET"].fullmatch(lns[fi]):
+                        spl_ = lns[fi].split(" ", 2)
+                        if name == spl_[2]:
+                            lns[fi] = f"sensor {spl_[1]} {spl[2]} {spl[3]}"
                             found = True
                             continue
             

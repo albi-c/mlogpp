@@ -33,7 +33,7 @@ if (cell1[0] == 1) {
 printflush(message1)
 
 if (switch1.enabled) {
-    player = radar(player, ally, any, distance, hail1, 0)
+    player = radar(player, ally, any, distance, hail1, 1)
 
     if (player.shooting) {
         x = floor(player.shootX + 0.5)
@@ -59,11 +59,11 @@ if (switch1.enabled) {
         }
     }
 
-    end()
+    endr
 }
 
 if (cell1[0] == 0) {
-    end()
+    endr
 }
 
 ubind(UNIT)
@@ -72,8 +72,7 @@ if (@unit.flag == DEPOSIT_FLAG) {
         ulocate(building, core, false, _, cx, cy, cf, core)
         if (cf) {
             ucontrol.approach(cx, cy, 4)
-            drop = ucontrol.within(cx, cy, 6)
-            if (drop) {
+            if (ucontrol.within(cx, cy, 6)) {
                 ucontrol.itemDrop(core, @unit.itemCapacity)
                 ucontrol.flag(0)
                 ucontrol.approach(x, y, 4)
@@ -83,8 +82,7 @@ if (@unit.flag == DEPOSIT_FLAG) {
         vx = VAULT.x
         vy = VAULT.y
         ucontrol.approach(vx, vy, 4)
-        drop = ucontrol.within(vx, vy, 6)
-        if (drop) {
+        if (ucontrol.within(vx, vy, 6)) {
             ucontrol.itemDrop(VAULT, @unit.itemCapacity)
             ucontrol.flag(0)
             ucontrol.approach(x, y, 4)

@@ -142,7 +142,7 @@ class CallNode(Node):
         self.func = func
         self.args = args
 
-        self._ret_var = None
+        self._ret_var = "_"
 
     def get_pos(self) -> Position:
         if len(self.args) > 0:
@@ -181,29 +181,27 @@ class CallNode(Node):
             spl = self.func.split(".")
 
             nargs = functions.native_sub[spl[0]][spl[1]]
+            retvar = "_"
             if self.func in functions.native_sub_ret:
-                nargs -= len(functions.native_sub_ret[self.func])
-            sr = functions.native_sub_ret.get(self.func, tuple())
+                nargs -= 1
+                retvar = Gen.temp_var()
+            self._ret_var = retvar
             
             if len(self.args) != nargs:
                 gen_error(self.get_pos(), f"Invalid number of arguments to function \"{self.func}\" (expected {nargs}, got {len(self.args)})")
             
-            code1 = ""
-            code2 = ""
+            code = ""
             args = []
-            for i, a in enumerate(self.args):
-                if i in sr:
-                    ac, av = a.set()
-                    code2 += f"\n{ac}"
-                    args.append(av)
-
-                else:
-                    ac, av = a.get()
-                    code1 += f"{ac}\n"
-                    args.append(av)
+            for a in self.args:
+                ac, av = a.get()
+                code += f"{ac}\n"
+                args.append(av)
             
-            code1 += f"{spl[0]} {spl[1]} {' '.join(map(str, args))}" + code2
-            return code1
+            if retvar != "_":
+                args.insert(functions.native_sub_ret[self.func], retvar)
+            
+            code += f"{spl[0]} {spl[1]} {' '.join(map(str, args))}"
+            return code
         
         elif self.func in functions.builtin:
             if len(self.args) != functions.builtin_params.get(self.func, functions.builtin_params_default):
@@ -440,7 +438,7 @@ class ValueNode(Node):
     def get(self):
         if Gen.REGEXES["ATTR"].fullmatch(self.value):
             tmpv = Gen.temp_var()
-            return f"sensor {tmpv} {self.value.replace('.', ' ')}", tmpv
+            return f"sensor {tmpv} {self.value.replace('.', ' @')}", tmpv
 
         return "", Var(self.value, False)
     
@@ -573,3 +571,18 @@ class FunctionNode(Node):
     
     def drename(self, vars):
         return self
+
+class EndNode(Node):
+    def __init__(self, pos: Position, reset: bool):
+        super().__init__(pos)
+
+        self.reset = reset
+    
+    def get_pos(self) -> Position:
+        return self.pos
+
+    def generate(self):
+        if self.reset:
+            return "end"
+
+        return "jump 0 always _ _"

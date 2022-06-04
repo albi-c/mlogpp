@@ -81,18 +81,13 @@ for k, v in native_sub.items():
 
 # native subcommands return positions
 native_sub_ret = {
-    "ucontrol.getBlock": (2,),
-    "ucontrol.within": (3,),
+    "ucontrol.getBlock": 2,
+    "ucontrol.within": 3,
 
-    "lookup.block": (0,),
-    "lookup.unit": (0,),
-    "lookup.item": (0,),
-    "lookup.liquid": (0,),
-
-    "ulocate.ore": (3, 4, 5, 6),
-    "ulocate.building": (3, 4, 5, 6),
-    "ulocate.spawn": (3, 4, 5, 6),
-    "ulocate.damaged": (3, 4, 5, 6)
+    "lookup.block": 0,
+    "lookup.unit": 0,
+    "lookup.item": 0,
+    "lookup.liquid": 0
 }
 
 # builtin operators

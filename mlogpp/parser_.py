@@ -190,6 +190,16 @@ class Parser:
 
                 return LoopActionNode(tok.pos, self.loop_stack[-1], tok.value)
             
+            elif tok.value == "end":
+                # end statement
+
+                return EndNode(tok.pos, False)
+            
+            elif tok.value == "endr":
+                # end reset statement
+
+                return EndNode(tok.pos, True)
+            
             elif tok.value == "extern":
                 # extern function/variable
 

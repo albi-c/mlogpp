@@ -49,4 +49,14 @@ class Linker:
             
             code += ln + "\n"
         
-        return code.strip()
+        lns = code.splitlines()
+        nlns = len(lns)
+        for i, ln in enumerate(lns):
+            # is a jump
+            if ln.startswith("jump "):
+                spl = ln.split(" ", 2)
+                if int(spl[1]) >= nlns:
+                    spl[1] = "0"
+                lns[i] = " ".join(spl)
+        
+        return "\n".join(lns)
