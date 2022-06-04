@@ -32,18 +32,15 @@ class Linker:
             # is a jump
             if ln.startswith(">"):
                 # jump data
-                jd = ln[1:].split(" ", 1)
+                jd = ln[1:].split(" ")
 
                 if len(jd) == 1:
                     # always jump
                     code += f"jump {labels[jd[0]]} always _ _\n"
 
-                elif len(jd) == 2:
+                elif len(jd) == 4:
                     # conditional jump
-                    if jd[1].startswith("!"):
-                        code += f"jump {labels[jd[0]]} notEqual {jd[1][1:]} true\n"
-                    else:
-                        code += f"jump {labels[jd[0]]} notEqual {jd[1][1:]} false\n"
+                    code += f"jump {labels[jd[0]]} {jd[2]} {jd[1]} {jd[3]}\n"
                 
                 continue
             

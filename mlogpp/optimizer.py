@@ -22,7 +22,10 @@ class Optimizer:
         "TA_SET": re.compile(r"^set [a-zA-Z_@][a-zA-Z_0-9]* __tmp\d+$"),
 
         # precalculatable operation
-        "PC_OP": re.compile(r"op [a-zA-Z]+ \S+ \d+(\.\d+)? \d+(\.\d+)?")
+        "PC_OP": re.compile(r"^op [a-zA-Z]+ \S+ \d+(\.\d+)? \d+(\.\d+)?$"),
+
+        # if/while jump
+        "IW_JMP": re.compile(r"^>__tmp\d+ !__tmp\d+$")
     }
 
     def optimize(code: str) -> str:

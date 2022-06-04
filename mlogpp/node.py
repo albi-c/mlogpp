@@ -495,11 +495,11 @@ class IfNode(Node):
         if elseCode:
             ecl = Gen.temp_lab()
             el = Gen.temp_lab()
-            return f"{condc}\n>{ecl} !{condv}\n{code}\n>{el}\n<{ecl}\n{elseCode}\n<{el}"
+            return f"{condc}\n>{ecl} {condv} notEqual true\n{code}\n>{el}\n<{ecl}\n{elseCode}\n<{el}"
         
         else:
             el = Gen.temp_lab()
-            return f"{condc}\n>{el} !{condv}\n{code}\n<{el}"
+            return f"{condc}\n>{el} {condv} notEqual true\n{code}\n<{el}"
     
     def drename(self, vars):
         return IfNode(self.pos, self.cond.drename(vars), self.code.drename(vars), self.elseCode.drename(vars))
@@ -519,7 +519,7 @@ class WhileNode(Node):
         condc, condv = self.cond.get()
         code = self.code.generate().strip()
 
-        return f"<{self.name}_s\n{condc}\n>{self.name}_e !{condv}\n{code}\n>{self.name}_s\n<{self.name}_e"
+        return f"<{self.name}_s\n{condc}\n>{self.name}_e {condv} notEqual true\n{code}\n>{self.name}_s\n<{self.name}_e"
     
     def drename(self, vars):
         return WhileNode(self.pos, self.name, self.cond.drename(vars), self.code.drename(vars))
@@ -543,7 +543,7 @@ class ForNode(Node):
         action = self.action.generate()
         code = self.code.generate().strip()
 
-        return f"{init}\n<{self.name}_s\n{condc}\n>{self.name}_e !{condv}\n{code}\n{action}\n>{self.name}_s\n<{self.name}_e"
+        return f"{init}\n<{self.name}_s\n{condc}\n>{self.name}_e {condv} notEqual true\n{code}\n{action}\n>{self.name}_s\n<{self.name}_e"
     
     def drename(self, vars):
         return ForNode(self.pos, self.name, self.init.drename(vars), self.cond.drename(vars), self.action.drename(vars), self.code.drename(vars))

@@ -169,3 +169,13 @@ PRECALC = {
     # noise and rand not implemented
     # equal and notEqual are not implemented because they use type conversion
 }
+
+# jump conditions for replacement optimization
+JUMP_CONDITIONS_REPLACE = {
+    "equal": "!=",
+    "notEqual": "==",
+    "greaterThan": "<=",
+    "lessThan": ">=",
+    "greaterThanEq": "<",
+    "lessThanEq": ">"
+}
