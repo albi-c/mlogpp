@@ -6,34 +6,34 @@ REGEN_NEHEALTH = 0.8
 REGEN_FLAG = 73584
 
 ubind(UNIT)
-uradar(player, ally, any, distance, 0, 1, player)
+player = uradar(player, ally, any, distance, 0, 1)
 
-sensor(flag, @unit, @flag)
-sensor(health, @unit, @health)
-sensor(maxHealth, @unit, @maxHealth)
+flag = @unit.flag
+health = @unit.health
+maxHealth = @unit.maxHealth
 
 if ((flag === REGEN_FLAG) && (health === maxHealth)) {
-    ucontrol(flag, 0)
+    ucontrol.flag(0)
 } else {
     if ((health < maxHealth * REGEN_HEALTH) || flag === REGEN_FLAG) {
         ulocate(building, repair, false, _, x, y, found, building)
         if (found) {
-            ucontrol(flag, REGEN_FLAG)
-            ucontrol(approach, x, y, 2)
+            ucontrol.flag(REGEN_FLAG)
+            ucontrol.approach(x, y, 2)
         } else {
-            ucontrol(approach, @thisx, @thisy, DISTANCE)
+            ucontrol.approach(@thisx, @thisy, DISTANCE)
         }
-        end()
+        end
     }
 }
 
 if (player === null) {
-    ucontrol(approach, @thisx, @thisy, DISTANCE)
-    end()
+    ucontrol.approach(@thisx, @thisy, DISTANCE)
+    end
 }
 
-ucontrol(approach, player.x, player.y, DISTANCE)
-ucontrol(boost, player.boosting)
+ucontrol.approach(player.x, player.y, DISTANCE)
+ucontrol.boost(player.boosting)
 
 if (player.shooting) {
     dx = player.shootX - @unit.x
@@ -43,24 +43,24 @@ if (player.shooting) {
     sx = @unit.x + dx * scale
     sy = @unit.y + dy * scale
 
-    ucontrol(target, sx, sy, true)
+    ucontrol.target(sx, sy, true)
 } else {
-    uradar(enemy, any, any, distance, 0, 1, enemy)
+    enemy = uradar(enemy, any, any, distance, 0, 1)
 
     if (enemy === null) {
         if (health < maxHealth * REGEN_NEHEALTH) {
             ulocate(building, repair, false, _, x, y, found, building)
             if (found) {
-                ucontrol(flag, REGEN_FLAG)
-                ucontrol(approach, x, y, 2)
+                ucontrol.flag(REGEN_FLAG)
+                ucontrol.approach(x, y, 2)
             } else {
-                ucontrol(approach, @thisx, @thisy, DISTANCE)
+                ucontrol.approach(@thisx, @thisy, DISTANCE)
             }
         }
 
-        ucontrol(target, 0, 0, 0)
-        end()
+        ucontrol.target(0, 0, 0)
+        end
     }
 
-    ucontrol(targetp, enemy, 1)
+    ucontrol.targetp(enemy, 1)
 }

@@ -1,20 +1,15 @@
 MIN_CRYOFLUID = 10
 
 for (i = 0; i < @links; i += 1) {
-    getlink(reactor, i)
+    reactor = getlink(i)
 
-    cryo = reactor.cryofluid
+    # cryo = reactor.cryofluid
 
-    print(reactor)
-    print(": ")
-    print(cryo)
-    print("\n")
+    # if (cryo < MIN_CRYOFLUID) {
+    #     reactor.enabled = false
+    # } else {
+    #     reactor.enabled = true
+    # }
 
-    if (cryo < MIN_CRYOFLUID) {
-        reactor.enabled = false
-    } else {
-        reactor.enabled = true
-    }
+    reactor.enabled = reactor.cryofluid > MIN_CRYOFLUID
 }
-
-printflush(message1)

@@ -1,4 +1,4 @@
-const PM = 44
+const PM = 22
 const DS = 176
 dsize = DS / PM
 

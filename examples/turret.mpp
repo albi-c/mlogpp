@@ -1,7 +1,7 @@
 for (i = 0; i < @links; i += 1) {
-    getlink(turret, i)
+    turret = getlink(i)
 
-    radar(enemy, any, any, distance, turret, 1, enemy)
+    enemy = radar(enemy, any, any, distance, turret, 1)
 
     if (enemy === null) {
         control(shoot, turret, enemy, false)

@@ -1,5 +1,5 @@
 ########################
-# Mining script v1.1   #
+# Mining script v1.2   #
 #                      #
 # Connect:             #
 # - hail [hail1]       #
@@ -47,7 +47,6 @@ if (switch1.enabled) {
 
         ubind(UNIT)
         first = @unit
-        ucontrol.flag(DEPOSIT_FLAG)
         while (true) {
             if (@unit.totalItems > 0) {
                 ucontrol.flag(DEPOSIT_FLAG)

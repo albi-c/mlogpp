@@ -11,7 +11,7 @@ native = {
     "set": 2, "op": 4,
     "wait": 1,
     "end": 0, "jump": 4,
-    "ubind": 1, "uradar": 6, "ulocate": 8
+    "ubind": 1, "uradar": 7, "ulocate": 8
 }
 
 # return positions for native functions
@@ -102,7 +102,8 @@ builtin = [
     "sqrt",
     "sin", "cos", "tan",
     "asin", "acos", "atan",
-    "len"
+    "len",
+    "rand"
 ]
 
 # number of parameters to builtin operators
@@ -172,10 +173,10 @@ PRECALC = {
 
 # jump conditions for replacement optimization
 JUMP_CONDITIONS_REPLACE = {
-    "equal": "!=",
-    "notEqual": "==",
-    "greaterThan": "<=",
-    "lessThan": ">=",
-    "greaterThanEq": "<",
-    "lessThanEq": ">"
+    "equal": "notEqual",
+    "notEqual": "equal",
+    "greaterThan": "lessThanEq",
+    "lessThan": "greaterThanEq",
+    "greaterThanEq": "lessThan",
+    "lessThanEq": "greaterThan"
 }
