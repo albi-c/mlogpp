@@ -17,6 +17,10 @@ class Optimizer:
         "TMP_OP": re.compile(r"^op [a-zA-Z]+ __tmp\d+ \S+ \S+$"),
         # sensor to temporary variable
         "TMP_SENS": re.compile(r"^sensor __tmp\d+ \S+ \S+$"),
+        # getlink to temporary variable
+        "TMP_GETL": re.compile(r"^getlink __tmp\d+ \S+$"),
+        # radar/uradar to temporary variable
+        "TMP_RAD": re.compile(r"^u?radar \S+ \S+ \S+ \S+ \S+ \S+ __tmp\d+$"),
 
         # assigning from temporary variable
         "TA_SET": re.compile(r"^set [a-zA-Z_@][a-zA-Z_0-9]* __tmp\d+$"),
@@ -119,6 +123,32 @@ class Optimizer:
                         spl_ = lns[fi].split(" ", 2)
                         if name == spl_[2]:
                             lns[fi] = f"sensor {spl_[1]} {spl[2]} {spl[3]}"
+                            found = True
+                            continue
+            
+            # getlink to temporary variable
+            elif Optimizer.REGEXES["TMP_GETL"].fullmatch(ln):
+                spl = ln.split(" ", 2)
+                name = spl[1]
+
+                if i < len(lns) - forward:
+                    if uses.get(name, 0) == 2 and Optimizer.REGEXES["TA_SET"].fullmatch(lns[fi]):
+                        spl_ = lns[fi].split(" ", 2)
+                        if name == spl_[2]:
+                            lns[fi] = f"getlink {spl_[1]} {spl[2]}"
+                            found = True
+                            continue
+            
+            # radar to temporary variable
+            elif Optimizer.REGEXES["TMP_RAD"].fullmatch(ln):
+                spl = ln.split(" ", 7)
+                name = spl[7]
+
+                if i < len(lns) - forward:
+                    if uses.get(name, 0) == 2 and Optimizer.REGEXES["TA_SET"].fullmatch(lns[fi]):
+                        spl_ = lns[fi].split(" ", 2)
+                        if name == spl_[2]:
+                            lns[fi] = f"{' '.join(spl[:-1])} {spl_[1]}"
                             found = True
                             continue
             
