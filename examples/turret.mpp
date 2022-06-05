@@ -4,9 +4,9 @@ for (i = 0; i < @links; i += 1) {
     enemy = radar(enemy, any, any, distance, turret, 1)
 
     if (enemy === null) {
-        control(shoot, turret, enemy, false)
+        control.shoot(turret, 0, 0, false)
         continue
     }
 
-    control(shootp, turret, enemy, true)
+    control.shootp(turret, enemy, true)
 }
