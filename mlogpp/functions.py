@@ -1,37 +1,27 @@
-def gen_signature(name: str, params: list):
-    """
-    generate a function signature
-    """
-    return f"{name}:{len(params)}"
+import math
 
 # native functions
-native = [
-    "read", "write",
-    "draw", "drawflush",
-    "print", "printflush",
-    "getlink",
-    "control",
-    "radar",
-    "sensor",
-    "set", "op",
-    "wait", "lookup",
-    "end", "jump",
-    "ubind", "ucontrol", "uradar", "ulocate"
-]
-
-# number of parameters to native functions
-native_params = {
+native = {
     "read": 3, "write": 3,
-    "draw": 7, "drawflush": 1,
+    "drawflush": 1,
     "print": 1, "printflush": 1,
     "getlink": 2,
-    "control": 6,
-    "radar": 6,
+    "radar": 7,
     "sensor": 3,
     "set": 2, "op": 4,
-    "wait": 1, "lookup": 3,
+    "wait": 1,
     "end": 0, "jump": 4,
-    "ubind": 1, "ucontrol":6, "uradar": 6, "ulocate": 8
+    "ubind": 1, "uradar": 7, "ulocate": 8
+}
+
+# return positions for native functions
+native_ret = {
+    "read": 0,
+    "getlink": 0,
+    "radar": 6,
+    "sensor": 0,
+    "uradar": 6,
+    "op": 1
 }
 
 # native subcommands
@@ -83,6 +73,23 @@ native_sub = {
     }
 }
 
+# generate list of native subcommand combinations
+native_sublist = []
+for k, v in native_sub.items():
+    for s in v.keys():
+        native_sublist.append(f"{k}.{s}")
+
+# native subcommands return positions
+native_sub_ret = {
+    "ucontrol.getBlock": 2,
+    "ucontrol.within": 3,
+
+    "lookup.block": 0,
+    "lookup.unit": 0,
+    "lookup.item": 0,
+    "lookup.liquid": 0
+}
+
 # builtin operators
 builtin = [
     "mod",
@@ -95,7 +102,8 @@ builtin = [
     "sqrt",
     "sin", "cos", "tan",
     "asin", "acos", "atan",
-    "len"
+    "len",
+    "rand"
 ]
 
 # number of parameters to builtin operators
@@ -111,8 +119,64 @@ builtin_params = {
     "len": 2
 }
 
+# special keywords with parentheses
+keywords_paren = ["if", "while", "for", "function", "repeat"]
+
 # special keywords
 keywords = ["if", "else", "while", "for", "function", "repeat"]
 
 # special identifiers
-special = native + builtin + keywords
+special = list(native.keys()) + builtin + keywords
+
+# precalculation functions
+PRECALC = {
+    "add": lambda a, b: a + b,
+    "sub": lambda a, b: a - b,
+    "mul": lambda a, b: a * b,
+    "div": lambda a, b: a / b,
+    "idiv": lambda a, b: a // b,
+    "mod": lambda a, b: a % b,
+    "pow": lambda a, b: a ** b,
+    "not": lambda a, _: not a,
+    "land": lambda a, b: a and b,
+    "lessThan": lambda a, b: a < b,
+    "lessThanEq": lambda a, b: a <= b,
+    "greaterThan": lambda a, b: a > b,
+    "greaterThanEq": lambda a, b: a >= b,
+    "strictEqual": lambda a, b: a == b,
+    "shl": lambda a, b: a << b,
+    "shr": lambda a, b: a >> b,
+    "or": lambda a, b: a | b,
+    "and": lambda a, b: a & b,
+    "xor": lambda a, b: a ^ b,
+    "flip": lambda a, _: ~a,
+    "max": lambda a, b: max(a, b),
+    "min": lambda a, b: min(a, b),
+    "abs": lambda a, _: abs(a),
+    "log": lambda a, _: math.log(a),
+    "log10": lambda a, _: math.log10(a),
+    "floor": lambda a, _: math.floor(a),
+    "ceil": lambda a, _: math.ceil(a),
+    "sqrt": lambda a, _: math.sqrt(a),
+    "angle": lambda a, b: math.atan2(b, a) * 180 / math.pi,
+    "length": lambda a, b: math.sqrt(a * a + b * b),
+    "sin": lambda a, _: math.sin(math.radians(a)),
+    "cos": lambda a, _: math.cos(math.radians(a)),
+    "tan": lambda a, _: math.tan(math.radians(a)),
+    "asin": lambda a, _: math.degrees(math.asin(a)),
+    "acos": lambda a, _: math.degrees(math.acos(a)),
+    "atan": lambda a, _: math.degrees(math.atan(a))
+
+    # noise and rand not implemented
+    # equal and notEqual are not implemented because they use type conversion
+}
+
+# jump conditions for replacement optimization
+JUMP_CONDITIONS_REPLACE = {
+    "equal": "notEqual",
+    "notEqual": "equal",
+    "greaterThan": "lessThanEq",
+    "lessThan": "greaterThanEq",
+    "greaterThanEq": "lessThan",
+    "lessThanEq": "greaterThan"
+}

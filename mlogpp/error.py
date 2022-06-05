@@ -1,41 +1,56 @@
 import sys, inspect
 
-from .lexer import Token, Position
-from . import arrows
 from .formatting import Format
+from .util import Position
 
-# debug flags
-PARSE_ERROR_DEBUG = False
-LINK_ERROR_DEBUG  = False
+class MlogError(Exception):
+    def __init__(self, msg: str, pos: Position = None):
+        self.message = f"{msg}: {pos}"
 
-def parse_error(tok: Token, msg: str) -> None:
+        self.msg = msg
+        self.pos = pos
+    
+    def print(self):
+        if self.pos is not None:
+            print(f"{Format.ERROR}{Format.BOLD}Error{Format.RESET}{Format.ERROR} on line {self.pos.line}, column {self.pos.start}: {self.msg}{Format.RESET}")
+            print(f"Here:\n{self.pos.code}\n{self.pos.arrows()}")
+        else:
+            print(f"{Format.ERROR}{Format.BOLD}Error{Format.RESET}{Format.ERROR}: {self.msg}{Format.RESET}")
+
+def lex_error(msg: str, pos: Position = None) -> None:
+    """
+    raise lexer error
+    """
+
+    raise MlogError(msg, pos)
+
+def parse_error(pos: Position, msg: str) -> None:
     """
     raise parser error
     """
 
-    # debug
-    if PARSE_ERROR_DEBUG:
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
-        print(f"In method: {calframe[1][3]}, line: {calframe[1][2]}\n")
-
-    print(f"{Format.ERROR}Parser error on line {tok.line}, column {tok.col}: {msg}{Format.RESET}\n")
-    print(f"Here:\n{tok.sanitize_cline()}\n{arrows.generate(tok.col, len(tok.value))}")
-
-    sys.exit(1)
+    if msg == "Unexpected token":
+        raise MlogError(f"{msg} [\"{pos.code_section()}\"]", pos)
+    else:
+        raise MlogError(msg, pos)
 
 def link_error(pos: Position, msg: str) -> None:
     """
     raise linker error
     """
 
-    # debug
-    if LINK_ERROR_DEBUG:
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
-        print(f"In method: {calframe[1][3]}, line: {calframe[1][2]}\n")
-    
-    print(f"{Format.ERROR}Linker error on line {pos.line}, column {pos.column}: {msg}{Format.RESET}\n")
-    print(f"Here:\n{Token._sanitize(pos.cline)}\n{arrows.generate(pos.column, pos.len)}")
+    raise MlogError(msg, pos)
 
-    sys.exit(1)
+def gen_error(pos: Position, msg: str) -> None:
+    """
+    raise generator error
+    """
+
+    raise MlogError(msg, pos)
+
+def error(msg: str) -> None:
+    """
+    raise error
+    """
+
+    raise MlogError(msg)

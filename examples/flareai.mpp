@@ -1,0 +1,49 @@
+DISTANCE = 8
+UNIT = @flare
+RANGE = 13
+REGEN_HEALTH = 0.5
+REGEN_NEHEALTH = 0.8
+REGEN_FLAG = 73584
+
+function go_heal() {
+    ulocate(building, repair, false, _, x, y, found, building)
+    if (found) {
+        ucontrol.flag(REGEN_FLAG)
+        ucontrol.approach(x, y, 2)
+    } else {
+        ucontrol.approach(@thisx, @thisy, DISTANCE)
+    }
+}
+
+ubind(UNIT)
+enemy = uradar(enemy, any, any, distance, 0, 1)
+
+flag = @unit.flag
+health = @unit.health
+maxHealth = @unit.maxHealth
+
+if ((flag === REGEN_FLAG) && (health === maxHealth)) {
+    ucontrol.flag(0)
+    ucontrol.approach(@thisx, @thisy, DISTANCE)
+} else {
+    if ((health < maxHealth * REGEN_HEALTH) || flag === REGEN_FLAG) {
+        go_heal()
+        end
+    }
+}
+
+if (enemy === null) {
+    ucontrol.target(0, 0, 0)
+    if (health < maxHealth * REGEN_NEHEALTH) {
+        go_heal()
+    } else {
+        ucontrol.approach(@thisx, @thisy, DISTANCE)
+    }
+    end
+}
+
+r = rand(360)
+x = cos(r) * DISTANCE + enemy.x
+y = sin(r) * DISTANCE + enemy.y
+ucontrol.move(x, y)
+ucontrol.targetp(enemy, 1)

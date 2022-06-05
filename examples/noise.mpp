@@ -8,11 +8,11 @@ for (rseed = 0; rseed >= 0; rseed += 1) {
 
     for (y = 0; y < dsize; y += 1) {
         for (x = 0; x < dsize; x += 1) {
-            op(noise, val, x + rseed, y + rseed)
-            op(abs, val, val)
+            val = op(noise, x + rseed, y + rseed)
+            val = op(abs, val, _)
             val *= 255
-            draw(color, val, val, val, 255)
-            draw(rect, x * PM, y * PM, PM, PM)
+            draw.color(val, val, val, 255)
+            draw.rect(x * PM, y * PM, PM, PM)
         }
     }
     drawflush(display1)

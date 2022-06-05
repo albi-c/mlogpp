@@ -1,821 +1,488 @@
 from .lexer import TokenType, Token, Position
-from .error import parse_error
+from .error import MlogError, parse_error
+from .node import *
 from . import functions
 
-class Node:
-    """
-    base node class
-    """
-
-class AST(Node):
-    """
-    root node for the AST
-    """
-
-    def __init__(self, code: list):
-        self.code = code
-    
-    def rrename(self, vars_: dict):
-        return AST([n.rrename(vars_) for n in self.code])
-
-class CodeNode(Node):
-    """
-    node with a list of nodes
-    """
-
-    def __init__(self, pos: Position, code: list):
-        self.pos = pos
-        self.code = code
-    
-    def rrename(self, vars_: dict) -> Node:
-        return CodeNode(self.pos, [n.rrename(vars_) for n in self.code])
-
-class ValueNode(Node):
-    """
-    node with a value
-    """
-
-    def __init__(self, pos: Position, value: str):
-        self.pos = pos
-        self.value = value
-    
-    def rrename(self, vars_: dict) -> Node:
-        if "." in self.value:
-            spl = self.value.split(".")
-            if len(spl) == 2:
-                return ValueNode(self.pos, vars_.get(spl[0], spl[0]) + "." + spl[1])
-        
-        return ValueNode(self.pos, vars_.get(self.value, self.value))
-
-class IndexNode(Node):
-    """
-    indexed reading node
-    """
-
-    def __init__(self, pos: Position, var: str, index: Node):
-        self.pos = pos
-        self.var = var
-        self.index = index
-    
-    def rrename(self, vars_: dict) -> Node:
-        return IndexNode(self.pos, vars_.get(self.var, self.var), self.index.rrename(vars_))
-
-class IndexAssignNode(Node):
-    """
-    indexed writing node
-    """
-
-    def __init__(self, pos: Position, var: str, index: Node, atype: str, val: Node):
-        self.pos = pos
-        self.var = var
-        self.index = index
-        self.atype = atype
-        self.val = val
-    
-    def rrename(self, vars_: dict) -> Node:
-        return IndexNode(self.pos, vars_.get(self.var, self.var), self.index.rrename(vars_), self.atype, self.val.rrename(vars_))
-
-class AtomNode(Node):
-    """
-    atomic value node
-    """
-
-    def __init__(self, pos: Position, value):
-        self.pos = pos
-        self.value = value
-    
-    def rrename(self, vars_: dict) -> Node:
-        return self.value.rrename(vars_)
-
-class AssignmentNode(Node):
-    """
-    node with an assignment
-    """
-
-    def __init__(self, pos: Position, left: str, atype: str, right: Node):
-        self.pos = pos
-        self.left = left
-        self.atype = atype
-        self.right = right
-    
-    def rrename(self, vars_: dict) -> Node:
-        return AssignmentNode(self.pos, vars_.get(self.left, self.left), self.atype, self.right.rrename(vars_))
-
-class ExpressionNode(Node):
-    """
-    node with an expression
-    """
-
-    def __init__(self, pos: Position, left, right = None):
-        self.pos = pos
-        self.left = left
-        self.right = right
-    
-    def rrename(self, vars_: dict) -> Node:
-        return ExpressionNode(self.pos, self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
-
-class CompExpressionNode(Node):
-    """
-    node with a comp expression
-    """
-
-    def __init__(self, pos: Position, left, right = None):
-        self.pos = pos
-        self.left = left
-        self.right = right
-    
-    def rrename(self, vars_: dict) -> Node:
-        return CompExpressionNode(self.pos, self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
-
-class ArithExpNode(Node):
-    """
-    node with an arithmetic expression
-    """
-
-    def __init__(self, pos: Position, left, right = None):
-        self.pos = pos
-        self.left = left
-        self.right = right
-    
-    def rrename(self, vars_: dict) -> Node:
-        return ArithExpNode(self.pos, self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
-
-class TermNode(Node):
-    """
-    node with a term
-    """
-
-    def __init__(self, pos: Position, left, right = None):
-        self.pos = pos
-        self.left = left
-        self.right = right
-    
-    def rrename(self, vars_: dict) -> Node:
-        return TermNode(self.pos, self.left.rrename(vars_), [[n[0], n[1].rrename(vars_)] for n in self.right] if self.right is not None else None)
-
-class FactorNode(Node):
-    """
-    node with a factor
-    """
-
-    def __init__(self, pos: Position, left, sign: bool, not_: bool):
-        self.pos = pos
-        self.left = left
-        self.sign = sign
-        self.not_ = not_
-    
-    def rrename(self, vars_: dict) -> Node:
-        return FactorNode(self.pos, self.left.rrename(vars_), self.sign, self.not_)
-
-class CallNode(Node):
-    """
-    call node
-    """
-
-    def __init__(self, pos: Position, function, is_call: bool, params: list = []):
-        self.pos = pos
-        self.function = function
-        self.is_call = is_call
-        self.params = params
-    
-    def rrename(self, vars_: dict) -> Node:
-        return CallNode(self.pos, self.function if type(self.function) == str else self.function.rrename(vars_), self.is_call, [n.rrename(vars_) for n in self.params])
-
-class SubCallNode(Node):
-    """
-    subcommand call node
-    """
-
-    def __init__(self, pos: Position, function: str, params: list = []):
-        self.pos = pos
-        self.function = function
-        self.params = params
-    
-    def rrename(self, vars_: dict) -> Node:
-        return SubCallNode(self.pos, self.function, [n.rrename(vars_) for n in self.params])
-
-
-class KeywordNode(Node):
-    """
-    base keyword node
-    """
-
-    def __init__(self):
-        pass
-
-class IfNode(KeywordNode):
-    """
-    if expression node
-    """
-
-    def __init__(self, pos: Position, condition: ExpressionNode, code: list, elsecode: list = None):
-        self.pos = pos
-        self.condition = condition
-        self.code = code
-        self.elsecode = elsecode if elsecode is not None else []
-    
-    def rrename(self, vars_: dict) -> Node:
-        return IfNode(self.pos, self.condition.rrename(vars_), [n.rrename(vars_) for n in self.code], [n.rrename(vars_) for n in self.elsecode])
-
-class WhileNode(KeywordNode):
-    """
-    while expression node
-    """
-    
-    def __init__(self, pos: Position, condition: ExpressionNode, code: list):
-        self.pos = pos
-        self.condition = condition
-        self.code = code
-    
-    def rrename(self, vars_: dict) -> Node:
-        return WhileNode(self.pos, self.condition.rrename(vars_), [n.rrename(vars_) for n in self.code])
-
-class ForNode(KeywordNode):
-    """
-    for expression node
-    """
-    
-    def __init__(self, pos: Position, init: Node, condition: ExpressionNode, action: Node, code: list):
-        self.pos = pos
-        self.init = init
-        self.condition = condition
-        self.action = action
-        self.code = code
-    
-    def rrename(self, vars_: dict) -> Node:
-        return ForNode(self.pos, self.init.rrename(vars_), self.condition.rrename(vars_), self.action.rrename(vars_), [n.rrename(vars_) for n in self.code])
-
-class FunctionNode(KeywordNode):
-    """
-    function expression node
-    """
-    
-    def __init__(self, pos: Position, name: str, args: list, code: list):
-        self.pos = pos
-        self.name = name
-        self.args = args
-        self.code = code
-    
-    def rrename(self, vars_: dict) -> Node:
-        return FunctionNode(self.pos, self.name, self.args, [n.rrename(vars_) for n in self.code])
-
-class RepeatNode(KeywordNode):
-    """
-    repeat expression node
-    """
-    
-    def __init__(self, pos: Position, amount: int, code: list):
-        self.pos = pos
-        self.amount = amount
-        self.code = code
-    
-    def rrename(self, vars_: dict) -> Node:
-        return RepeatNode(self.pos, self.amount, [n.rrename(vars_) for n in self.code])
-
-class NativeNode(KeywordNode):
-    """
-    native expression node
-    """
-    
-    def __init__(self, pos: Position, code: str):
-        self.pos = pos
-        self.code = code
-    
-    def rrename(self, vars_: dict) -> Node:
-        return NativeNode(self.pos, self.code)
-
-class ReturnNode(KeywordNode):
-    """
-    return statement node
-    """
-    
-    def __init__(self, pos: Position, value):
-        self.pos = pos
-        self.value = value
-    
-    def rrename(self, vars_: dict) -> Node:
-        return ReturnNode(self.pos, self.value.rrename(vars_))
-
-class LoopActionNode(KeywordNode):
-    """
-    break/continue statement node
-    """
-    
-    def __init__(self, pos: Position, action: str):
-        self.pos = pos
-        self.action = action
-    
-    def rrename(self, vars_: dict) -> Node:
-        return LoopActionNode(self.pos, self.action)
-
-class ExternNode(KeywordNode):
-    """
-    extern function expression node
-    """
-
-    def __init__(self, pos: Position, name: str):
-        self.pos = pos
-        self.name = name
-    
-    def rrename(self, vars_: dict) -> Node:
-        return ExternNode(self.pos, self.name)
+from inspect import getframeinfo, stack
 
 class Parser:
     """
-    parses tokenized code
+    parses token list
     """
 
-    def parse(self, tokens: list) -> CodeNode:
+    def parse(self, tokens: list):
         """
-        parse tokenized code
+        parse token list
         """
 
-        # list of tokens
         self.tokens = tokens
-        # current token pointer
+        # current token position
         self.pos = -1
 
-        # list of generated nodes
+        # function definition stack for `return`
+        self.func_stack = []
+        # loop stack for `break/continue`
+        self.loop_stack = []
+        # loop count for loop names
+        self.loop_count = 0
+
+        # create list of generated nodes
         nodes = []
         while self.has_token():
-            nodes.append(self.parse_AnyNode())
-
-        return AST(nodes)
+            nodes.append(self.parse_Node())
+        
+        return CodeListNode(Position(0, 0, 0, ""), nodes)
     
-    def has_token(self) -> bool:
+    def loop_name(self) -> str:
+        """
+        generate an unique loop name
+        """
+
+        self.loop_count += 1
+        return f"loop{self.loop_count-1}"
+    
+    def has_token(self, n: int = 1) -> bool:
         """
         check if token is available
         """
 
-        return self.pos < len(self.tokens) - 1
+        return self.pos < len(self.tokens) - n
     
-    def curr_token(self) -> Token:
+    def current_token(self) -> Token:
         """
-        return the current token
+        get the current token
         """
 
         return self.tokens[self.pos]
     
-    def next_token(self, ttype=None) -> Token:
+    def next_token(self, type_: TokenType = None) -> Token:
         """
         get the next token
         """
 
-        # check if available
         if self.has_token():
             self.pos += 1
+
+            tok = self.tokens[self.pos]
+
+            # check type
+            if tok.type != type_ and type_ is not None:
+                parse_error(tok.pos, "Unexpected token")
             
-            # type checking
-            if self.tokens[self.pos].type != ttype and ttype is not None:
-                parse_error(self.tokens[self.pos], "Unexpected token")
-
-            return self.tokens[self.pos]
+            return tok
         
-        parse_error(self.tokens[-1], "Unexpected EOF")
+        parse_error(self.tokens[-1].pos, "Unexpected EOF")
     
-    def parse_AnyNode(self, can_be_special=True) -> Node:
+    def lookahead_token(self, type_: TokenType, n: int = 1) -> bool:
+        if self.has_token(n):
+            return self.tokens[self.pos + n].type == type_
+        
+        return False
+
+    def parse_funcArgVars(self) -> list:
         """
-        parses any node
+        parse function argument variables
+        """
+        
+        self.next_token(TokenType.LPAREN)
+
+        args = []
+        last = TokenType.LPAREN
+        while True:
+            tok = self.next_token()
+
+            if tok.type == TokenType.RPAREN:
+                if last == TokenType.COMMA:
+                    parse_error(tok.pos, "Unexpected token")
+                break
+
+            elif tok.type == TokenType.COMMA:
+                if last == TokenType.COMMA:
+                    parse_error(tok.pos, "Unexpected token")
+                last = TokenType.COMMA
+                continue
+            
+            elif tok.type == TokenType.ID:
+                if last == TokenType.ID:
+                    parse_error(tok.pos, "Unexpected token")
+                args.append(tok.value)
+            
+            else:
+                parse_error(tok.pos, "Unexpected token")
+            
+            last = tok.type
+        
+        return args
+    
+    def parse_funcArgVals(self) -> list:
+        """
+        parse function argument values
         """
 
-        id_ = self.next_token()
-        if id_.type == TokenType.ID:
-            # next token is an id
+        self.next_token(TokenType.LPAREN)
 
-            n = self.next_token()
+        args = []
+        last = TokenType.LPAREN
+        while True:
+            tok = self.next_token()
 
-            if id_.value == "return":
+            if tok.type == TokenType.RPAREN:
+                if last == TokenType.COMMA:
+                    parse_error(tok.pos, "Unexpected token")
+                break
+
+            elif tok.type == TokenType.COMMA:
+                if last == TokenType.COMMA:
+                    parse_error(tok.pos, "Unexpected token")
+                last = TokenType.COMMA
+                continue
+            
+            else:
+                if last == TokenType.ID:
+                    parse_error(tok.pos, "Unexpected token")
+                last = TokenType.ID
+                self.pos -= 1
+                args.append(self.parse_Value())
+        
+        return args
+    
+    def parse_codeBlock(self) -> list:
+        """
+        parse a block of code
+        """
+
+        self.next_token(TokenType.LBRACE)
+
+        code = []
+        while self.has_token():
+            if self.lookahead_token(TokenType.RBRACE):
+                break
+
+            code.append(self.parse_Node())
+        
+        self.next_token(TokenType.RBRACE)
+        
+        return code
+    
+    def parse_Node(self) -> Node:
+        """
+        parse any node
+        """
+
+        tok = self.next_token()
+        if tok.type == TokenType.ID:
+            if tok.value == "return":
                 # return statement
 
-                self.pos -= 1
-                return ReturnNode(id_.pos(), self.parse_ExpressionNode())
+                # check if in a function
+                if len(self.func_stack) == 0:
+                    parse_error(tok.pos, "\"return\" has to be used in a function")
 
-            elif id_.value in ["break", "continue"]:
+                value = self.parse_Value()
+                return ReturnNode(tok.pos + value.pos(), self.func_stack[-1], value)
+            
+            elif tok.value in LoopActionNode.ACTIONS:
                 # break/continue statement
 
-                self.pos -= 1
-                return LoopActionNode(id_.pos(), id_.value)
+                # check if in a loop
+                if len(self.loop_stack) == 0:
+                    parse_error(tok.pos, f"\"{tok.value}\" has to be used in a function")
 
-            elif id_.value == "extern":
-                # extern function expression
-
-                if n.type != TokenType.ID:
-                    parse_error(n, "Unexpected token")
-                
-                # read list of parameters
-                n_ = self.next_token()
-                if n_.type == TokenType.LPAREN:
-                    args = []
-                    last = TokenType.LPAREN
-                    n__ = n
-                    while True:
-                        n = self.next_token()
-                        if n.type == TokenType.RPAREN:
-                            if last == TokenType.COMMA:
-                                parse_error(n, "Unexpected token")
-                            break
-
-                        elif n.type == TokenType.COMMA:
-                            if last == TokenType.COMMA:
-                                parse_error(n, "Unexpected token")
-                            pass
-
-                        elif n.type == TokenType.ID:
-                            if last == TokenType.ID:
-                                parse_error(n, "Unexpected token")
-                            args.append(n.value)
-
-                    return ExternNode(id_.pos(), functions.gen_signature(n__.value, args))
-                
-                self.pos -= 1
-                return ExternNode(id_.pos(), n.value)
+                return LoopActionNode(tok.pos, self.loop_stack[-1], tok.value)
             
+            elif tok.value == "end":
+                # end statement
+
+                return EndNode(tok.pos, False)
+            
+            elif tok.value == "endr":
+                # end reset statement
+
+                return EndNode(tok.pos, True)
+            
+            elif tok.value == "extern":
+                # extern function/variable
+
+                name = self.next_token(TokenType.ID)
+
+                # is a function
+                if self.lookahead_token(TokenType.LPAREN):
+                    return ExternNode(tok.pos + name.pos, functions.gen_signature(name.value, self.parse_funcArgVars()))
+                
+                # not a function
+                return ExternNode(tok.pos + name.pos, name.value)
+            
+            # next token
+            n = self.next_token()
+
             if n.type == TokenType.SET:
                 # variable assignment
 
-                # check if id is a special keyword
-                if id_.value in functions.special:
-                    parse_error(n, "Cannot override a keyword")
-                
-                return AssignmentNode(id_.pos(), id_.value, n.value, self.parse_ExpressionNode())
-
-            elif n.type == TokenType.DOT:
-                # native subcommand or property assignment
-
-                if id_.value in functions.native_sub:
-                    # native subcommand
-
-                    n_ = self.next_token(TokenType.ID)
-                    
-                    # check if subcommand is valid
-                    if not n_.value in functions.native_sub[id_.value]:
-                        parse_error(n_, "Invalid subcommand")
-
-                    self.next_token(TokenType.LPAREN)
-
-                    # read parameter list
-                    e = False
-                    p = []
-                    while True:
-                        t = self.next_token()
-                        if t.type == TokenType.RPAREN:
-                            break
-
-                        elif t.type == TokenType.COMMA:
-                            if e:
-                                p.append(self.parse_ExpressionNode())
-                            else:
-                                parse_error(t, "Unexpected token")
-
-                        else:
-                            if not e:
-                                self.pos -= 1
-                                p.append(self.parse_ExpressionNode())
-                                e = True
-
-                            else:
-                                parse_error(t, "Unexpected token")
-                    
-                    return SubCallNode(id_.pos(), f"{id_.value}.{n_.value}", p)
-
-                # check if id is a special keyword
-                if id_.value in functions.special:
-                    parse_error(n, "Cannot use property of a keyword")
-
-                # parse rest of assignment
-                node = self.parse_AnyNode()
-                if type(node) != AssignmentNode:
-                    parse_error(n, "Unexpected token")
-                
-                # add variable and dot to left of the assignment node
-                node.left = id_.value + "." + node.left
-
-                return node
-
+                return AssignmentNode(tok.pos, ValueNode(tok.pos, tok.value), n.value, self.parse_Value())
+            
             elif n.type == TokenType.LBRACK:
-                # indexed assignment
+                # indexed variable assignment
+                # TODO: combine with normal assignment
 
-                # check if id is a special keyword
-                if id_.value in functions.special:
-                    parse_error(n, "Cannot use keyword as a memory cell")
-                
-                # parse index
-                node = self.parse_ExpressionNode()
-
+                idx = self.parse_Value()
                 self.next_token(TokenType.RBRACK)
-                a = self.next_token(TokenType.SET)
 
-                # parse value
-                val = self.parse_ExpressionNode()
+                op = self.next_token(TokenType.SET)
 
-                return IndexAssignNode(id_.pos(), id_.value, node, a.value, val)
-
+                return AssignmentNode(tok.pos, IndexedValueNode(tok.pos, tok.value, idx), op.value, self.parse_Value())
+            
             elif n.type == TokenType.LPAREN:
-                # function call
-                
-                # check if id is a special keyword
-                if id_.value in functions.keywords:
-                    if not can_be_special:
-                        parse_error(id_, "Unexpected token")
-                    
+                # keyword or function
+
+                if tok.value in functions.keywords_paren:
+                    # is a keyword
+
                     self.pos -= 2
                     return self.parse_KeywordNode()
+                
+                # is a function
 
-                else:
-                    e = False
-                    p = []
-                    while True:
-                        t = self.next_token()
-                        if t.type == TokenType.RPAREN:
-                            break
-
-                        elif t.type == TokenType.COMMA:
-                            if e:
-                                p.append(self.parse_ExpressionNode())
-                            else:
-                                parse_error(t, "Unexpected token")
-
-                        else:
-                            if not e:
-                                self.pos -= 1
-                                p.append(self.parse_ExpressionNode())
-                                e = True
-
-                            else:
-                                parse_error(t, "Unexpected token")
-                    
-                    return CallNode(id_.pos(), id_.value, True, p)
-
+                self.pos -= 1
+                return CallNode(tok.pos, tok.value, self.parse_funcArgVals())
+            
             elif n.type == TokenType.ID:
                 # function definition
 
-                if id_.value == "function":
+                if tok.value == "function":
                     self.pos -= 2
                     return self.parse_KeywordNode()
+                
+                parse_error(tok.pos, "Unexpected token")
 
-                else:
-                    parse_error(n, "Unexpected token")
-
-            elif n.type == TokenType.LBRACE:
-                # else statement
-
-                if id_.value == "else":
-                    self.pos -= 2
-                    return self.parse_KeywordNode()
-
-                else:
-                     parse_error(n, "Unexpected token")
-
-            else:
-                parse_error(n, "Unexpected token")
-
-        elif id_.type == TokenType.DOT:
-            # native code
-
-            n = self.next_token(TokenType.STRING)
-
-            return NativeNode(id_.pos(), n.value[1:-1])
-        
-        parse_error(id_, "Unexpected token")
+        parse_error(tok.pos, "Unexpected token")
     
-    def parse_ExpressionNode(self) -> ExpressionNode:
-        c = self.parse_CompExpressionNode()
-        l = []
+    def parse_Value(self) -> Node:
+        """
+        parse a value node
+        """
+
+        # base node
+        left = self.parse_CompExpression()
+        # logic operations
+        right = []
         while self.has_token():
-            n = self.next_token()
-            if n.type == TokenType.LOGIC and n.value in ["&&", "||"]:
-                l.append((n.value, self.parse_CompExpressionNode()))
+            tok = self.next_token()
+
+            if tok.type == TokenType.LOGIC and tok.value in ["&&", "||"]:
+                right.append((tok.value, self.parse_CompExpression()))
+
             else:
                 self.pos -= 1
                 break
         
-        return ExpressionNode(c.pos, c, l if len(l) > 0 else None)
+        return ExpressionNode(left.pos, left, right)
+    
+    def parse_CompExpression(self) -> Node:
+        """
+        parse a comparation expression
+        """
 
-    def parse_CompExpressionNode(self) -> CompExpressionNode:
-        e = self.parse_ArithExpNode()
-        c = []
+        # base node
+        left = self.parse_ArithExpression()
+        # comparation operations
+        right = []
         while self.has_token():
-            n = self.next_token()
-            if n.type == TokenType.OPERATOR and n.value in ["==", "!=", "<", ">", "<=", ">=", "==="]:
-                c.append((n.value, self.parse_ArithExpNode()))
+            tok = self.next_token()
+
+            if tok.type == TokenType.OPERATOR and tok.value in ["==", "!=", "<", ">", "<=", ">=", "==="]:
+                right.append((tok.value, self.parse_ArithExpression()))
+
             else:
                 self.pos -= 1
                 break
         
-        return CompExpressionNode(e.pos, e, c if len(c) > 0 else None)
+        return CompExpressionNode(left.pos, left, right)
     
-    def parse_ArithExpNode(self) -> ArithExpNode:
-        t = self.parse_TermNode()
-        a = []
+    def parse_ArithExpression(self) -> Node:
+        """
+        parse an arithmetic expression
+        """
+
+        # base node
+        left = self.parse_Term()
+        # arithmetic operations
+        right = []
         while self.has_token():
-            n = self.next_token()
-            if n.type == TokenType.OPERATOR and n.value in ["+", "-"]:
-                a.append((n.value, self.parse_TermNode()))
+            tok = self.next_token()
+
+            if tok.type == TokenType.OPERATOR and tok.value in ["+", "-"]:
+                right.append((tok.value, self.parse_Term()))
+
             else:
                 self.pos -= 1
                 break
         
-        return ArithExpNode(t.pos, t, a if len(a) > 0 else None)
+        return ArithExpressionNode(left.pos, left, right)
     
-    def parse_TermNode(self) -> TermNode:
-        f = self.parse_FactorNode()
-        m = []
+    def parse_Term(self) -> Node:
+        """
+        parse a term
+        """
+
+        # base node
+        left = self.parse_Factor()
+        # arithmetic operations
+        right = []
         while self.has_token():
-            n = self.next_token()
-            if n.type == TokenType.OPERATOR and n.value in ["*", "/", "**"]:
-                m.append((n.value, self.parse_FactorNode()))
+            tok = self.next_token()
+
+            if tok.type == TokenType.OPERATOR and tok.value in ["*", "/", "**"]:
+                right.append((tok.value, self.parse_Factor()))
+
             else:
                 self.pos -= 1
                 break
         
-        return TermNode(f.pos, f, m if len(m) > 0 else None)
+        return TermNode(left.pos, left, right)
     
-    def parse_FactorNode(self) -> FactorNode:
+    def parse_Factor(self) -> Node:
+        """
+        parse a factor
+        """
+
         sign = True
         not_ = False
+        flip = False
+
         while self.has_token():
-            n = self.next_token()
-            if n.type == TokenType.OPERATOR and n.value in ["+", "-", "!"]:
-                if n.value == "-":
+            tok = self.next_token()
+
+            if tok.type == TokenType.OPERATOR and tok.value in ["+", "-", "!", "~"]:
+                if tok.value == "-":
+                    # negate
+
                     sign = not sign
-                elif n.value == "!":
-                    not_ = not not_
-            elif n.type in [TokenType.ID, TokenType.STRING, TokenType.NUMBER, TokenType.LPAREN]:
-                self.pos -= 1
-                return FactorNode(n.pos(), self.parse_CallNode(), sign, not_)
-            else:
-                parse_error(n, "Unexpected token")
-    
-    def parse_CallNode(self) -> CallNode:
-        a = self.parse_AtomNode()
-        p = []
-        is_call = False
-
-        if self.has_token():
-            n = self.next_token()
-            if n.type == TokenType.LPAREN:
-                is_call = True
-
-                if not self.has_token():
-                    parse_error(n, "Unexpected EOF")
                 
-                n = self.next_token()
-                if n.type == TokenType.RPAREN:
-                    pass
-                else:
-                    self.pos -= 1
-                    while self.has_token():
-                        p.append(self.parse_ExpressionNode())
-                        n = self.next_token()
-                        if n.type == TokenType.RPAREN:
-                            break
-                        elif n.type == TokenType.COMMA:
-                            pass
-                        else:
-                            parse_error(n, "Unexpected token")
-            else:
+                elif tok.value == "!":
+                    # not
+
+                    not_ = not not_
+                
+                elif tok.value == "~":
+                    # flip
+
+                    flip = not flip
+            
+            elif tok.type in [TokenType.ID, TokenType.STRING, TokenType.NUMBER, TokenType.LPAREN, TokenType.SEMICOLON]:
                 self.pos -= 1
-        
-        return CallNode(a.pos, a, is_call, p)
+                return FactorNode(tok.pos, self.parse_Call(), {"sign": sign, "not": not_, "flip": flip})
+            
+            else:
+                parse_error(tok.pos, "Unexpected token")
     
-    def parse_AtomNode(self) -> AtomNode:
-        n = self.next_token()
+    def parse_Call(self) -> Node:
+        """
+        parse a call or value
+        """
+
+        if self.lookahead_token(TokenType.ID):
+            if self.lookahead_token(TokenType.LPAREN, 2):
+                # is a function call
+
+                if self.lookahead_token(TokenType.LBRACE, 3):
+                    parse_error(self.next_token().pos, "Unexpected token")
+
+                name = self.next_token(TokenType.ID)
+                args = self.parse_funcArgVals()
+
+                return CallNode(name.pos, name.value, args)
         
-        if n.type in [TokenType.ID, TokenType.STRING, TokenType.NUMBER]:
-            if self.has_token() and n.type == TokenType.ID:
-                n_ = self.next_token()
-                if n_.type == TokenType.DOT:
-                    n_ = self.next_token(TokenType.ID)
-                    return AtomNode(n.pos(), ValueNode(n.pos(), f"{n.value}.{n_.value}"))
-                elif n_.type == TokenType.LBRACK:
-                    n_ = self.parse_ExpressionNode()
+        return self.parse_Atom()
+    
+    def parse_Atom(self) -> Node:
+        """
+        parse an atom
+        """
+
+        tok = self.next_token()
+        
+        if tok.type in [TokenType.ID, TokenType.STRING, TokenType.NUMBER]:
+            if self.has_token() and tok.type == TokenType.ID:
+                if self.lookahead_token(TokenType.LBRACK):
+                    # indexed access
+
+                    self.next_token(TokenType.LBRACK)
+                    idx = self.parse_Value()
                     self.next_token(TokenType.RBRACK)
-                    return AtomNode(n.pos(), IndexNode(n.pos(), n.value, n_))
-                else:
-                    self.pos -= 1
+
+                    return IndexedValueNode(tok.pos, tok.value, idx)
             
-            return AtomNode(n.pos(), ValueNode(n.pos(), n.value))
-
-        elif n.type == TokenType.LPAREN:
-            e = self.parse_ExpressionNode()
-            self.next_token()
-            return AtomNode(n.pos(), e)
-            
-        else:
-            parse_error(n, "Unexpected token")
-    
-    def parse_KeywordNode(self) -> KeywordNode:
-        id_ = self.next_token()
-
-        if id_.value in ["if", "while"]:
-            self.next_token(TokenType.LPAREN)
-            e = self.parse_ExpressionNode()
-            self.next_token(TokenType.RPAREN)
-
-            c = []
-            self.next_token()
-            while True:
-                n = self.next_token()
-                if n.type == TokenType.RBRACE:
-                    break
-                else:
-                    self.pos -= 1
-                    c.append(self.parse_AnyNode())
-            
-            if id_.value == "if":
-                if self.has_token():
-                    n = self.next_token()
-                    if n.type == TokenType.ID and n.value == "else":
-                        self.next_token(TokenType.LBRACE)
-
-                        ec = []
-                        while True:
-                            n = self.next_token()
-                            if n.type == TokenType.RBRACE:
-                                break
-                            else:
-                                self.pos -= 1
-                                ec.append(self.parse_AnyNode())
-                        
-                        return IfNode(id_.pos(), e, c, ec)
-                    else:
-                        self.pos -= 1
-
-                return IfNode(id_.pos(), e, c)
-            elif id_.value == "while":
-                return WhileNode(id_.pos(), e, c)
-        elif id_.value == "for":
-            self.next_token(TokenType.LPAREN)
-
-            init = self.parse_AnyNode(False)
-
-            self.next_token(TokenType.SEMICOLON)
-            cond = self.parse_ExpressionNode()
-
-            self.next_token(TokenType.SEMICOLON)
-            action = self.parse_AnyNode(False)
-
-            self.next_token(TokenType.RPAREN)
-
-            c = []
-            self.next_token(TokenType.LBRACE)
-            while True:
-                n = self.next_token()
-                if n.type == TokenType.RBRACE:
-                    break
-                else:
-                    self.pos -= 1
-                    c.append(self.parse_AnyNode())
-
-            return ForNode(id_.pos(), init, cond, action, c)
-        elif id_.value == "function":
-            id_ = self.next_token(TokenType.ID)
-
-            self.next_token(TokenType.LPAREN)
-
-            args = []
-            last = TokenType.LPAREN
-            while True:
-                n = self.next_token()
-                if n.type == TokenType.RPAREN:
-                    if last == TokenType.COMMA:
-                        parse_error(n, "Unexpected token")
-                    break
-                elif n.type == TokenType.COMMA:
-                    if last == TokenType.COMMA:
-                        parse_error(n, "Unexpected token")
-                    pass
-                elif n.type == TokenType.ID:
-                    if last == TokenType.ID:
-                        parse_error(n, "Unexpected token")
-                    args.append(n.value)
-
-            c = []
-            self.next_token(TokenType.LBRACE)
-            while True:
-                n = self.next_token()
-                if n.type == TokenType.RBRACE:
-                    break
-                else:
-                    self.pos -= 1
-                    c.append(self.parse_AnyNode())
-            
-            return FunctionNode(id_.pos(), id_.value, args, c)
-        elif id_.value == "repeat":
-            self.next_token(TokenType.LPAREN)
-            amount = self.next_token(TokenType.NUMBER)
-            self.next_token(TokenType.RPAREN)
-
-            c = []
-            self.next_token(TokenType.LBRACE)
-            while True:
-                n = self.next_token()
-                if n.type == TokenType.RBRACE:
-                    break
-                else:
-                    self.pos -= 1
-                    c.append(self.parse_AnyNode())
-            
-            return RepeatNode(id_.pos(), int(amount.value), c)
+            return ValueNode(tok.pos, tok.value)
         
-        parse_error(id_, "Unexpected token")
+        elif tok.type == TokenType.LPAREN:
+            val = self.parse_Value()
+            self.next_token(TokenType.RPAREN)
+
+            return val
+        
+        parse_error(tok.pos, "Unexpected token")
+    
+    def parse_KeywordNode(self) -> Node:
+        """
+        parse a keyword
+        """
+
+        tok = self.next_token(TokenType.ID)
+
+        if tok.value == "if":
+            self.next_token(TokenType.LPAREN)
+            cond = self.parse_Value()
+            self.next_token(TokenType.RPAREN)
+
+            code = self.parse_codeBlock()
+            
+            # else block code
+            elseCode = []
+            if self.lookahead_token(TokenType.ID):
+                n = self.next_token(TokenType.ID)
+                if n.value == "else":
+                    elseCode = self.parse_codeBlock()
+                else:
+                    self.pos -= 1
+
+            return IfNode(tok.pos, cond, CodeListNode(cond, code), CodeListNode(cond, elseCode))
+        
+        elif tok.value == "while":
+            self.next_token(TokenType.LPAREN)
+            cond = self.parse_Value()
+            self.next_token(TokenType.RPAREN)
+            
+            name = self.loop_name()
+            self.loop_stack.append(name)
+            code = self.parse_codeBlock()
+            self.loop_stack.pop()
+
+            return WhileNode(tok.pos, name, cond, CodeListNode(cond, code))
+        
+        elif tok.value == "for":
+            self.next_token(TokenType.LPAREN)
+            init = self.parse_Node()
+            self.next_token(TokenType.SEMICOLON)
+            cond = self.parse_Value()
+            self.next_token(TokenType.SEMICOLON)
+            action = self.parse_Node()
+            self.next_token(TokenType.RPAREN)
+
+            name = self.loop_name()
+            self.loop_stack.append(name)
+            code = self.parse_codeBlock()
+            self.loop_stack.pop()
+
+            return ForNode(tok.pos, name, init, cond, action, CodeListNode(action.get_pos(), code))
+
+        elif tok.value == "function":
+            name = self.next_token(TokenType.ID)
+            args = self.parse_funcArgVars()
+
+            self.func_stack.append(name.value)
+            code = self.parse_codeBlock()
+            self.func_stack.pop()
+
+            return FunctionNode(tok.pos, name.value, args, CodeListNode(name.pos, code))
+        
+        parse_error(tok.pos, "Unexpected token")

@@ -83,12 +83,8 @@ Makes all `@mega` units move to the processor
 * for loops \
   `for (i = 0; i < 10; i += 1) { print(i) }`
 * break / continue
-* imports \
-  `%library.mpp`
 * native functions \
   `ubind(@mega)`
-* native code \
-  `.op atan a b c`
 
 ## Native functions:
 * read `result`, `cell`, `position`

@@ -4,9 +4,11 @@ from enum import Enum
 import pyperclip
 
 from .lexer import Lexer
+from .preprocess import Preprocessor
 from .parser_ import Parser
-from .generator import Generator
+from .optimizer import Optimizer
 from .linker import Linker
+from .error import MlogError
 from . import __version__
 
 # input/output method
@@ -23,10 +25,6 @@ parser.add_argument("-o:f", "--output-file", help="write output to a file")
 parser.add_argument("-o:s", "--output-stdout", help="write output to stdout", action="store_true")
 parser.add_argument("-o:c", "--output-clip", help="write output to clipboard (defualt)", action="store_true")
 
-parser.add_argument("-O0", "--optimize0", help="disable optimization (WARNING: creates extremely unoptimized code)", action="store_true")
-parser.add_argument("-O1", "--optimize1", help="set optimization level to 1", action="store_true")
-parser.add_argument("-O2", "--optimize2", help="set optimization level to 2 (default)", action="store_true")
-
 parser.add_argument("-v", "--verbose", help="print additional information", action="store_true")
 parser.add_argument("-l", "--lines", help="print line numbers when output to stdout is selected", action="store_true")
 
@@ -36,8 +34,6 @@ args = parser.parse_args()
 
 omethod = IOMethod.CLIP
 ofile = ""
-
-optlevel = 2
 
 verbose = False
 
@@ -50,10 +46,7 @@ for k, v in vars(args).items():
             omethod = IOMethod.FILE if k.endswith("file") else IOMethod.STD if k.endswith("stdout") else IOMethod.CLIP
             if omethod == IOMethod.FILE:
                 ofile = v
-        elif k.startswith("optimize"):
-            # optimization level
-
-            optlevel = int(k[-1])
+        
         elif k == "verbose":
             # verbose
 
@@ -80,13 +73,6 @@ for fn in args.file:
         with open(fn, "r") as f:
             datas.append((fn, f.read()))
 
-# optimization level presets to pass to the optimizer
-optimization_levels = {
-    0: {"enable": False},
-    1: {"unused": False},
-    2: {}
-}
-
 # compile all files
 outs = []
 for data in datas:
@@ -94,18 +80,23 @@ for data in datas:
     if data[0].endswith(".mind") or data[0].endswith(".masm"):
         outs.append(data[1])
         continue
+    
+    try:
+        out = Preprocessor.preprocess(data[1])
+        out = Lexer.lex(out)
+        out = Parser().parse(out)
+        out = out.generate()
+        out = Optimizer.optimize(out)
+    except MlogError as e:
+        e.print()
+        # raise e
+        sys.exit(1)
 
-    out = Lexer.preprocess(Lexer.lex(Lexer.resolve_includes(data[1])))
-    out = Parser().parse(out)
-    out = Generator().generate(out, optimization_levels[optlevel])
     # add to compiled files
     outs.append(out)
 
 # link the compiled files
-if len(outs) > 1:
-    out = Linker.link(outs).strip()
-else:
-    out = outs[0].strip()
+out = Linker.link(outs).strip()
 
 if omethod == IOMethod.FILE:
     # output to file

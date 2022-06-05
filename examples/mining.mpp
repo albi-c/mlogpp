@@ -1,5 +1,5 @@
 ########################
-# Mining script v1.1   #
+# Mining script v1.2   #
 #                      #
 # Connect:             #
 # - hail [hail1]       #
@@ -33,7 +33,7 @@ if (cell1[0] == 1) {
 printflush(message1)
 
 if (switch1.enabled) {
-    radar(player, ally, any, distance, hail1, 0, player)
+    player = radar(player, ally, any, distance, hail1, 1)
 
     if (player.shooting) {
         x = floor(player.shootX + 0.5)
@@ -47,7 +47,6 @@ if (switch1.enabled) {
 
         ubind(UNIT)
         first = @unit
-        ucontrol.flag(DEPOSIT_FLAG)
         while (true) {
             if (@unit.totalItems > 0) {
                 ucontrol.flag(DEPOSIT_FLAG)
@@ -59,11 +58,11 @@ if (switch1.enabled) {
         }
     }
 
-    end()
+    endr
 }
 
 if (cell1[0] == 0) {
-    end()
+    endr
 }
 
 ubind(UNIT)
@@ -72,8 +71,7 @@ if (@unit.flag == DEPOSIT_FLAG) {
         ulocate(building, core, false, _, cx, cy, cf, core)
         if (cf) {
             ucontrol.approach(cx, cy, 4)
-            ucontrol.within(cx, cy, 6, drop)
-            if (drop) {
+            if (ucontrol.within(cx, cy, 6)) {
                 ucontrol.itemDrop(core, @unit.itemCapacity)
                 ucontrol.flag(0)
                 ucontrol.approach(x, y, 4)
@@ -83,8 +81,7 @@ if (@unit.flag == DEPOSIT_FLAG) {
         vx = VAULT.x
         vy = VAULT.y
         ucontrol.approach(vx, vy, 4)
-        ucontrol.within(vx, vy, 6, drop)
-        if (drop) {
+        if (ucontrol.within(vx, vy, 6)) {
             ucontrol.itemDrop(VAULT, @unit.itemCapacity)
             ucontrol.flag(0)
             ucontrol.approach(x, y, 4)
