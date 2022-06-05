@@ -1,7 +1,7 @@
 import re
 
 from .generator import Gen
-from .functions import PRECALC
+from .functions import PRECALC, JC_REPLACE
 
 class Optimizer:
     """
@@ -21,6 +21,11 @@ class Optimizer:
         "TMP_GETL": re.compile(r"^getlink __tmp\d+ \S+$"),
         # radar/uradar to temporary variable
         "TMP_RAD": re.compile(r"^u?radar \S+ \S+ \S+ \S+ \S+ \S+ __tmp\d+$"),
+
+        # jump operation to temporary variable
+        "TMP_J_OP": re.compile(r"^op (equal|notEqual|greaterThan|lessThan|greaterThanEq|lessThanEq) __tmp\d+ \S+ \S+$"),
+        # temporary variable to jump
+        "TMP_J": re.compile(r"^\S+ __tmp\d+ notEqual true$"),
 
         # assigning from temporary variable
         "TA_SET": re.compile(r"^set [a-zA-Z_@][a-zA-Z_0-9]* __tmp\d+$"),
@@ -149,6 +154,19 @@ class Optimizer:
                         spl_ = lns[fi].split(" ", 2)
                         if name == spl_[2]:
                             lns[fi] = f"{' '.join(spl[:-1])} {spl_[1]}"
+                            found = True
+                            continue
+            
+            # temporary variable to jump
+            if Optimizer.REGEXES["TMP_J_OP"].fullmatch(ln):
+                spl = ln.split(" ", 4)
+                name = spl[2]
+
+                if i < len(lns) - forward and spl[1] in JC_REPLACE:
+                    if uses.get(name, 0) == 2 and Optimizer.REGEXES["TMP_J"].fullmatch(lns[fi]):
+                        spl_ = lns[fi].split(" ", 3)
+                        if name == spl_[1]:
+                            lns[fi] = f"{spl_[0]} {spl[3]} {JC_REPLACE[spl[1]]} {spl[4]}"
                             found = True
                             continue
             

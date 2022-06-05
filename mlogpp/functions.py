@@ -172,7 +172,7 @@ PRECALC = {
 }
 
 # jump conditions for replacement optimization
-JUMP_CONDITIONS_REPLACE = {
+JC_REPLACE = {
     "equal": "notEqual",
     "notEqual": "equal",
     "greaterThan": "lessThanEq",
