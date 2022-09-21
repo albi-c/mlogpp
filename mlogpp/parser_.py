@@ -179,7 +179,7 @@ class Parser:
                     parse_error(tok.pos, "\"return\" has to be used in a function")
 
                 value = self.parse_Value()
-                return ReturnNode(tok.pos + value.pos(), self.func_stack[-1], value)
+                return ReturnNode(tok.pos + value.get_pos(), self.func_stack[-1], value)
             
             elif tok.value in LoopActionNode.ACTIONS:
                 # break/continue statement

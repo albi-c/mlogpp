@@ -63,7 +63,8 @@ class ReturnNode(Node):
         return self.value.get_pos()
 
     def generate(self):
-        return f"set __f_{self.func}_retv {self.value.get()}"
+        val = self.value.get()
+        return f"{val[0]}\nset __f_{self.func}_retv {val[1]}"
     
     def drename(self, vars):
         return ReturnNode(self.pos, self.func, self.value.drename(vars))
@@ -226,7 +227,7 @@ class CallNode(Node):
         for i, arg in enumerate(self.args):
             valc, valv = arg.get()
             code += f"{valc}\nset __f_{self.func}_a{i} {valv}\n"
-            self._ret_var = Var(f"__f_{self.func}_ret", True)
+            self._ret_var = Var(f"__f_{self.func}_retv", True)
 
         code += f"op add __f_{self.func}_ret @counter 1\nset @counter __f_{self.func}"
 
