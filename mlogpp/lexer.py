@@ -48,7 +48,7 @@ class Lexer:
 
     # token regexes
     REGEXES = {
-        TokenType.ID: re.compile(r"^[a-zA-Z_@][a-zA-Z_0-9]*(\.)?([a-zA-Z_@][a-zA-Z_0-9]*)?$"),
+        TokenType.ID: re.compile(r"^[a-zA-Z_@][a-zA-Z_0-9\-]*(\.)?([a-zA-Z_@][a-zA-Z_0-9\-]*)?$"),
         TokenType.STRING: re.compile("^\"([^\"\\\\]|\\\\.)*\"$"),
         TokenType.NUMBER: re.compile(r"^[0-9]+(\.)?([0-9]+)?$"),
         TokenType.LPAREN: re.compile(r"^\($"),
