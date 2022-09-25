@@ -126,13 +126,6 @@ class Lexer:
             # add last token
             tok = ln[i:].strip()
             if tok:
-                # check if remaining data can be joined with last token
-                jt = toks[-1].value + tok
-                if Lexer.match(jt) != TokenType.NONE:
-                    toks[-1].value += tok
-                    toks[-1].pos.end += len(tok)
-                    continue
-
                 if Lexer.match(tok) != TokenType.NONE:
                     toks.append(Token(Lexer.match(tok), tok, Position(lni, i - len(tok), i, ln)))
                 else:

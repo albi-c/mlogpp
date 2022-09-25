@@ -28,6 +28,8 @@ class Gen:
     VAR_COUNT = 0
     LAB_COUNT = 0
 
+    GLOBALS_STACK = []
+
     REGEXES = {
         "ATTR": re.compile(r"^[a-zA-Z_@][a-zA-Z0-9_]*\.[a-zA-Z_@][a-zA-Z0-9_]*$")
     }
@@ -42,7 +44,7 @@ class Gen:
         Gen.LAB_COUNT = 0
 
     @staticmethod
-    def temp_var(v: Var = None):
+    def temp_var(v: Var = None) -> Var:
         """
         generate a temporary variable
         """
@@ -51,10 +53,28 @@ class Gen:
         return Var(f"__tmp{Gen.VAR_COUNT-1}", True)
     
     @staticmethod
-    def temp_lab():
+    def temp_lab() -> str:
         """
-        generate a temporary variable
+        generate a temporary label
         """
 
         Gen.LAB_COUNT += 1
         return f"__tmp{Gen.LAB_COUNT-1}"
+    
+    @staticmethod
+    def is_global(name: str) -> bool:
+        if len(Gen.GLOBALS_STACK) > 0:
+            return name in Gen.GLOBALS_STACK[-1]
+        return False
+    
+    @staticmethod
+    def push_globals():
+        Gen.GLOBALS_STACK.append(set())
+    
+    @staticmethod
+    def pop_globals():
+        Gen.GLOBALS_STACK.pop(-1)
+    
+    @staticmethod
+    def add_globals(globals: list):
+        Gen.GLOBALS_STACK[-1] |= set(globals)

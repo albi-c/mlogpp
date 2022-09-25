@@ -78,6 +78,12 @@ class Parser:
             return self.tokens[self.pos + n].type == type_
         
         return False
+    
+    def lookahead_token_line(self, n: int = 1) -> bool:
+        if self.has_token(n):
+            return self.tokens[self.pos + n].pos.line
+        
+        return -1
 
     def parse_funcArgVars(self) -> list:
         """
@@ -186,7 +192,7 @@ class Parser:
 
                 # check if in a loop
                 if len(self.loop_stack) == 0:
-                    parse_error(tok.pos, f"\"{tok.value}\" has to be used in a function")
+                    parse_error(tok.pos, f"\"{tok.value}\" has to be used in a loop")
 
                 return LoopActionNode(tok.pos, self.loop_stack[-1], tok.value)
             
@@ -194,6 +200,38 @@ class Parser:
                 # end statement
 
                 return EndNode(tok.pos, False)
+            
+            elif tok.value == "global":
+                # global statement
+
+                # check if in a function
+                if len(self.func_stack) == 0:
+                    parse_error(tok.pos, "\"global\" has to be used in a function")
+                
+                globals = []
+                last = None
+                line = tok.pos.line
+                while self.has_token():
+                    if line != self.lookahead_token_line():
+                        if last == TokenType.COMMA:
+                            parse_error(last.pos, "Unexpected EOL")
+                        
+                        break
+                        
+                    tok = self.next_token()
+
+                    if tok.type == TokenType.ID:
+                        if last == TokenType.ID:
+                            parse_error(tok.pos, "Unexpected token")
+                        
+                        globals.append(tok.value)
+                    
+                    elif tok.type == TokenType.COMMA and last != TokenType.ID:
+                        parse_error(tok.pos, "Unexpected token")
+                        
+                    last = tok.type
+
+                return GlobalNode(tok.pos, globals)
             
             elif tok.value == "endr":
                 # end reset statement
@@ -218,7 +256,7 @@ class Parser:
             if n.type == TokenType.SET:
                 # variable assignment
 
-                return AssignmentNode(tok.pos, ValueNode(tok.pos, tok.value), n.value, self.parse_Value())
+                return AssignmentNode(tok.pos, ValueNode(tok.pos, tok.value, True), n.value, self.parse_Value())
             
             elif n.type == TokenType.LBRACK:
                 # indexed variable assignment
@@ -412,7 +450,7 @@ class Parser:
 
                     return IndexedValueNode(tok.pos, tok.value, idx)
             
-            return ValueNode(tok.pos, tok.value)
+            return ValueNode(tok.pos, tok.value, tok.type == TokenType.ID)
         
         elif tok.type == TokenType.LPAREN:
             val = self.parse_Value()

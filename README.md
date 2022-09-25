@@ -64,6 +64,29 @@ ucontrol.move(@thisx, @thisy)
 
 Makes all `@mega` units move to the processor
 
+### Scopes:
+```javascript
+a = 0
+b = 0
+
+function test(x) {
+    global b
+
+    a = x
+    b = x
+}
+
+test(10)
+
+print(a)
+print(" ")
+print(b)
+
+printflush(message1)
+```
+
+Prints `0 10`
+
 ### Longer examples can be found in `examples/`
 
 ## Features:
@@ -86,6 +109,10 @@ Makes all `@mega` units move to the processor
 * break / continue
 * native functions \
   `ubind(@mega)`
+* constants \
+  `const VALUE = 30`
+* global variables in functions \
+  `function func() { global a, b, c }`
 
 ## Native functions:
 * read `result`, `cell`, `position`
