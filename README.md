@@ -12,7 +12,6 @@ high level mindustry logic language
 * `-o:f`, `--output-file` - output to file
 * `-o:s`, `--output-stdout` - output to stdout
 * `-o:c`, `--output-clip` - output to clipboard (default)
-* `-O[0-2]`, `--optimize[0-2]` - optimization level (default is 2)
 * `-v`, `--verbose` - output more information
 * `-l`, `--lines` - print line numbers when output is stdout
 * `-V`, `--version` - print version and exit
@@ -64,6 +63,8 @@ ucontrol.move(@thisx, @thisy)
 ```
 
 Makes all `@mega` units move to the processor
+
+### Longer examples can be found in `examples/`
 
 ## Features:
 * variables \

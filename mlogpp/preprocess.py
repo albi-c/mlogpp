@@ -25,7 +25,7 @@ class Preprocessor:
                 continue
             
             # replace constant references with values
-            for k, v in consts.items():
+            for k, v in sorted(consts.items(), key=lambda pair: len(pair[0]), reverse=True):
                 ln = ln.replace(k, v)
             
             tmp += ln + "\n"

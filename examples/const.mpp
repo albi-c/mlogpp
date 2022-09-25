@@ -1,0 +1,5 @@
+const VALUE = 10
+const VALUE_2 = 12
+
+print(VALUE)
+print(VALUE_2)
