@@ -195,6 +195,7 @@ ubind(@mega)
         self.assertEqual(Lexer.match("]"), TokenType.RBRACK)
         self.assertEqual(Lexer.match(","), TokenType.COMMA)
         self.assertEqual(Lexer.match(";"), TokenType.SEMICOLON)
+        self.assertEqual(Lexer.match(":"), TokenType.COLON)
 
         operator_tokens = ("+", "-", "*", "/", "!", "**", "===", "<=", ">=", "==", "!=", "<", ">", "~")
         self.assertEqual(

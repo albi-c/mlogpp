@@ -24,7 +24,7 @@ printflush(message1)
 ```
 Prints `Hello, World!`
 
-### For loop:
+### For loops:
 ```javascript
 for (i = 1; i < 11; i += 1) {
     print(i)
@@ -36,6 +36,16 @@ for (i = 1; i < 11; i += 1) {
 printflush(message1)
 ```
 Prints `1, 2, 3, 4, 5, 6, 7, 8, 9, 10`
+
+### Ranges:
+```javascript
+for (i : 5) {
+    print(i + 1)
+    print(" ")
+}
+printflush(message1)
+```
+Prints `1 2 3 4 5`
 
 ### Functions:
 ```javascript
@@ -61,7 +71,6 @@ Prints `10`
 ubind(@mega)
 ucontrol.move(@thisx, @thisy)
 ```
-
 Makes all `@mega` units move to the processor
 
 ### Scopes:
@@ -84,7 +93,6 @@ print(b)
 
 printflush(message1)
 ```
-
 Prints `0 10`
 
 ### Longer examples can be found in `examples/`
@@ -106,6 +114,8 @@ Prints `0 10`
   `while (a > b) { b += 1 }`
 * for loops \
   `for (i = 0; i < 10; i += 1) { print(i) }`
+* ranges \
+  `for (i : 5) { print(i) }`
 * break / continue
 * native functions \
   `ubind(@mega)`

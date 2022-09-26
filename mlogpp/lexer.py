@@ -22,6 +22,7 @@ class TokenType(enum.Enum):
     RBRACK = enum.auto()
     COMMA = enum.auto()
     SEMICOLON = enum.auto()
+    COLON = enum.auto()
     OPERATOR = enum.auto()
     SET = enum.auto()
     LOGIC = enum.auto()
@@ -66,9 +67,14 @@ class Lexer:
         TokenType.RBRACK: re.compile(r"^]$"),
         TokenType.COMMA: re.compile(r"^,$"),
         TokenType.SEMICOLON: re.compile(r"^;$"),
+        TokenType.COLON: re.compile(r"^:$"),
         TokenType.OPERATOR: re.compile(r"^[+\-*/!]|(\*\*)|(===)|(<=)|(>=)|(==)|(!=)|<|>|~$"),
         TokenType.SET: re.compile(r"^=|(\+=)|(-=)|(\*=)|(/=)$"),
         TokenType.LOGIC: re.compile(r"^(&&)|(\|\|)$")
+    }
+
+    JOINABLE_TOKENS = {
+        TokenType.ID, TokenType.NUMBER
     }
 
     @staticmethod
@@ -135,7 +141,7 @@ class Lexer:
             if tok:
                 token_type = Lexer.match(tok)
                 if token_type != TokenType.NONE:
-                    if len(tokens) > 0 and token_type == tokens[-1].type and lni == tokens[-1].pos.line:
+                    if len(tokens) > 0 and token_type == tokens[-1].type and lni == tokens[-1].pos.line and token_type in Lexer.JOINABLE_TOKENS:
                         tokens[-1].pos.end += len(tok)
                         tokens[-1].value += tok
                     else:

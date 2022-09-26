@@ -525,7 +525,7 @@ class IndexedValueNode(Node):
 
 
 class IfNode(Node):
-    def __init__(self, pos: Position, cond: Node, code: Node, else_code: Node):
+    def __init__(self, pos: Position, cond: Node, code: CodeListNode, else_code: CodeListNode):
         super().__init__(pos)
 
         self.cond = cond
@@ -557,7 +557,7 @@ class IfNode(Node):
 
 
 class WhileNode(Node):
-    def __init__(self, pos: Position, name: str, cond: Node, code: Node):
+    def __init__(self, pos: Position, name: str, cond: Node, code: CodeListNode):
         super().__init__(pos)
 
         self.name = name
@@ -581,7 +581,7 @@ class WhileNode(Node):
 
 
 class ForNode(Node):
-    def __init__(self, pos: Position, name: str, init: Node, cond: Node, action: Node, code: Node):
+    def __init__(self, pos: Position, name: str, init: Node, cond: Node, action: Node, code: CodeListNode):
         super().__init__(pos)
 
         self.name = name
@@ -610,11 +610,41 @@ class ForNode(Node):
                        self.code.function_rename(name))
 
 
-class FunctionNode(Node):
-    name: str
-    args: list
-    code: CodeListNode
+class RangeNode(Node):
+    def __init__(self, pos: Position, name: str, counter: str, until: Node, code: CodeListNode):
+        super().__init__(pos)
 
+        self.name = name
+        self.counter = counter
+        self.until = until
+        self.code = code
+
+    def get_pos(self) -> Position:
+        return self.pos + self.until.pos
+
+    def generate(self):
+        untilc, untilv = self.until.get()
+        code = self.code.generate().strip()
+
+        return f"""\
+set {self.counter} 0
+<{self.name}_s
+{untilc}
+>{self.name}_e {self.counter} greaterThanEq {untilv}
+{code}
+op add {self.counter} {self.counter} 1
+>{self.name}_s
+<{self.name}_e"""
+
+    def table_rename(self, variables: dict):
+        return RangeNode(self.pos, self.name, variables.get(self.counter, self.counter), self.until.table_rename(variables),
+                         self.code.table_rename(variables))
+
+    def function_rename(self, name: str):
+        return RangeNode(self.pos, self.name, f"__f_{name}_lvar_{self.counter}", self.until.function_rename(name),
+                         self.code.function_rename(name))
+
+class FunctionNode(Node):
     def __init__(self, pos: Position, name: str, args: list, code: CodeListNode):
         super().__init__(pos)
 

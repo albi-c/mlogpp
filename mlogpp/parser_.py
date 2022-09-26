@@ -451,7 +451,7 @@ class Parser:
         
         parse_error(tok.pos, "Unexpected token")
     
-    def parse_KeywordNode(self) -> IfNode | WhileNode | ForNode | FunctionNode:
+    def parse_KeywordNode(self) -> IfNode | WhileNode | ForNode | RangeNode | FunctionNode:
         """
         parse a keyword
         """
@@ -484,12 +484,26 @@ class Parser:
             name = self.loop_name()
             self.loop_stack.append(name)
             code = self.parse_codeBlock()
-            self.loop_stack.pop()
+            self.loop_stack.pop(-1)
 
             return WhileNode(tok.pos, name, cond, CodeListNode(tok.pos, code))
         
         elif tok.value == "for":
             self.next_token(TokenType.LPAREN)
+
+            if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.COLON, 2):
+                counter = self.next_token(TokenType.ID)
+                self.next_token(TokenType.COLON)
+                until_value = self.parse_Value()
+                self.next_token(TokenType.RPAREN)
+
+                name = self.loop_name()
+                self.loop_stack.append(name)
+                code = self.parse_codeBlock()
+                self.loop_stack.pop(-1)
+
+                return RangeNode(tok.pos, name, counter.value, until_value, CodeListNode(until_value.get_pos(), code))
+
             init = self.parse_Node()
             self.next_token(TokenType.SEMICOLON)
             cond = self.parse_Value()
@@ -500,7 +514,7 @@ class Parser:
             name = self.loop_name()
             self.loop_stack.append(name)
             code = self.parse_codeBlock()
-            self.loop_stack.pop()
+            self.loop_stack.pop(-1)
 
             return ForNode(tok.pos, name, init, cond, action, CodeListNode(action.get_pos(), code))
 
@@ -510,7 +524,7 @@ class Parser:
 
             self.func_stack.append(name.value)
             code = self.parse_codeBlock()
-            self.func_stack.pop()
+            self.func_stack.pop(-1)
 
             return FunctionNode(tok.pos, name.value, args, CodeListNode(name.pos, code))
         
