@@ -49,6 +49,8 @@ class Gen:
         Gen.VAR_COUNT = 0
         Gen.LAB_COUNT = 0
 
+        Gen.GLOBALS_STACK = []
+
     @staticmethod
     def temp_var(_: Var | str | None = None) -> Var:
         """

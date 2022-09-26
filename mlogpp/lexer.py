@@ -124,7 +124,7 @@ class Lexer:
                 
                 # error if invalid token
                 if Lexer.match(tok) == TokenType.NONE:
-                    lex_error("Invalid token", Position(lni, start, i, ln))
+                    lex_error(f"Invalid token: [\"{tok}\"]", Position(lni, start, i, ln))
 
                 # add token to list
                 tokens.append(Token(Lexer.match(tok), tok, Position(lni, start, i, ln)))
