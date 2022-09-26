@@ -1,7 +1,6 @@
-import sys, inspect
-
 from .formatting import Format
 from .util import Position
+
 
 class MlogError(Exception):
     def __init__(self, msg: str, pos: Position = None):
@@ -17,12 +16,14 @@ class MlogError(Exception):
         else:
             print(f"{Format.ERROR}{Format.BOLD}Error{Format.RESET}{Format.ERROR}: {self.msg}{Format.RESET}")
 
+
 def lex_error(msg: str, pos: Position = None) -> None:
     """
     raise lexer error
     """
 
     raise MlogError(msg, pos)
+
 
 def parse_error(pos: Position, msg: str) -> None:
     """
@@ -34,6 +35,7 @@ def parse_error(pos: Position, msg: str) -> None:
     else:
         raise MlogError(msg, pos)
 
+
 def link_error(pos: Position, msg: str) -> None:
     """
     raise linker error
@@ -41,12 +43,14 @@ def link_error(pos: Position, msg: str) -> None:
 
     raise MlogError(msg, pos)
 
+
 def gen_error(pos: Position, msg: str) -> None:
     """
     raise generator error
     """
 
     raise MlogError(msg, pos)
+
 
 def error(msg: str) -> None:
     """

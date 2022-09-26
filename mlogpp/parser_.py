@@ -1,14 +1,20 @@
-from .lexer import TokenType, Token, Position
-from .error import MlogError, parse_error
+from .lexer import TokenType, Token
+from .error import parse_error
 from .node import *
 from . import functions
 
-from inspect import getframeinfo, stack
 
 class Parser:
     """
     parses token list
     """
+
+    tokens: list
+    pos: int
+
+    func_stack: list
+    loop_stack: list
+    loop_count: int
 
     def parse(self, tokens: list):
         """
@@ -79,7 +85,7 @@ class Parser:
         
         return False
     
-    def lookahead_token_line(self, n: int = 1) -> bool:
+    def lookahead_token_line(self, n: int = 1) -> int:
         if self.has_token(n):
             return self.tokens[self.pos + n].pos.line
         
@@ -199,7 +205,7 @@ class Parser:
             elif tok.value == "end":
                 # end statement
 
-                return EndNode(tok.pos, False)
+                return EndNode(tok.pos)
             
             elif tok.value == "global":
                 # global statement
@@ -208,13 +214,14 @@ class Parser:
                 if len(self.func_stack) == 0:
                     parse_error(tok.pos, "\"global\" has to be used in a function")
                 
-                globals = []
+                globals_vars = []
                 last = None
+                last_pos = None
                 line = tok.pos.line
                 while self.has_token():
                     if line != self.lookahead_token_line():
                         if last == TokenType.COMMA:
-                            parse_error(last.pos, "Unexpected EOL")
+                            parse_error(last_pos, "Unexpected EOL")
                         
                         break
                         
@@ -224,31 +231,15 @@ class Parser:
                         if last == TokenType.ID:
                             parse_error(tok.pos, "Unexpected token")
                         
-                        globals.append(tok.value)
+                        globals_vars.append(tok.value)
                     
                     elif tok.type == TokenType.COMMA and last != TokenType.ID:
                         parse_error(tok.pos, "Unexpected token")
                         
                     last = tok.type
+                    last_pos = tok.pos
 
-                return GlobalNode(tok.pos, globals)
-            
-            elif tok.value == "endr":
-                # end reset statement
-
-                return EndNode(tok.pos, True)
-            
-            elif tok.value == "extern":
-                # extern function/variable
-
-                name = self.next_token(TokenType.ID)
-
-                # is a function
-                if self.lookahead_token(TokenType.LPAREN):
-                    return ExternNode(tok.pos + name.pos, functions.gen_signature(name.value, self.parse_funcArgVars()))
-                
-                # not a function
-                return ExternNode(tok.pos + name.pos, name.value)
+                return GlobalNode(tok.pos, globals_vars)
             
             # next token
             n = self.next_token()
@@ -294,7 +285,7 @@ class Parser:
 
         parse_error(tok.pos, "Unexpected token")
     
-    def parse_Value(self) -> Node:
+    def parse_Value(self) -> ExpressionNode:
         """
         parse a value node
         """
@@ -315,14 +306,14 @@ class Parser:
         
         return ExpressionNode(left.pos, left, right)
     
-    def parse_CompExpression(self) -> Node:
+    def parse_CompExpression(self) -> CompExpressionNode:
         """
-        parse a comparation expression
+        parse a comparison expression
         """
 
         # base node
         left = self.parse_ArithExpression()
-        # comparation operations
+        # comparison operations
         right = []
         while self.has_token():
             tok = self.next_token()
@@ -336,7 +327,7 @@ class Parser:
         
         return CompExpressionNode(left.pos, left, right)
     
-    def parse_ArithExpression(self) -> Node:
+    def parse_ArithExpression(self) -> ArithExpressionNode:
         """
         parse an arithmetic expression
         """
@@ -357,7 +348,7 @@ class Parser:
         
         return ArithExpressionNode(left.pos, left, right)
     
-    def parse_Term(self) -> Node:
+    def parse_Term(self) -> TermNode:
         """
         parse a term
         """
@@ -378,7 +369,7 @@ class Parser:
         
         return TermNode(left.pos, left, right)
     
-    def parse_Factor(self) -> Node:
+    def parse_Factor(self) -> FactorNode:
         """
         parse a factor
         """
@@ -413,7 +404,7 @@ class Parser:
             else:
                 parse_error(tok.pos, "Unexpected token")
     
-    def parse_Call(self) -> Node:
+    def parse_Call(self) -> CallNode | ValueNode | IndexedValueNode:
         """
         parse a call or value
         """
@@ -432,7 +423,7 @@ class Parser:
         
         return self.parse_Atom()
     
-    def parse_Atom(self) -> Node:
+    def parse_Atom(self) -> ValueNode | IndexedValueNode | ExpressionNode:
         """
         parse an atom
         """
@@ -460,7 +451,7 @@ class Parser:
         
         parse_error(tok.pos, "Unexpected token")
     
-    def parse_KeywordNode(self) -> Node:
+    def parse_KeywordNode(self) -> IfNode | WhileNode | ForNode | FunctionNode:
         """
         parse a keyword
         """
@@ -475,15 +466,15 @@ class Parser:
             code = self.parse_codeBlock()
             
             # else block code
-            elseCode = []
+            else_code = []
             if self.lookahead_token(TokenType.ID):
                 n = self.next_token(TokenType.ID)
                 if n.value == "else":
-                    elseCode = self.parse_codeBlock()
+                    else_code = self.parse_codeBlock()
                 else:
                     self.pos -= 1
 
-            return IfNode(tok.pos, cond, CodeListNode(cond, code), CodeListNode(cond, elseCode))
+            return IfNode(tok.pos, cond, CodeListNode(tok.pos, code), CodeListNode(tok.pos, else_code))
         
         elif tok.value == "while":
             self.next_token(TokenType.LPAREN)
@@ -495,7 +486,7 @@ class Parser:
             code = self.parse_codeBlock()
             self.loop_stack.pop()
 
-            return WhileNode(tok.pos, name, cond, CodeListNode(cond, code))
+            return WhileNode(tok.pos, name, cond, CodeListNode(tok.pos, code))
         
         elif tok.value == "for":
             self.next_token(TokenType.LPAREN)

@@ -6,7 +6,7 @@ from .vm import VM
 from .parser_ import Parser, Instruction
 from .building import Building, BuildingType
 
-parser = argparse.ArgumentParser(description="Mindustry logic emulator", prog="mlog++/emulator")
+parser = argparse.ArgumentParser(description="Mindustry logic mlog_emulator", prog="mlog++/mlog_emulator")
 
 parser.add_argument("file", type=str, help="input file [@clip for clipboard]")
 

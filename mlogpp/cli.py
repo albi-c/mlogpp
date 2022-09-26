@@ -1,5 +1,7 @@
-import argparse, os, sys
-from enum import Enum
+import argparse
+import os
+import sys
+import enum
 
 import pyperclip
 
@@ -11,118 +13,121 @@ from .linker import Linker
 from .error import MlogError
 from . import __version__
 
+
 # input/output method
-class IOMethod(Enum):
-    FILE = 0
-    STD  = 1
-    CLIP = 2
+class IOMethod(enum.Enum):
+    FILE = enum.auto()
+    STD = enum.auto()
+    CLIP = enum.auto()
 
-parser = argparse.ArgumentParser(description="Mindustry logic compiler", prog="mlog++")
 
-parser.add_argument("file", type=str, help="input file(s) [@clip for clipboard]", nargs="+")
+def main():
+    parser = argparse.ArgumentParser(description="Mindustry logic compiler", prog="mlog++")
 
-parser.add_argument("-o:f", "--output-file", help="write output to a file")
-parser.add_argument("-o:s", "--output-stdout", help="write output to stdout", action="store_true")
-parser.add_argument("-o:c", "--output-clip", help="write output to clipboard (defualt)", action="store_true")
+    parser.add_argument("file", type=str, help="input file(s) [@clip for clipboard]", nargs="+")
 
-parser.add_argument("-v", "--verbose", help="print additional information", action="store_true")
-parser.add_argument("-l", "--lines", help="print line numbers when output to stdout is selected", action="store_true")
+    parser.add_argument("-o:f", "--output-file", help="write output to a file")
+    parser.add_argument("-o:s", "--output-stdout", help="write output to stdout", action="store_true")
+    parser.add_argument("-o:c", "--output-clip", help="write output to clipboard (default)", action="store_true")
 
-parser.add_argument("-V", "--version", action="version", version=f"mlog++ {__version__}")
+    parser.add_argument("-v", "--verbose", help="print additional information", action="store_true")
+    parser.add_argument("-l", "--lines", help="print line numbers when output to stdout is selected", action="store_true")
 
-args = parser.parse_args()
+    parser.add_argument("-V", "--version", action="version", version=f"mlog++ {__version__}")
 
-omethod = IOMethod.CLIP
-ofile = ""
+    args = parser.parse_args()
 
-verbose = False
+    output_method = IOMethod.CLIP
+    output_file = ""
 
-# parse arguments
-for k, v in vars(args).items():
-    if v:
-        if k.startswith("output"):
-            # output method
+    verbose = False
 
-            omethod = IOMethod.FILE if k.endswith("file") else IOMethod.STD if k.endswith("stdout") else IOMethod.CLIP
-            if omethod == IOMethod.FILE:
-                ofile = v
-        
-        elif k == "verbose":
-            # verbose
+    # parse arguments
+    for k, v in vars(args).items():
+        if v:
+            if k.startswith("output"):
+                # output method
 
-            verbose = v
+                output_method = IOMethod.FILE if k.endswith("file") else IOMethod.STD if k.endswith("stdout") else IOMethod.CLIP
+                if output_method == IOMethod.FILE:
+                    output_file = v
 
-# check if files exist
-for fn in args.file:
-    # exists or is `@clip`
-    if not os.path.isfile(fn) and fn != "@clip":
-        print(f"Error: input file \"{fn}\" does not exist")
-        sys.exit(1)
+            elif k == "verbose":
+                # verbose
 
-# read files
-datas = []
-for fn in args.file:
-    if fn == "@clip":
-        # clipboard
+                verbose = v
 
-        datas.append((fn, pyperclip.paste()))
+    # check if files exist
+    for fn in args.file:
+        # exists or is `@clip`
+        if not os.path.isfile(fn) and fn != "@clip":
+            print(f"Error: input file \"{fn}\" does not exist")
+            sys.exit(1)
 
-    else:
-        # file
+    # read files
+    datas = []
+    for fn in args.file:
+        if fn == "@clip":
+            # clipboard
 
-        with open(fn, "r") as f:
-            datas.append((fn, f.read()))
+            datas.append((fn, pyperclip.paste()))
 
-# compile all files
-outs = []
-for data in datas:
-    # skip if already compiler
-    if data[0].endswith(".mind") or data[0].endswith(".masm"):
-        outs.append(data[1])
-        continue
-    
-    try:
-        out = Preprocessor.preprocess(data[1])
-        out = Lexer.lex(out)
-        out = Parser().parse(out)
-        out = out.generate()
-        out = Optimizer.optimize(out)
-    except MlogError as e:
-        e.print()
-        # raise e
-        sys.exit(1)
+        else:
+            # file
 
-    # add to compiled files
-    outs.append(out)
+            with open(fn, "r") as f:
+                datas.append((fn, f.read()))
 
-# link the compiled files
-out = Linker.link(outs).strip()
+    # compile all files
+    outs = []
+    for data in datas:
+        # skip if already compiler
+        if data[0].endswith(".mind") or data[0].endswith(".masm"):
+            outs.append(data[1])
+            continue
 
-if omethod == IOMethod.FILE:
-    # output to file
+        try:
+            out = Preprocessor.preprocess(data[1])
+            out = Lexer.lex(out)
+            out = Parser().parse(out)
+            out = out.generate()
+            out = Optimizer.optimize(out)
+        except MlogError as e:
+            e.print()
+            # raise e
+            sys.exit(1)
 
-    with open(ofile, "w+") as f:
-        f.write(out)
+        # add to compiled files
+        outs.append(out)
 
-elif omethod == IOMethod.STD:
-    # output to stdout
+    # link the compiled files
+    out = Linker.link(outs).strip()
 
-    # check if line numbers should be prined
-    if vars(args)["lines"]:
-        lines = out.splitlines()
-        maxline = len(str(len(lines)))
-        for i, ln in enumerate(lines):
-            print(f"{str(i).zfill(maxline)}: {ln}")
-    else:
-        print(out)
-    
+    if output_method == IOMethod.FILE:
+        # output to file
+
+        with open(output_file, "w+") as f:
+            f.write(out)
+
+    elif output_method == IOMethod.STD:
+        # output to stdout
+
+        # check if line numbers should be printed
+        if vars(args)["lines"]:
+            lines = out.splitlines()
+            max_line = len(str(len(lines)))
+            for i, ln in enumerate(lines):
+                print(f"{str(i).zfill(max_line)}: {ln}")
+        else:
+            print(out)
+
+        if verbose:
+            print()
+
+    elif output_method == IOMethod.CLIP:
+        # output to clipboard
+
+        pyperclip.copy(out)
+
     if verbose:
-        print()
-    
-elif omethod == IOMethod.CLIP:
-    # output to clipboard
-
-    pyperclip.copy(out)
-
-if verbose:
-    print(f"Output: {len(out.strip())} characters, {len(out.strip().split())} words, {len(out.strip().splitlines())} lines")
+        print(f"Output: {len(out.strip())} characters, {len(out.strip().split())} words, {len(out.strip().splitlines())} lines")

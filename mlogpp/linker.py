@@ -1,6 +1,3 @@
-from .lexer import Position
-from .error import link_error
-
 class Linker:
     """
     links generated code together
@@ -15,13 +12,13 @@ class Linker:
         # find labels
         code = "\n".join([ln for ln in "\n".join(codes).splitlines() if ln])
         labels = {}
-        labelc = 0
+        label_count = 0
         tmp = ""
         for i, ln in enumerate(code.splitlines()):
             # is a label
             if ln.startswith("<"):
-                labels[ln[1:]] = i - labelc
-                labelc += 1
+                labels[ln[1:]] = i - label_count
+                label_count += 1
                 continue
 
             tmp += ln + "\n"
@@ -47,12 +44,12 @@ class Linker:
             code += ln + "\n"
         
         lns = code.splitlines()
-        nlns = len(lns)
+        n_lines = len(lns)
         for i, ln in enumerate(lns):
             # is a jump
             if ln.startswith("jump "):
                 spl = ln.split(" ", 2)
-                if int(spl[1]) >= nlns:
+                if int(spl[1]) >= n_lines:
                     spl[1] = "0"
                 lns[i] = " ".join(spl)
         

@@ -1,34 +1,40 @@
-from enum import Enum
+import enum
 import re
 
 from .error import lex_error
 from .util import Position, sanitize
 
-class TokenType(Enum):
+
+class TokenType(enum.Enum):
     """
     token types
     """
 
-    NONE      = 0
-    ID        = 2
-    STRING    = 3
-    NUMBER    = 4
-    LPAREN    = 5
-    RPAREN    = 6
-    LBRACE    = 7
-    RBRACE    = 8
-    LBRACK    = 9
-    RBRACK    = 10
-    COMMA     = 11
-    SEMICOLON = 12
-    OPERATOR  = 13
-    SET       = 14
-    LOGIC     = 15
+    NONE = enum.auto()
+    ID = enum.auto()
+    STRING = enum.auto()
+    NUMBER = enum.auto()
+    LPAREN = enum.auto()
+    RPAREN = enum.auto()
+    LBRACE = enum.auto()
+    RBRACE = enum.auto()
+    LBRACK = enum.auto()
+    RBRACK = enum.auto()
+    COMMA = enum.auto()
+    SEMICOLON = enum.auto()
+    OPERATOR = enum.auto()
+    SET = enum.auto()
+    LOGIC = enum.auto()
+
 
 class Token:
     """
     token of code
     """
+
+    type: TokenType
+    value: str
+    pos: Position
 
     def __init__(self, type_: TokenType, value: str, pos: Position):
         self.type = type_
@@ -36,10 +42,11 @@ class Token:
         self.pos = pos
     
     def __repr__(self) -> str:
-        return f"Token({self.type}, \"{sanitize(self.value)}\", {repr(self.pos)})"
+        return f"[{self.type}, \"{sanitize(self.value)}\"]"
     
     def pos(self) -> Position:
         return self.pos
+
 
 class Lexer:
     """
@@ -54,14 +61,14 @@ class Lexer:
         TokenType.LPAREN: re.compile(r"^\($"),
         TokenType.RPAREN: re.compile(r"^\)$"),
         TokenType.LBRACE: re.compile(r"^\{$"),
-        TokenType.RBRACE: re.compile(r"^\}$"),
+        TokenType.RBRACE: re.compile(r"^}$"),
         TokenType.LBRACK: re.compile(r"^\[$"),
-        TokenType.RBRACK: re.compile(r"^\]$"),
+        TokenType.RBRACK: re.compile(r"^]$"),
         TokenType.COMMA: re.compile(r"^,$"),
         TokenType.SEMICOLON: re.compile(r"^;$"),
-        TokenType.OPERATOR: re.compile(r"^[+\-*/!]|(\*\*)|(===)|(<=)|(>=)|(==)|(\!=)|<|>|~$"),
-        TokenType.SET: re.compile(r"^=|(\+=)|(\-=)|(\*=)|(\/=)$"),
-        TokenType.LOGIC: re.compile(r"^(\&\&)|(\|\|)$")
+        TokenType.OPERATOR: re.compile(r"^[+\-*/!]|(\*\*)|(===)|(<=)|(>=)|(==)|(!=)|<|>|~$"),
+        TokenType.SET: re.compile(r"^=|(\+=)|(-=)|(\*=)|(/=)$"),
+        TokenType.LOGIC: re.compile(r"^(&&)|(\|\|)$")
     }
 
     @staticmethod
@@ -70,7 +77,7 @@ class Lexer:
         split code into tokens
         """
 
-        toks = []
+        tokens = []
         # iterate over lines
         for lni, ln in enumerate(code.splitlines()):
             ln = ln.strip()
@@ -117,21 +124,26 @@ class Lexer:
                 
                 # error if invalid token
                 if Lexer.match(tok) == TokenType.NONE:
-                    lex_error("Invalid token", ln, Position(lni, start, i, ln))
+                    lex_error("Invalid token", Position(lni, start, i, ln))
 
                 # add token to list
-                toks.append(Token(Lexer.match(tok), tok, Position(lni, start, i, ln)))
+                tokens.append(Token(Lexer.match(tok), tok, Position(lni, start, i, ln)))
                 tok = ""
             
             # add last token
             tok = ln[i:].strip()
             if tok:
-                if Lexer.match(tok) != TokenType.NONE:
-                    toks.append(Token(Lexer.match(tok), tok, Position(lni, i - len(tok), i, ln)))
+                token_type = Lexer.match(tok)
+                if token_type != TokenType.NONE:
+                    if len(tokens) > 0 and token_type == tokens[-1].type and lni == tokens[-1].pos.line:
+                        tokens[-1].pos.end += len(tok)
+                        tokens[-1].value += tok
+                    else:
+                        tokens.append(Token(Lexer.match(tok), tok, Position(lni, i - len(tok), i, ln)))
                 else:
-                    lex_error("Invalid token", ln, Position(lni, i - len(tok), i, ln))
+                    lex_error("Invalid token", Position(lni, i - len(tok), i, ln))
         
-        return toks
+        return tokens
 
     @staticmethod
     def match(token: str) -> TokenType:

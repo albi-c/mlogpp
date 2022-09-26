@@ -1,9 +1,14 @@
 import re
 
+
 class Var:
     """
     variable class
     """
+
+    n: str
+    c: bool
+    nc: bool
 
     def __init__(self, name: str, can_edit: bool = False):
         self.n = name
@@ -18,7 +23,8 @@ class Var:
         create a copy with different edit flag
         """
 
-        return Var(self.name, can_edit)
+        return Var(self.n, can_edit)
+
 
 class Gen:
     """
@@ -44,7 +50,7 @@ class Gen:
         Gen.LAB_COUNT = 0
 
     @staticmethod
-    def temp_var(v: Var = None) -> Var:
+    def temp_var(_: Var | str | None = None) -> Var:
         """
         generate a temporary variable
         """
@@ -76,5 +82,5 @@ class Gen:
         Gen.GLOBALS_STACK.pop(-1)
     
     @staticmethod
-    def add_globals(globals: list):
-        Gen.GLOBALS_STACK[-1] |= set(globals)
+    def add_globals(global_variables: list):
+        Gen.GLOBALS_STACK[-1] |= set(global_variables)

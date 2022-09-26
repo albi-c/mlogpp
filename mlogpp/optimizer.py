@@ -3,6 +3,7 @@ import re
 from .generator import Gen
 from .functions import PRECALC, JC_REPLACE
 
+
 class Optimizer:
     """
     optimizes generated code
@@ -10,7 +11,7 @@ class Optimizer:
 
     REGEXES = {
         # setting temporary variable
-        "TMP_SET": re.compile(r"^set __tmp\d+ .+$"),\
+        "TMP_SET": re.compile(r"^set __tmp\d+ .+$"),
         # reading to temporary variable
         "TMP_READ": re.compile(r"^read __tmp\d+ \S+ \S+$"),
         # operation to temporary variable
@@ -30,10 +31,11 @@ class Optimizer:
         # assigning from temporary variable
         "TA_SET": re.compile(r"^set [a-zA-Z_@][a-zA-Z_0-9]* __tmp\d+$"),
 
-        # precalculatable operation
+        # operation eligible to be precalculated
         "PC_OP": re.compile(r"^op [a-zA-Z]+ \S+ \d+(\.\d+)? \d+(\.\d+)?$")
     }
 
+    @staticmethod
     def optimize(code: str) -> str:
         """
         optimize generated code
@@ -41,32 +43,33 @@ class Optimizer:
         
         for i in range(1, 11):
             while True:
-                code, _ = Optimizer._precalc_optimize(code)
+                code, _ = Optimizer._precalculate_optimize(code)
                 code, found = Optimizer._single_use_tmp(code, i)
-                code, _ = Optimizer._precalc_optimize(code)
+                code, _ = Optimizer._precalculate_optimize(code)
 
                 if not found:
                     break
         
         for i in range(10, 0, -1):
             while True:
-                code, _ = Optimizer._precalc_optimize(code)
+                code, _ = Optimizer._precalculate_optimize(code)
                 code, found = Optimizer._single_use_tmp(code, i)
-                code, _ = Optimizer._precalc_optimize(code)
+                code, _ = Optimizer._precalculate_optimize(code)
 
                 if not found:
                     break
         
         return code
 
-    def _single_use_tmp(code: str, forward: int = 1) -> str:
+    @staticmethod
+    def _single_use_tmp(code: str, forward: int = 1) -> tuple[str, bool]:
         """
         optimize single use temporary variables
         """
 
         uses = {}
         for i in range(0, Gen.VAR_COUNT + 1):
-            # split bu whitespaces
+            # split by whitespaces
             s = re.split("\\s+", code)
             # count variable usage
             c = s.count(f"__tmp{i}")
@@ -173,8 +176,9 @@ class Optimizer:
             tmp += ln + "\n"
         
         return tmp.strip(), found
-    
-    def _precalc_optimize(code: str) -> str:
+
+    @staticmethod
+    def _precalculate_optimize(code: str) -> tuple[str, bool]:
         """
         precalculate values where possible
         """
@@ -204,7 +208,6 @@ class Optimizer:
                     else:
                         ln = f"set {name} {result}"
                         found = True
-
 
             tmp += ln + "\n"
         
