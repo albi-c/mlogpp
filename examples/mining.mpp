@@ -58,11 +58,11 @@ if (switch1.enabled) {
         }
     }
 
-    endr
+    end
 }
 
 if (cell1[0] == 0) {
-    endr
+    end
 }
 
 ubind(UNIT)

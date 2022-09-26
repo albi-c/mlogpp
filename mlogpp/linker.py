@@ -53,4 +53,4 @@ class Linker:
                     spl[1] = "0"
                 lns[i] = " ".join(spl)
         
-        return "\n".join(lns)
+        return "\n".join(lns).strip()

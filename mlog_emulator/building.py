@@ -1,9 +1,11 @@
 from enum import Enum
 
+
 class BuildingType(Enum):
     CELL      = "cell"
     MESSAGE   = "message"
     PROCESSOR = "processor"
+
 
 class Building:
     def __init__(self, type_: BuildingType, name: str, params: dict):

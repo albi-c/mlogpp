@@ -1,7 +1,9 @@
 from .parser_ import Instruction
 
+
 class VMSignal(Exception):
     pass
+
 
 class VM:
     def __init__(self, ins: list):
@@ -31,8 +33,8 @@ class VM:
         }
     
     def next_ins(self) -> Instruction:
-        if self.env["variables"]["@counter"] < len(self.ins) - 1:
-            return self.ins[self.env["variables"]["@counter"]]
+        if self.env["variables"]["@counter"] < len(self.ins):
+            return self.ins[int(self.env["variables"]["@counter"])]
         
         raise VMSignal()
     
@@ -44,6 +46,8 @@ class VM:
         
         self.env["variables"]["@counter"] += 1
         i.execute(self.env)
+        if self.env["variables"]["@counter"] == 0:
+            return False
         
         return True
     
@@ -52,3 +56,6 @@ class VM:
             pass
 
         return self.env
+
+    def __getitem__(self, item: str):
+        return self.env["variables"][item]

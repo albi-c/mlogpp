@@ -1,4 +1,7 @@
-import shlex, math, random, re
+import math
+import random
+import re
+import shlex
 
 from .building import Building, BuildingType
 
@@ -82,11 +85,14 @@ JUMP_CONDITIONS = {
     "always": lambda a, b: True
 }
 
+
 class ParserException(Exception):
     pass
 
+
 class ExecutionError(Exception):
     pass
+
 
 class Instruction:
     def __init__(self, name: str, params: list = None):
@@ -95,9 +101,10 @@ class Instruction:
     
     def __repr__(self) -> str:
         params_list = [f"\"{p}\"" for p in self.params]
-        return f"EInstruction(\"{self.name}\", [{', '.join(params_list)}])"
-    
-    def resolve_value(self, value: any, env: dict) -> any:
+        return f"Instruction(\"{self.name}\", [{', '.join(params_list)}])"
+
+    @staticmethod
+    def resolve_value(value: any, env: dict) -> any:
         if REGEX_NUM.fullmatch(value):
             return float(value)
         
@@ -194,13 +201,13 @@ class Instruction:
                 raise ExecutionError(f"Invalid operator \"{op}\"")
             
             try:
-                if a not in  [None, True, False]:
+                if a not in [None, True, False]:
                     a = float(a)
             except ValueError:
                 raise ExecutionError(f"Invalid operation input [a] \"{a}\"")
             
             try:
-                if b not in  [None, True, False]:
+                if b not in [None, True, False]:
                     b = float(b)
             except ValueError:
                 raise ExecutionError(f"Invalid operation input [b] \"{b}\"")
@@ -217,19 +224,19 @@ class Instruction:
             
             cond = self.params[1]
             a = self.resolve_value(self.params[2], env)
-            b = self.resolve_value(self.params[2], env)
+            b = self.resolve_value(self.params[3], env)
 
             if cond not in JUMP_CONDITIONS:
                 raise ExecutionError(f"Invalid jump condition \"{cond}\"")
 
             try:
-                if a not in  [None, True, False]:
+                if a not in [None, True, False]:
                     a = float(a)
             except ValueError:
                 raise ExecutionError(f"Invalid jump input [a] \"{a}\"")
             
             try:
-                if b not in  [None, True, False]:
+                if b not in [None, True, False]:
                     b = float(b)
             except ValueError:
                 raise ExecutionError(f"Invalid jump input [b] \"{b}\"")
@@ -245,6 +252,7 @@ class Instruction:
         elif self.name == "ulocate":
             pass
 
+
 class Parser:
     @staticmethod
     def parse(code: str) -> list:
@@ -254,7 +262,7 @@ class Parser:
             if not ln.strip():
                 continue
             
-            spl = shlex.split(ln, comments = False, posix = False)
+            spl = shlex.split(ln, comments=False, posix=False)
 
             if len(spl) > 0:
                 if spl[0] in INSTRUCTIONS:
@@ -267,6 +275,5 @@ class Parser:
                     tmp.append(Instruction(spl[0], spl[1:] if len(spl) > 1 else []))
                 else:
                     raise ParserException(f"Invalid instruction \"{spl[0]}\"")
-        
-        print(tmp)
+
         return tmp

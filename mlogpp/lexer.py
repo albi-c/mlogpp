@@ -41,10 +41,10 @@ class Token:
         self.type = type_
         self.value = value
         self.pos = pos
-    
+
     def __repr__(self) -> str:
         return f"[{self.type}, \"{sanitize(self.value)}\"]"
-    
+
     def pos(self) -> Position:
         return self.pos
 
@@ -74,7 +74,8 @@ class Lexer:
     }
 
     JOINABLE_TOKENS = {
-        TokenType.ID, TokenType.NUMBER
+        TokenType.ID: {TokenType.ID},
+        TokenType.NUMBER: {TokenType.NUMBER, TokenType.ID}
     }
 
     @staticmethod
@@ -91,7 +92,7 @@ class Lexer:
             # skip if empty or comment
             if not ln or ln.startswith("#"):
                 continue
-            
+
             tok = ""
             i = 0
             while True:
@@ -101,7 +102,7 @@ class Lexer:
                 if not ln[i].strip():
                     i += 1
                     continue
-                
+
                 # add characters until it matches
                 while Lexer.match(tok) == TokenType.NONE:
                     if i >= len(ln):
@@ -110,10 +111,11 @@ class Lexer:
                     c = ln[i]
                     tok += c
                     i += 1
-                
+
                 # add characters until it doesn't match anymore
                 while Lexer.match(tok) != TokenType.NONE:
                     if i >= len(ln):
+                        i += 1
                         break
 
                     c = ln[i]
@@ -127,7 +129,7 @@ class Lexer:
                 # break if token is empty
                 if not tok.strip():
                     break
-                
+
                 # error if invalid token
                 if Lexer.match(tok) == TokenType.NONE:
                     lex_error(f"Invalid token: [\"{tok}\"]", Position(lni, start, i, ln))
@@ -135,20 +137,33 @@ class Lexer:
                 # add token to list
                 tokens.append(Token(Lexer.match(tok), tok, Position(lni, start, i, ln)))
                 tok = ""
-            
+
             # add last token
             tok = ln[i:].strip()
+            print(tok, ln[i-1:], i)
             if tok:
-                token_type = Lexer.match(tok)
-                if token_type != TokenType.NONE:
-                    if len(tokens) > 0 and token_type == tokens[-1].type and lni == tokens[-1].pos.line and token_type in Lexer.JOINABLE_TOKENS:
-                        tokens[-1].pos.end += len(tok)
-                        tokens[-1].value += tok
-                    else:
-                        tokens.append(Token(Lexer.match(tok), tok, Position(lni, i - len(tok), i, ln)))
-                else:
-                    lex_error("Invalid token", Position(lni, i - len(tok), i, ln))
-        
+                # if len(tokens) > 0:
+                #     if Lexer.match(tokens[-1].value + tok) == tokens[-1].type and ln[i-1].strip():
+                #         tokens[-1].pos.end += len(tok)
+                #         tokens[-1].value += tok
+                #     else:
+                tokens.append(Token(Lexer.match(tok), tok, Position(lni, i - len(tok), i, ln)))
+
+                # token_type = Lexer.match(tok)
+                # print(tok, token_type)
+                # if token_type != TokenType.NONE:
+                #     if len(tokens) > 0 and lni == tokens[-1].pos.line:
+                #         if (tokens[-1].type in Lexer.JOINABLE_TOKENS.get(token_type, set()) and ln[i-1].strip()) or \
+                #                 (tok == '"'):
+                #
+                #             tokens[-1].pos.end += len(tok)
+                #             tokens[-1].value += tok
+                #     else:
+                #         tokens.append(Token(token_type, tok, Position(lni, i - len(tok), i, ln)))
+
+                # else:
+                #     lex_error("Invalid token", Position(lni, i - len(tok), i, ln))
+
         return tokens
 
     @staticmethod
@@ -156,10 +171,10 @@ class Lexer:
         """
         match a token to a type
         """
-        
+
         # iterate over regexes
         for t, r in Lexer.REGEXES.items():
             if r.fullmatch(token):
                 return t
-        
+
         return TokenType.NONE

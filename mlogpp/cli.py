@@ -81,7 +81,7 @@ def main():
     # compile all files
     outs = []
     for data in datas:
-        # skip if already compiler
+        # skip if already compiled
         if data[0].endswith(".mind") or data[0].endswith(".masm"):
             outs.append(data[1])
             continue
@@ -89,6 +89,7 @@ def main():
         try:
             out = Preprocessor.preprocess(data[1])
             out = Lexer.lex(out)
+            print(out)
             out = Parser().parse(out)
             out = out.generate()
             out = Optimizer.optimize(out)
@@ -101,7 +102,7 @@ def main():
         outs.append(out)
 
     # link the compiled files
-    out = Linker.link(outs).strip()
+    out = Linker.link(outs)
 
     if output_method == IOMethod.FILE:
         # output to file

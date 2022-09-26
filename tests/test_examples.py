@@ -1,0 +1,26 @@
+import unittest
+import os
+
+from mlogpp.lexer import Lexer
+from mlogpp.preprocess import Preprocessor
+from mlogpp.parser_ import Parser
+from mlogpp.optimizer import Optimizer
+from mlogpp.linker import Linker
+
+
+class ExamplesTestCase(unittest.TestCase):
+    def test_examples_compilation(self):
+        directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), "examples")
+        examples = [os.path.join(directory, fn) for fn in os.listdir(directory)]
+        for filename in examples:
+            with self.subTest(filename=filename):
+                code = open(filename).read()
+                code = Lexer.lex(code)
+                code = Parser().parse(code)
+                code = code.generate()
+                code = Optimizer.optimize(code)
+                code = Linker.link([code])
+
+
+if __name__ == '__main__':
+    unittest.main()
