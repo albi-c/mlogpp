@@ -251,7 +251,6 @@ class Parser:
             
             elif n.type == TokenType.LBRACK:
                 # indexed variable assignment
-                # TODO: combine with normal assignment
 
                 idx = self.parse_Value()
                 self.next_token(TokenType.RBRACK)
@@ -339,7 +338,7 @@ class Parser:
         while self.has_token():
             tok = self.next_token()
 
-            if tok.type == TokenType.OPERATOR and tok.value in ["+", "-"]:
+            if tok.type == TokenType.OPERATOR and tok.value in ["+", "-", "<<", ">>", "&", "|", "^"]:
                 right.append((tok.value, self.parse_Term()))
 
             else:
@@ -360,7 +359,7 @@ class Parser:
         while self.has_token():
             tok = self.next_token()
 
-            if tok.type == TokenType.OPERATOR and tok.value in ["*", "/", "**"]:
+            if tok.type == TokenType.OPERATOR and tok.value in ["*", "/", "**", "%", "//"]:
                 right.append((tok.value, self.parse_Factor()))
 
             else:

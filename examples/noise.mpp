@@ -2,13 +2,13 @@ const PM = 22
 const DS = 176
 dsize = DS / PM
 
-for (rseed = 0; rseed >= 0; rseed += 1) {
-    print(rseed)
+for (seed = 0; seed >= 0; seed += 1) {
+    print(seed)
     printflush(message1)
 
     for (y = 0; y < dsize; y += 1) {
         for (x = 0; x < dsize; x += 1) {
-            val = op(noise, x + rseed, y + rseed)
+            val = op(noise, x + seed, y + seed)
             val = op(abs, val, _)
             val *= 255
             draw.color(val, val, val, 255)

@@ -102,6 +102,20 @@ class LoopActionNode(Node):
 
 
 class AssignmentNode(Node):
+    OPERATORS = {
+        "+=": "add",
+        "-=": "sub",
+        "*=": "mul",
+        "/=": "div",
+        "//=": "idiv",
+        "%=": "mod",
+        "&=": "and",
+        "|=": "or",
+        "^=": "xor",
+        "<<=": "shl",
+        ">>=": "shr"
+    }
+
     def __init__(self, pos: Position, var: Node, op: str, value: Node):
         super().__init__(pos)
 
@@ -120,8 +134,8 @@ class AssignmentNode(Node):
 
         else:
             # determine operator
-            op = "add" if self.op == "+=" else "sub" if self.op == "-=" else "mul" if self.op == "*=" else "div" if self.op == "/=" else ""
-            if op == "":
+            op = AssignmentNode.OPERATORS.get(self.op)
+            if op is None:
                 gen_error(self.get_pos(), f"Invalid operator: \"{self.op}\"")
 
             vasc, vasv = self.var.get()
@@ -341,6 +355,16 @@ class CompExpressionNode(Node):
 
 
 class ArithExpressionNode(Node):
+    OPERATORS = {
+        "+": "add",
+        "-": "sub",
+        "<<": "shl",
+        ">>": "shr",
+        "&": "and",
+        "|": "or",
+        "^": "xor"
+    }
+
     def __init__(self, pos: Position, left: Node, right: list):
         super().__init__(pos)
 
@@ -362,8 +386,8 @@ class ArithExpressionNode(Node):
 
             for r in self.right:
                 # determine operator
-                op = "add" if r[0] == "+" else "sub" if r[0] == "-" else ""
-                if op == "":
+                op = ArithExpressionNode.OPERATORS.get(r[0])
+                if op is None:
                     gen_error(self.get_pos(), f"Invalid operator")
 
                 valc, valv = r[1].get()
@@ -385,6 +409,14 @@ class ArithExpressionNode(Node):
 
 
 class TermNode(Node):
+    OPERATORS = {
+        "*": "mul",
+        "/": "div",
+        "**": "pow",
+        "%": "mod",
+        "//": "idiv"
+    }
+
     def __init__(self, pos: Position, left: Node, right: list):
         super().__init__(pos)
 
@@ -406,8 +438,8 @@ class TermNode(Node):
 
             for r in self.right:
                 # determine operator
-                op = "mul" if r[0] == "*" else "div" if r[0] == "/" else "pow" if r[0] == "**" else ""
-                if op == "":
+                op = TermNode.OPERATORS.get(r[0])
+                if op is None:
                     gen_error(self.get_pos(), f"Invalid operator")
 
                 valc, valv = r[1].get()

@@ -1,4 +1,4 @@
-for (i = 0; i < @links; i += 1) {
+for (i : @links) {
     print(getlink(i))
     print("\n")
 }
