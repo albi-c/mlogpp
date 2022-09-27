@@ -1,5 +1,7 @@
 # mlog++
 
+[![Run Unit Tests](https://github.com/albi-c/mlogpp/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/albi-c/mlogpp/actions/workflows/test.yml)
+
 high level mindustry logic language
 
 ## Installation:
