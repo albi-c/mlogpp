@@ -178,7 +178,7 @@ ubind(@mega)
     )
 
     def test_lex(self):
-        tokens = Lexer.lex(LexerTestCase.SOURCE_CODE)
+        tokens = Lexer.lex(LexerTestCase.SOURCE_CODE, "TEST_CODE_FILE", "TEST_CODE_DIR")
         token_tuples = tuple(map(lambda t: (t.type, t.value), tokens))
         self.assertEqual(token_tuples, LexerTestCase.TOKENS)
 
@@ -197,13 +197,13 @@ ubind(@mega)
         self.assertEqual(Lexer.match(";"), TokenType.SEMICOLON)
         self.assertEqual(Lexer.match(":"), TokenType.COLON)
 
-        operator_tokens = ("+", "-", "*", "/", "!", "**", "===", "<=", ">=", "==", "!=", "<", ">", "~")
+        operator_tokens = ("+", "-", "*", "/", "//", "%", "!", "**", "===", "<=", ">=", "==", "!=", "<", ">", "~", "&", "|", "<<", ">>", "^")
         self.assertEqual(
             tuple(map(Lexer.match, operator_tokens)),
             (TokenType.OPERATOR,) * len(operator_tokens)
         )
 
-        set_tokens = ("=", "+=", "-=", "*=", "+=")
+        set_tokens = ("=", "+=", "-=", "*=", "/=", "//=", "%=", "|=", "&=", "^=", "<<=", ">>=")
         self.assertEqual(
             tuple(map(Lexer.match, set_tokens)),
             (TokenType.SET,) * len(set_tokens)

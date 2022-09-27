@@ -14,7 +14,9 @@ class ExamplesTestCase(unittest.TestCase):
         examples = [os.path.join(directory, fn) for fn in os.listdir(directory) if fn.endswith(".mpp")]
         for filename in examples:
             with self.subTest(msg=filename):
-                code = open(filename).read()
+                with open(filename, "r") as f:
+                    code = f.read()
+
                 code = Preprocessor.preprocess(code)
                 code = Lexer.lex(code, filename, directory)
                 code = Parser().parse(code)
