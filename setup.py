@@ -24,7 +24,7 @@ setuptools.setup(
     ],
     package_dir={"": "."},
     packages=setuptools.find_packages(),
-    python_requires=">=3.6",
+    python_requires=">=3.10",
     entry_points={
         "console_scripts": {
             "mlogpp = mlogpp.cli:main"

@@ -1,6 +1,7 @@
 import enum
 import re
 import os
+import string
 
 from .error import lex_error
 from .util import Position, sanitize
@@ -185,3 +186,224 @@ class Lexer:
                 return t
 
         return TokenType.NONE
+
+
+class LexerRewrite:
+    ID_CHARS_START = string.ascii_letters + "_@"
+    ID_CHARS = ID_CHARS_START + "-." + string.digits
+
+    STRING_CHARS = string.printable
+
+    NUMBER_CHARS_START = string.digits
+    NUMBER_CHARS = NUMBER_CHARS_START + "."
+
+    OPERATOR_CHARS_START = "+-*/%=<>!&|^~"
+
+    SET_CHARS_START = "=+-*/%&|^<>"
+
+    LOGIC_CHARS_START = "&|"
+
+    include_search_dir: str
+    imported_files: set
+
+    current_input_file: str
+    current_code: str
+    i: int
+    line: int
+    char: int
+
+    def __init__(self, include_search_dir: str):
+        self.include_search_dir = include_search_dir
+        self.imported_files = set()
+
+        self.current_input_file = ""
+        self.current_code = ""
+        self.i = -1
+        self.line = 0
+        self.char = 0
+
+    def next_char(self, char: str | None = None) -> str:
+        self.i += 1
+        if self.i >= len(self.current_code):
+            return ""
+        ch = self.current_code[self.i]
+        if char is not None and ch != char:
+            lex_error(f"Unexpected character [{ch}]", Position(self.line, self.char, self.char + 1,
+                                                               self.current_code.splitlines()[self.line], self.current_input_file))
+        return ch
+
+    def lookahead_char(self, char: str | None = None) -> str | bool:
+        if self.i + 1 >= len(self.current_code):
+            return ""
+        if self.current_code[self.i + 1] == char:
+            self.i += 1
+            return True
+        elif char is not None:
+            return False
+        return self.current_code[self.i + 1]
+
+    def lex(self, code: str, input_file: str) -> list[Token]:
+        old_current_code = self.current_code
+        self.current_code = code
+        old_current_input_file = self.current_input_file
+        self.current_input_file = input_file
+        old_i = self.i
+        self.i = -1
+        old_line = self.line
+        old_char = self.char
+
+        tokens = []
+        lines = tuple(code.splitlines())
+
+        line = 0
+        char = 0
+        while ch := self.lookahead_char():
+            if ch == "":
+                break
+
+            if not ch.strip():
+                self.next_char()
+                continue
+
+            if ch == "#":
+                self.lex_until_eol()
+                continue
+
+            # TODO: imports
+
+            print(self.i, f"'{ch}'")
+
+            if ch in self.ID_CHARS_START and (token := self.lex_id()) is not None:
+                tokens.append(Token(TokenType.ID, token, Position(line, char, char + len(token), lines[line], input_file)))
+
+            elif ch == '"' and (token := self.lex_string()) is not None:
+                tokens.append(Token(TokenType.STRING, token, Position(line, char, char + len(token), lines[line], input_file)))
+
+            elif ch in self.NUMBER_CHARS_START and (token := self.lex_number()) is not None:
+                tokens.append(Token(TokenType.NUMBER, token, Position(line, char, char + len(token), lines[line], input_file)))
+
+            elif ch == "(":
+                tokens.append(Token(TokenType.LPAREN, ch, Position(line, char, char + 1, lines[line], input_file)))
+            elif ch == ")":
+                tokens.append(Token(TokenType.RPAREN, ch, Position(line, char, char + 1, lines[line], input_file)))
+
+            elif ch == "{":
+                tokens.append(Token(TokenType.LBRACE, ch, Position(line, char, char + 1, lines[line], input_file)))
+            elif ch == "}":
+                tokens.append(Token(TokenType.RBRACE, ch, Position(line, char, char + 1, lines[line], input_file)))
+
+            elif ch == "[":
+                tokens.append(Token(TokenType.LBRACK, ch, Position(line, char, char + 1, lines[line], input_file)))
+            elif ch == "]":
+                tokens.append(Token(TokenType.RBRACK, ch, Position(line, char, char + 1, lines[line], input_file)))
+
+            elif ch == ",":
+                tokens.append(Token(TokenType.COMMA, ch, Position(line, char, char + 1, lines[line], input_file)))
+            elif ch == ";":
+                tokens.append(Token(TokenType.SEMICOLON, ch, Position(line, char, char + 1, lines[line], input_file)))
+            elif ch == ":":
+                tokens.append(Token(TokenType.COLON, ch, Position(line, char, char + 1, lines[line], input_file)))
+
+            elif ch in LexerRewrite.SET_CHARS_START and (token := self.lex_set()) is not None:
+                tokens.append(Token(TokenType.SET, token, Position(line, char, char + len(token), lines[line], input_file)))
+
+            elif ch in LexerRewrite.OPERATOR_CHARS_START and (token := self.lex_operator()) is not None:
+                tokens.append(Token(TokenType.OPERATOR, token, Position(line, char, char + len(token), lines[line], input_file)))
+
+            elif ch in self.LOGIC_CHARS_START and (token := self.lex_logic()) is not None:
+                tokens.append(Token(TokenType.LOGIC, token, Position(line, char, char + len(token), lines[line], input_file)))
+
+            char += 1
+            if char == "\n":
+                char = 0
+                line += 1
+
+            self.line = line
+            self.char = char
+
+        self.current_code = old_current_code
+        self.current_input_file = old_current_input_file
+        self.i = old_i
+        self.line = old_line
+        self.char = old_char
+
+        return tokens
+
+    def lex_until_eol(self) -> str:
+        token = ""
+        while (ch := self.next_char()) != "\n":
+            token += ch
+        return token
+
+    def lex_id(self) -> str:
+        token = ""
+        while (ch := self.next_char()) in LexerRewrite.ID_CHARS:
+            token += ch
+        return token
+
+    def lex_string(self) -> str:
+        self.next_char()
+        token = ""
+        while (ch := self.next_char()) in LexerRewrite.STRING_CHARS:
+            if ch == '"':
+                return token
+            token += ch
+        return token
+
+    def lex_number(self) -> str:
+        token = ""
+        while (ch := self.next_char()) in LexerRewrite.NUMBER_CHARS:
+            token += ch
+        return token
+
+    def lex_operator(self) -> str | None:
+        match ch := self.next_char():
+            case "+" | "-" | "~" | "&" | "|" | "^" | "%":
+                return ch
+            case "*":
+                if self.lookahead_char("*"):
+                    return "**"
+                return "*"
+            case "/":
+                if self.lookahead_char("/"):
+                    return "//"
+                return "/"
+            case "=":
+                if self.lookahead_char("="):
+                    if self.lookahead_char("="):
+                        return "==="
+                    return "=="
+            case "<" | ">":
+                if self.lookahead_char("="):
+                    return ch + "="
+                elif self.lookahead_char(ch):
+                    return ch + ch
+                return ch
+            case "!":
+                if self.lookahead_char("="):
+                    return "!="
+                return "!"
+
+    def lex_set(self) -> str | None:
+        match ch := self.next_char():
+            case "=":
+                if self.lookahead_char() == "=":
+                    return None
+                return ch
+            case "+" | "-" | "%" | "&" | "|" | "^":
+                if self.lookahead_char("="):
+                    return ch + "="
+            case "*" | "/":
+                if self.lookahead_char(ch) and self.lookahead_char("="):
+                    return ch + ch + "="
+                elif self.lookahead_char("="):
+                    return ch + "="
+            case "<" | ">":
+                if self.lookahead_char(ch) and self.lookahead_char("="):
+                    return ch + ch + "="
+
+    def lex_logic(self) -> str | None:
+        ch = self.next_char()
+        if self.lookahead_char(ch):
+            return ch + ch
+        return None
