@@ -33,6 +33,8 @@ def main():
     parser.add_argument("-v", "--verbose", help="print additional information", action="store_true")
     parser.add_argument("-l", "--lines", help="print line numbers when output to stdout is selected", action="store_true")
 
+    parser.add_argument("--print-exceptions", help="print all exceptions from the compilation (development only)", action="store_true")
+
     parser.add_argument("-V", "--version", action="version", version=f"mlog++ {__version__}")
 
     args = parser.parse_args()
@@ -88,14 +90,16 @@ def main():
 
         try:
             out = Preprocessor.preprocess(data[1])
-            out = Lexer.lex(out)
+            out = Lexer.lex(out, data[0], os.path.dirname(os.path.abspath(data[0])))
             out = Parser().parse(out)
             out = out.generate()
             out = Optimizer.optimize(out)
         except MlogError as e:
             e.print()
-            # raise e
-            sys.exit(1)
+            if args.print_exceptions:
+                raise e
+            else:
+                sys.exit(1)
 
         # add to compiled files
         outs.append(out)

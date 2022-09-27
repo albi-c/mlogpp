@@ -11,7 +11,7 @@ class MlogError(Exception):
     
     def print(self):
         if self.pos is not None:
-            print(f"{Format.ERROR}{Format.BOLD}Error{Format.RESET}{Format.ERROR} on line {self.pos.line}, column {self.pos.start}: {self.msg}{Format.RESET}")
+            print(f"{Format.ERROR}{Format.BOLD}Error{Format.RESET}{Format.ERROR} on line {self.pos.line}, column {self.pos.start+1}: {self.msg} in file {self.pos.file}{Format.RESET}")
             print(f"Here:\n{self.pos.code}\n{self.pos.arrows()}")
         else:
             print(f"{Format.ERROR}{Format.BOLD}Error{Format.RESET}{Format.ERROR}: {self.msg}{Format.RESET}")

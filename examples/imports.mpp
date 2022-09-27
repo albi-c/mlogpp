@@ -1,0 +1,4 @@
+%imports_library.mpp
+
+test_func(5, 6)
+printflush(message1)

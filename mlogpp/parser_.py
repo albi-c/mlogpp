@@ -37,7 +37,7 @@ class Parser:
         while self.has_token():
             nodes.append(self.parse_Node())
         
-        return CodeListNode(Position(0, 0, 0, ""), nodes)
+        return CodeListNode(Position(0, 0, 0, "", ""), nodes)
     
     def loop_name(self) -> str:
         """

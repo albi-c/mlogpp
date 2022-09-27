@@ -15,26 +15,28 @@ class Position:
     start: int
     end: int
     code: str
+    file: str
     
-    def __init__(self, line: int, start: int, end: int, code: str):
+    def __init__(self, line: int, start: int, end: int, code: str, file: str):
         self.line = line
         self.start = start
         self.end = end
         self.code = sanitize(code)
+        self.file = file
     
     def arrows(self) -> str:
         """
         generate error arrows
         """
 
-        return f"{' ' * self.start}{'^' * (self.end - self.start)}"
+        return f"{' ' * (self.start + 1)}{'^' * (self.end - self.start)}"
     
     def code_section(self) -> str:
         """
         get code section defined by the position
         """
 
-        return self.code[self.start:self.end]
+        return self.code[self.start+1:self.end+1]
     
     def __add__(self, other: "Position") -> "Position":
         """
@@ -42,11 +44,11 @@ class Position:
         """
 
         if self.line == other.line:
-            return Position(self.line, min(self.start, other.start), max(self.end, other.end), self.code)
+            return Position(self.line, min(self.start, other.start), max(self.end, other.end), self.code, self.file)
         elif self.line < other.line:
-            return Position(self.line, self.start, len(self.code), self.code)
+            return Position(self.line, self.start, len(self.code), self.code, self.file)
         else:
-            return Position(other.line, other.start, len(other.code), other.code)
+            return Position(other.line, other.start, len(other.code), other.code, self.file)
     
     def __repr__(self) -> str:
-        return f"Position({self.line}, {self.start}, {self.end}, \"{sanitize(self.code)}\")"
+        return f"Position({self.line}, {self.start}, {self.end}, \"{sanitize(self.code)}\", \"{sanitize(self.file)}\")"

@@ -1,8 +1,10 @@
 import enum
 import re
+import os
 
 from .error import lex_error
 from .util import Position, sanitize
+from .preprocess import Preprocessor
 
 
 class TokenType(enum.Enum):
@@ -74,10 +76,12 @@ class Lexer:
     }
 
     @staticmethod
-    def lex(code: str) -> list:
+    def lex(code: str, input_file: str, include_search_dir: str, imported_files: set = None) -> list:
         """
         split code into tokens
         """
+
+        imported_files = set() if imported_files is None else imported_files
 
         tokens = []
         # iterate over lines
@@ -86,6 +90,24 @@ class Lexer:
 
             # skip if empty or comment
             if not ln or ln.startswith("#"):
+                continue
+
+            if ln.startswith("%") and len(ln) > 1:
+                path = os.path.join(include_search_dir, ln[1:])
+                if os.path.isfile(path):
+                    if path in imported_files:
+                        lex_error(f"File [\"{path}\"] is already imported", Position(lni, 1, len(ln[1:]), ln, input_file))
+                    imported_files.add(path)
+
+                    with open(path, "r") as f:
+                        imported_code = f.read()
+
+                    imported_code = Preprocessor.preprocess(imported_code)
+                    tokens += Lexer.lex(imported_code, path, include_search_dir, imported_files)
+
+                else:
+                    lex_error(f"Cannot find file [\"\"]", Position(lni, 1, len(ln[1:]), ln, input_file))
+
                 continue
 
             tok = ""
@@ -126,10 +148,10 @@ class Lexer:
 
                 # error if invalid token
                 if Lexer.match(tok) == TokenType.NONE:
-                    lex_error(f"Invalid token: [\"{tok}\"]", Position(lni, start, i, ln))
+                    lex_error(f"Invalid token: [\"{tok}\"]", Position(lni, start, i, ln, input_file))
 
                 # add token to list
-                tokens.append(Token(Lexer.match(tok), tok, Position(lni, start, i, ln)))
+                tokens.append(Token(Lexer.match(tok), tok, Position(lni, start, i, ln, input_file)))
                 tok = ""
 
             # add last token
@@ -137,15 +159,17 @@ class Lexer:
             token_type = Lexer.match(tok)
             if tok:
                 if token_type != TokenType.NONE:
-                    if len(tokens) > 0 and tokens[-1].pos.line == lni and Lexer.match(tokens[-1].value + tok) == tokens[-1].type and len(ln) >= 2 and ln[-2].strip():
+                    if len(tokens) > 0 and tokens[-1].pos.line == lni and Lexer.match(tokens[-1].value + tok) == tokens[-1].type \
+                                and len(ln) >= 2 and ln[-2].strip() and tokens[-1].pos.file == input_file:
+
                         tokens[-1].pos.end += 1
                         tokens[-1].value += tok
 
                     else:
-                        tokens.append(Token(token_type, tok, Position(lni, i - len(tok), i, ln)))
+                        tokens.append(Token(token_type, tok, Position(lni, i - len(tok), i, ln, input_file)))
 
                 else:
-                    lex_error(f"Invalid token: [\"{tok}\"]", Position(lni, i - len(tok), i, ln))
+                    lex_error(f"Invalid token: [\"{tok}\"]", Position(lni, i - len(tok), i, ln, input_file))
 
         return tokens
 
