@@ -1,15 +1,7 @@
 MIN_CRYOFLUID = 10
 
-for (i = 0; i < @links; i += 1) {
+for (i : @links) {
     reactor = getlink(i)
-
-    # cryo = reactor.cryofluid
-
-    # if (cryo < MIN_CRYOFLUID) {
-    #     reactor.enabled = false
-    # } else {
-    #     reactor.enabled = true
-    # }
 
     reactor.enabled = reactor.cryofluid > MIN_CRYOFLUID
 }

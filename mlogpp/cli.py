@@ -89,7 +89,6 @@ def main():
         try:
             out = Preprocessor.preprocess(data[1])
             out = Lexer.lex(out)
-            print(out)
             out = Parser().parse(out)
             out = out.generate()
             out = Optimizer.optimize(out)

@@ -73,11 +73,6 @@ class Lexer:
         TokenType.LOGIC: re.compile(r"^(&&)|(\|\|)$")
     }
 
-    JOINABLE_TOKENS = {
-        TokenType.ID: {TokenType.ID},
-        TokenType.NUMBER: {TokenType.NUMBER, TokenType.ID}
-    }
-
     @staticmethod
     def lex(code: str) -> list:
         """
@@ -115,7 +110,6 @@ class Lexer:
                 # add characters until it doesn't match anymore
                 while Lexer.match(tok) != TokenType.NONE:
                     if i >= len(ln):
-                        i += 1
                         break
 
                     c = ln[i]
@@ -139,30 +133,19 @@ class Lexer:
                 tok = ""
 
             # add last token
-            tok = ln[i:].strip()
-            print(tok, ln[i-1:], i)
+            tok = ln[-1].strip()
+            token_type = Lexer.match(tok)
             if tok:
-                # if len(tokens) > 0:
-                #     if Lexer.match(tokens[-1].value + tok) == tokens[-1].type and ln[i-1].strip():
-                #         tokens[-1].pos.end += len(tok)
-                #         tokens[-1].value += tok
-                #     else:
-                tokens.append(Token(Lexer.match(tok), tok, Position(lni, i - len(tok), i, ln)))
+                if token_type != TokenType.NONE:
+                    if len(tokens) > 0 and tokens[-1].pos.line == lni and Lexer.match(tokens[-1].value + tok) == tokens[-1].type and len(ln) >= 2 and ln[-2].strip():
+                        tokens[-1].pos.end += 1
+                        tokens[-1].value += tok
 
-                # token_type = Lexer.match(tok)
-                # print(tok, token_type)
-                # if token_type != TokenType.NONE:
-                #     if len(tokens) > 0 and lni == tokens[-1].pos.line:
-                #         if (tokens[-1].type in Lexer.JOINABLE_TOKENS.get(token_type, set()) and ln[i-1].strip()) or \
-                #                 (tok == '"'):
-                #
-                #             tokens[-1].pos.end += len(tok)
-                #             tokens[-1].value += tok
-                #     else:
-                #         tokens.append(Token(token_type, tok, Position(lni, i - len(tok), i, ln)))
+                    else:
+                        tokens.append(Token(token_type, tok, Position(lni, i - len(tok), i, ln)))
 
-                # else:
-                #     lex_error("Invalid token", Position(lni, i - len(tok), i, ln))
+                else:
+                    lex_error(f"Invalid token: [\"{tok}\"]", Position(lni, i - len(tok), i, ln))
 
         return tokens
 

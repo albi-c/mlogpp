@@ -11,10 +11,11 @@ from mlogpp.linker import Linker
 class ExamplesTestCase(unittest.TestCase):
     def test_examples_compilation(self):
         directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), "examples")
-        examples = [os.path.join(directory, fn) for fn in os.listdir(directory)]
+        examples = [os.path.join(directory, fn) for fn in os.listdir(directory) if fn.endswith(".mpp")]
         for filename in examples:
-            with self.subTest(filename=filename):
+            with self.subTest(msg=filename):
                 code = open(filename).read()
+                code = Preprocessor.preprocess(code)
                 code = Lexer.lex(code)
                 code = Parser().parse(code)
                 code = code.generate()
