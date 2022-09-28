@@ -10,12 +10,12 @@
 
 UNIT = @mono
 VAULT = vault1
-DEPOSIT_FLAG = 45689
+DEPOSIT_FLAG = floor(@thisx + @thisy * @mapw)
 
 x = 0
 y = 0
 
-print("[orange]Miner v1.1\nEnable switch and click\n on an ore to mine\n")
+print("[orange]Miner v1.2\nEnable switch and click\n on an ore to mine\n")
 print("[yellow]Selected unit: ")
 print(UNIT)
 

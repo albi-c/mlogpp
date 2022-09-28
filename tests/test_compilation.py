@@ -23,7 +23,7 @@ function func1(x, y) {
 }
  
 function func2(n) {
-    global x
+    local n
     
     x = n ** 2
 }

@@ -37,7 +37,7 @@ class Gen:
     VAR_COUNT = 0
     LAB_COUNT = 0
 
-    GLOBALS_STACK = []
+    LOCALS_STACK = []
 
     REGEXES = {
         "ATTR": re.compile(r"^[a-zA-Z_@][a-zA-Z0-9_]*\.[a-zA-Z_@][a-zA-Z0-9_]*$")
@@ -52,7 +52,7 @@ class Gen:
         Gen.VAR_COUNT = 0
         Gen.LAB_COUNT = 0
 
-        Gen.GLOBALS_STACK = []
+        Gen.LOCALS_STACK = []
 
     @staticmethod
     def temp_var(_: Var | str | None = None) -> Var:
@@ -73,19 +73,19 @@ class Gen:
         return f"__tmp{Gen.LAB_COUNT-1}"
     
     @staticmethod
-    def is_global(name: str) -> bool:
-        if len(Gen.GLOBALS_STACK) > 0:
-            return name in Gen.GLOBALS_STACK[-1]
+    def is_local(name: str) -> bool:
+        if len(Gen.LOCALS_STACK) > 0:
+            return name in Gen.LOCALS_STACK[-1]
         return False
     
     @staticmethod
-    def push_globals():
-        Gen.GLOBALS_STACK.append(set())
+    def push_locals():
+        Gen.LOCALS_STACK.append(set())
     
     @staticmethod
-    def pop_globals():
-        Gen.GLOBALS_STACK.pop(-1)
+    def pop_locals():
+        Gen.LOCALS_STACK.pop(-1)
     
     @staticmethod
-    def add_globals(global_variables: list):
-        Gen.GLOBALS_STACK[-1] |= set(global_variables)
+    def add_locals(locals_variables: list):
+        Gen.LOCALS_STACK[-1] |= set(locals_variables)

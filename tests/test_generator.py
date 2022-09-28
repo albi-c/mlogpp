@@ -31,27 +31,27 @@ class GeneratorTestCase(unittest.TestCase):
 
         self.assertEqual(Gen.VAR_COUNT, 0)
         self.assertEqual(Gen.LAB_COUNT, 0)
-        self.assertEqual(Gen.GLOBALS_STACK, [])
+        self.assertEqual(Gen.LOCALS_STACK, [])
 
-    def test_globals(self):
-        Gen.push_globals()
+    def test_locals(self):
+        Gen.push_locals()
 
-        Gen.add_globals(["a", "b", "c"])
-        self.assertTrue(Gen.is_global("a"))
-        self.assertTrue(Gen.is_global("b"))
-        self.assertFalse(Gen.is_global("d"))
+        Gen.add_locals(["a", "b", "c"])
+        self.assertTrue(Gen.is_local("a"))
+        self.assertTrue(Gen.is_local("b"))
+        self.assertFalse(Gen.is_local("d"))
 
-        Gen.add_globals(["c", "d", "e"])
-        self.assertTrue(Gen.is_global("c"))
-        self.assertTrue(Gen.is_global("e"))
+        Gen.add_locals(["c", "d", "e"])
+        self.assertTrue(Gen.is_local("c"))
+        self.assertTrue(Gen.is_local("e"))
 
-        Gen.push_globals()
+        Gen.push_locals()
 
-        self.assertFalse(Gen.is_global("d"))
+        self.assertFalse(Gen.is_local("d"))
 
         Gen.reset()
 
-        self.assertEqual(Gen.GLOBALS_STACK, [])
+        self.assertEqual(Gen.LOCALS_STACK, [])
 
 
 if __name__ == '__main__':

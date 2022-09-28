@@ -3,7 +3,7 @@ import unittest
 from mlogpp.linker import *
 
 
-class GeneratorTestCase(unittest.TestCase):
+class LinkerTestCase(unittest.TestCase):
     def test_labels(self):
         self.assertEqual(Linker.link([Instructions([
             MInstruction(MInstructionType.PRINT, ["0"]),
@@ -13,9 +13,8 @@ class GeneratorTestCase(unittest.TestCase):
             MInstruction(MInstructionType.PRINT, ["2"])
         ])]), """\
 print 0
-test:
 print 1
-jump test always _ _
+jump 1 always _ _
 print 2""")
 
     def test_joining(self):
@@ -33,14 +32,12 @@ print 2""")
             MInstruction(MInstructionType.PRINT, ["4"])
         ])]), """\
 print 0
-lab1:
 print 1
-jump lab1 always _ _
+jump 1 always _ _
 print 2
-lab2:
 print 3
-jump lab1 always _ _
-jump lab2 always _ _
+jump 1 always _ _
+jump 4 always _ _
 print 4""")
 
 

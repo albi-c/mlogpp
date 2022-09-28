@@ -207,12 +207,12 @@ class Parser:
 
                 return EndNode(tok.pos)
             
-            elif tok.value == "global":
+            elif tok.value == "local":
                 # global statement
 
                 # check if in a function
                 if len(self.func_stack) == 0:
-                    parse_error(tok.pos, "\"global\" has to be used in a function")
+                    parse_error(tok.pos, "\"local\" has to be used in a function")
                 
                 globals_vars = []
                 last = None
@@ -239,7 +239,7 @@ class Parser:
                     last = tok.type
                     last_pos = tok.pos
 
-                return GlobalNode(tok.pos, globals_vars)
+                return LocalNode(tok.pos, globals_vars)
             
             # next token
             n = self.next_token()

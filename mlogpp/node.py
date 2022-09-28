@@ -102,7 +102,7 @@ class LoopActionNode(Node):
         if self.action == "break":
             return MppInstructionJump(f"{self.name}_e")
         elif self.action == "continue":
-            return MppInstructionJump("{self.name}_s")
+            return MppInstructionJump(f"{self.name}_s")
 
 
 class AssignmentNode(Node):
@@ -255,8 +255,10 @@ class CallNode(Node):
             code += MInstruction(MInstructionType.SET, [f"__f_a{i}_{self.func}", valv])
             self._ret_var = Var(f"__f_{self.func}_retv", True)
 
+        # code += MInstruction(MInstructionType.OP, ["add", f"__f_{self.func}_ret", "@counter", "1"]) + \
+        #         MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.func}"])
         code += MInstruction(MInstructionType.OP, ["add", f"__f_{self.func}_ret", "@counter", "1"]) + \
-            MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.func}"])
+                MppInstructionJump(f"__f_{self.func}")
 
         return code
 
@@ -317,7 +319,8 @@ class ExpressionNode(Node):
                               [(r[0], r[1].table_rename(variables)) for r in self.right])
 
     def function_rename(self, name: str):
-        return ExpressionNode(self.pos, self.left.function_rename(name), [(r[0], r[1].function_rename(name)) for r in self.right])
+        return ExpressionNode(self.pos, self.left.function_rename(name),
+                              [(r[0], r[1].function_rename(name)) for r in self.right])
 
 
 class CompExpressionNode(Node):
@@ -368,10 +371,12 @@ class CompExpressionNode(Node):
             return valc, valv
 
     def table_rename(self, variables: dict):
-        return CompExpressionNode(self.pos, self.left.table_rename(variables), [(r[0], r[1].table_rename(variables)) for r in self.right])
+        return CompExpressionNode(self.pos, self.left.table_rename(variables),
+                                  [(r[0], r[1].table_rename(variables)) for r in self.right])
 
     def function_rename(self, name: str):
-        return CompExpressionNode(self.pos, self.left.function_rename(name), [(r[0], r[1].function_rename(name)) for r in self.right])
+        return CompExpressionNode(self.pos, self.left.function_rename(name),
+                                  [(r[0], r[1].function_rename(name)) for r in self.right])
 
 
 class ArithExpressionNode(Node):
@@ -422,10 +427,12 @@ class ArithExpressionNode(Node):
             return valc, valv
 
     def table_rename(self, variables: dict):
-        return ArithExpressionNode(self.pos, self.left.table_rename(variables), [(r[0], r[1].table_rename(variables)) for r in self.right])
+        return ArithExpressionNode(self.pos, self.left.table_rename(variables),
+                                   [(r[0], r[1].table_rename(variables)) for r in self.right])
 
     def function_rename(self, name: str):
-        return ArithExpressionNode(self.pos, self.left.function_rename(name), [(r[0], r[1].function_rename(name)) for r in self.right])
+        return ArithExpressionNode(self.pos, self.left.function_rename(name),
+                                   [(r[0], r[1].function_rename(name)) for r in self.right])
 
 
 class TermNode(Node):
@@ -474,10 +481,12 @@ class TermNode(Node):
             return valc, valv
 
     def table_rename(self, variables: dict):
-        return TermNode(self.pos, self.left.table_rename(variables), [(r[0], r[1].table_rename(variables)) for r in self.right])
+        return TermNode(self.pos, self.left.table_rename(variables),
+                        [(r[0], r[1].table_rename(variables)) for r in self.right])
 
     def function_rename(self, name: str):
-        return TermNode(self.pos, self.left.function_rename(name), [(r[0], r[1].function_rename(name)) for r in self.right])
+        return TermNode(self.pos, self.left.function_rename(name),
+                        [(r[0], r[1].function_rename(name)) for r in self.right])
 
 
 class FactorNode(Node):
@@ -541,10 +550,10 @@ class ValueNode(Node):
         return ValueNode(self.pos, variables.get(self.value, self.value), self.is_id)
 
     def function_rename(self, name: str):
-        if self.value.startswith("@") or not self.is_id or self.value.startswith("__f") or Gen.is_global(self.value):
-            return self
+        if Gen.is_local(self.value):
+            return ValueNode(self.pos, f"__f_lvar_{name}_{self.value}", self.is_id)
 
-        return ValueNode(self.pos, f"__f_lvar_{name}_{self.value}", self.is_id)
+        return self
 
 
 class IndexedValueNode(Node):
@@ -571,10 +580,10 @@ class IndexedValueNode(Node):
         return IndexedValueNode(self.pos, variables.get(self.value, self.value), self.idx.table_rename(variables))
 
     def function_rename(self, name: str):
-        if Gen.is_global(self.value):
-            return self
+        if Gen.is_local(self.value):
+            return IndexedValueNode(self.pos, f"__f_lvar_{name}_{self.value}", self.idx.function_rename(name))
 
-        return IndexedValueNode(self.pos, f"__f_lvar_{name}_{self.value}", self.idx.function_rename(name))
+        return self
 
 
 class IfNode(Node):
@@ -597,17 +606,19 @@ class IfNode(Node):
             ecl = Gen.temp_lab()
             el = Gen.temp_lab()
             return condc + MppInstructionOJump(ecl, condv, "notEqual", "true") + code + MppInstructionJump(el) + \
-                MppInstructionLabel(ecl) + else_code + MppInstructionLabel(el)
+                   MppInstructionLabel(ecl) + else_code + MppInstructionLabel(el)
 
         else:
             el = Gen.temp_lab()
             return condc + MppInstructionOJump(el, condv, "notEqual", "true") + code + MppInstructionLabel(el)
 
     def table_rename(self, variables: dict):
-        return IfNode(self.pos, self.cond.table_rename(variables), self.code.table_rename(variables), self.else_code.table_rename(variables))
+        return IfNode(self.pos, self.cond.table_rename(variables), self.code.table_rename(variables),
+                      self.else_code.table_rename(variables))
 
     def function_rename(self, name: str):
-        return IfNode(self.pos, self.cond.function_rename(name), self.code.function_rename(name), self.else_code.function_rename(name))
+        return IfNode(self.pos, self.cond.function_rename(name), self.code.function_rename(name),
+                      self.else_code.function_rename(name))
 
 
 class WhileNode(Node):
@@ -626,8 +637,8 @@ class WhileNode(Node):
         code = self.code.generate()
 
         return MppInstructionLabel(f"{self.name}_s") + condc + \
-            MppInstructionOJump(f"{self.name}_e", condv, "notEqual", "true") + \
-            code + MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
+               MppInstructionOJump(f"{self.name}_e", condv, "notEqual", "true") + \
+               code + MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
 
     def table_rename(self, variables: dict):
         return WhileNode(self.pos, self.name, self.cond.table_rename(variables), self.code.table_rename(variables))
@@ -656,15 +667,17 @@ class ForNode(Node):
         code = self.code.generate()
 
         return init + MppInstructionLabel(f"{self.name}_s") + condc + \
-            MppInstructionOJump(f"{self.name}_e", condv, "notEqual", "true") + \
-            code + action + MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
+               MppInstructionOJump(f"{self.name}_e", condv, "notEqual", "true") + \
+               code + action + MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
 
     def table_rename(self, variables: dict):
-        return ForNode(self.pos, self.name, self.init.table_rename(variables), self.cond.table_rename(variables), self.action.table_rename(variables),
+        return ForNode(self.pos, self.name, self.init.table_rename(variables), self.cond.table_rename(variables),
+                       self.action.table_rename(variables),
                        self.code.table_rename(variables))
 
     def function_rename(self, name: str):
-        return ForNode(self.pos, self.name, self.init.function_rename(name), self.cond.function_rename(name), self.action.function_rename(name),
+        return ForNode(self.pos, self.name, self.init.function_rename(name), self.cond.function_rename(name),
+                       self.action.function_rename(name),
                        self.code.function_rename(name))
 
 
@@ -685,12 +698,13 @@ class RangeNode(Node):
         code = self.code.generate()
 
         return MInstruction(MInstructionType.SET, [self.counter, "0"]) + MppInstructionLabel(f"{self.name}_s") + \
-            untilc + MppInstructionOJump(f"{self.name}_e", self.counter, "greaterThanEq", untilv) + \
-            code + MInstruction(MInstructionType.OP, ["add", self.counter, self.counter, "1"]) + \
-            MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
+               untilc + MppInstructionOJump(f"{self.name}_e", self.counter, "greaterThanEq", untilv) + \
+               code + MInstruction(MInstructionType.OP, ["add", self.counter, self.counter, "1"]) + \
+               MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
 
     def table_rename(self, variables: dict):
-        return RangeNode(self.pos, self.name, variables.get(self.counter, self.counter), self.until.table_rename(variables),
+        return RangeNode(self.pos, self.name, variables.get(self.counter, self.counter),
+                         self.until.table_rename(variables),
                          self.code.table_rename(variables))
 
     def function_rename(self, name: str):
@@ -712,20 +726,24 @@ class FunctionNode(Node):
     def generate(self):
         args = {arg: f"__f_a{i}_{self.name}" for i, arg in enumerate(self.args)}
 
-        Gen.push_globals()
+        Gen.push_locals()
 
         for node in self.code.code:
-            if isinstance(node, GlobalNode):
-                Gen.add_globals(node.vars)
+            if isinstance(node, LocalNode):
+                Gen.add_locals(node.vars)
 
         end_label = Gen.temp_lab()
-        code = MInstruction(MInstructionType.OP, ["add", f"__f_{self.name}", "@counter", "1"]) + \
-            MppInstructionJump(end_label) + \
-            self.code.table_rename(args).function_rename(self.name).generate() + \
-            MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.name}_ret"]) + \
-            MppInstructionLabel(end_label)
+        # code = MInstruction(MInstructionType.OP, ["add", f"__f_{self.name}", "@counter", "1"]) + \
+        #     MppInstructionJump(end_label) + \
+        #     self.code.table_rename(args).function_rename(self.name).generate() + \
+        #     MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.name}_ret"]) + \
+        #     MppInstructionLabel(end_label)
+        code = MppInstructionJump(end_label) + MppInstructionLabel(f"__f_{self.name}") + \
+               self.code.table_rename(args).function_rename(self.name).generate() + \
+               MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.name}_ret"]) + \
+               MppInstructionLabel(end_label)
 
-        Gen.pop_globals()
+        Gen.pop_locals()
 
         return code
 
@@ -741,7 +759,7 @@ class EndNode(Node):
         return MInstruction(MInstructionType.JUMP, ["start", "always", "_", "_"])
 
 
-class GlobalNode(Node):
+class LocalNode(Node):
     def __init__(self, pos: Position, variables: list):
         super().__init__(pos)
 
