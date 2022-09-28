@@ -2,6 +2,7 @@ import re
 
 from .generator import Gen
 from .functions import PRECALC, JC_REPLACE
+from .instruction import *
 
 
 class Optimizer:
@@ -36,30 +37,32 @@ class Optimizer:
     }
 
     @staticmethod
-    def optimize(code: str) -> str:
+    def optimize(code: Instruction | Instructions) -> Instruction | Instructions:
         """
         optimize generated code
         """
-        
-        for i in range(1, 11):
-            while True:
-                code, _ = Optimizer._precalculate_optimize(code)
-                code, found = Optimizer._single_use_tmp(code, i)
-                code, _ = Optimizer._precalculate_optimize(code)
 
-                if not found:
-                    break
-        
-        for i in range(10, 0, -1):
-            while True:
-                code, _ = Optimizer._precalculate_optimize(code)
-                code, found = Optimizer._single_use_tmp(code, i)
-                code, _ = Optimizer._precalculate_optimize(code)
-
-                if not found:
-                    break
-        
         return code
+        
+        # for i in range(1, 11):
+        #     while True:
+        #         code, _ = Optimizer._precalculate_optimize(code)
+        #         code, found = Optimizer._single_use_tmp(code, i)
+        #         code, _ = Optimizer._precalculate_optimize(code)
+        #
+        #         if not found:
+        #             break
+        #
+        # for i in range(10, 0, -1):
+        #     while True:
+        #         code, _ = Optimizer._precalculate_optimize(code)
+        #         code, found = Optimizer._single_use_tmp(code, i)
+        #         code, _ = Optimizer._precalculate_optimize(code)
+        #
+        #         if not found:
+        #             break
+        #
+        # return code
 
     @staticmethod
     def _single_use_tmp(code: str, forward: int = 1) -> tuple[str, bool]:

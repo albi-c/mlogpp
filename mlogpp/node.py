@@ -1,6 +1,7 @@
 from .util import Position
 from .error import gen_error
 from .generator import Gen, Var
+from .instruction import *
 from . import functions
 
 
@@ -15,14 +16,14 @@ class Node:
     def get_pos(self) -> Position:
         return self.pos
 
-    def generate(self):
-        return ""
+    def generate(self) -> Instructions | Instruction:
+        return Instructions()
 
-    def get(self):
-        return "", ""
+    def get(self) -> tuple[Instructions | Instruction, str | Var]:
+        return Instructions(), ""
 
-    def set(self):
-        return "", ""
+    def set(self) -> tuple[Instructions | Instruction, str | Var]:
+        return Instructions(), ""
 
     def table_rename(self, _: dict):
         return self
@@ -48,7 +49,10 @@ class CodeListNode(Node):
         return self.pos
 
     def generate(self):
-        return "\n".join([ln for ln in "\n".join([node.generate() for node in self.code]).splitlines() if ln])
+        ins = Instructions()
+        for node in self.code:
+            ins += node.generate()
+        return ins
 
     def table_rename(self, variables: dict):
         return CodeListNode(self.pos, [c.table_rename(variables) for c in self.code])
@@ -72,8 +76,8 @@ class ReturnNode(Node):
         return self.value.get_pos()
 
     def generate(self):
-        val = self.value.get()
-        return f"{val[0]}\nset __f_{self.func}_retv {val[1]}"
+        valc, valv = self.value.get()
+        return valc + MInstruction(MInstructionType.SET, [f"__f_{self.func}_retv", valv])
 
     def table_rename(self, variables: dict):
         return ReturnNode(self.pos, self.func, self.value.table_rename(variables))
@@ -96,9 +100,9 @@ class LoopActionNode(Node):
 
     def generate(self):
         if self.action == "break":
-            return f">{self.name}_e"
+            return MppInstructionJump(f"{self.name}_e")
         elif self.action == "continue":
-            return f">{self.name}_s"
+            return MppInstructionJump("{self.name}_s")
 
 
 class AssignmentNode(Node):
@@ -130,7 +134,7 @@ class AssignmentNode(Node):
         if self.op == "=":
             varc, varv = self.var.set()
             valc, valv = self.value.get()
-            return f"{valc}\nset {varv} {valv}\n{varc}"
+            return valc + MInstruction(MInstructionType.SET, [varv, valv]) + varc
 
         else:
             # determine operator
@@ -141,7 +145,7 @@ class AssignmentNode(Node):
             vasc, vasv = self.var.get()
             varc, varv = self.var.set()
             valc, valv = self.value.get()
-            return f"{vasc}\n{valc}\nop {op} {varv} {vasv} {valv}\n{varc}"
+            return vasc + valc + MInstruction(MInstructionType.OP, [op, varv, vasv, valv]) + varc
 
     def table_rename(self, variables: dict):
         return AssignmentNode(self.pos, self.var.table_rename(variables), self.op, self.value.table_rename(variables))
@@ -177,21 +181,22 @@ class CallNode(Node):
                 gen_error(self.get_pos(),
                           f"Invalid number of arguments to function \"{self.func}\" (expected {nargs}, got {len(self.args)})")
 
-            code = ""
+            code = Instructions()
             args = []
             for a in self.args:
                 ac, av = a.get()
-                code += f"{ac}\n"
+                code += ac
                 args.append(av)
-
             if self.func in functions.native_ret:
                 args.insert(functions.native_ret[self.func], return_var)
                 self._ret_var = return_var
             else:
                 self._ret_var = "_"
 
-            code += f"{self.func} {' '.join(map(str, args))}"
-            return code
+            try:
+                return code + MInstruction(MInstructionType[self.func.upper()], list(map(str, args)))
+            except KeyError:
+                gen_error(self.get_pos(), f"Invalid native function \"{self.func}\"")
 
         elif self.func in functions.native_sublist:
             spl = self.func.split(".")
@@ -207,18 +212,20 @@ class CallNode(Node):
                 gen_error(self.get_pos(),
                           f"Invalid number of arguments to function \"{self.func}\" (expected {nargs}, got {len(self.args)})")
 
-            code = ""
+            code = Instructions()
             args = []
             for a in self.args:
                 ac, av = a.get()
-                code += f"{ac}\n"
+                code += ac
                 args.append(av)
 
             if return_var != "_":
                 args.insert(functions.native_sub_ret[self.func], return_var)
 
-            code += f"{spl[0]} {spl[1]} {' '.join(map(str, args))}"
-            return code
+            try:
+                return code + MInstruction(MInstructionType[spl[0].upper()], [spl[1]] + list(map(str, args)))
+            except KeyError:
+                gen_error(self.get_pos(), f"Invalid native function \"{self.func}\"")
 
         elif self.func in functions.builtin:
             n_args = functions.builtin_params.get(self.func, functions.builtin_params_default)
@@ -229,22 +236,23 @@ class CallNode(Node):
             return_var = Gen.temp_var()
             self._ret_var = return_var
 
-            code = ""
+            code = Instructions()
             args = []
             for a in self.args:
                 ac, av = a.get()
-                code += f"{ac}\n"
+                code += ac
                 args.append(av)
 
             while len(args) < 2:
                 args.append("_")
 
-            return f"{code}\nop {self.func} {return_var} {' '.join(map(str, args))}"
+            return code + MInstruction(MInstructionType.OP, [self.func, return_var] + list(map(str, args)))
 
-        code = ""
+        code = Instructions()
         for i, arg in enumerate(self.args):
             valc, valv = arg.get()
-            code += f"{valc}\nset __f_{self.func}_a{i} {valv}\n"
+            code += valc
+            code += MInstruction(MInstructionType.SET, [f"__f_{self.func}_a{i}", valv])
             self._ret_var = Var(f"__f_{self.func}_retv", True)
 
         code += f"op add __f_{self.func}_ret @counter 1\nset @counter __f_{self.func}"
@@ -262,6 +270,11 @@ class CallNode(Node):
 
 
 class ExpressionNode(Node):
+    OPERATORS = {
+        "&&": "land",
+        "||": "or"
+    }
+
     def __init__(self, pos: Position, left: Node, right: list):
         super().__init__(pos)
 
@@ -279,18 +292,18 @@ class ExpressionNode(Node):
 
         if len(self.right) > 0:
             tmpv = Gen.temp_var(valv)
-            code = f"{valc}\nset {tmpv} {valv}"
+            code = valc + MInstruction(MInstructionType.SET, [tmpv, valv])
 
             for r in self.right:
                 # determine operator
-                op = "land" if r[0] == "&&" else "or" if r[0] == "||" else ""
-                if op == "":
+                op = ExpressionNode.OPERATORS.get(r[0])
+                if op is None:
                     gen_error(self.get_pos(), f"Invalid operator")
 
                 valc, valv = r[1].get()
 
                 tmpv2 = Gen.temp_var()
-                code += f"\n{valc}\nop {op} {tmpv2} {tmpv} {valv}"
+                code += valc + MInstruction(MInstructionType.OP, [op, tmpv2, tmpv, valv])
                 tmpv = tmpv2
 
             return code, tmpv
@@ -307,6 +320,16 @@ class ExpressionNode(Node):
 
 
 class CompExpressionNode(Node):
+    OPERATORS = {
+        "==": "equal",
+        "<": "lessThan",
+        ">": "greaterThan",
+        "<=": "lessThanEq",
+        ">=": "greaterThanEq",
+        "!=": "notEqual",
+        "===": "strictEqual"
+    }
+
     def __init__(self, pos: Position, left: Node, right: list):
         super().__init__(pos)
 
@@ -324,22 +347,18 @@ class CompExpressionNode(Node):
 
         if len(self.right) > 0:
             tmpv = Gen.temp_var(valv)
-            code = f"{valc}\nset {tmpv} {valv}"
+            code = valc + MInstruction(MInstructionType.SET, [tmpv, valv])
 
             for r in self.right:
                 # determine operator
-                op = "equal" if r[0] == "==" else "lessThan" if r[0] == "<" else "greaterThan" if r[
-                                                                                                      0] == ">" else "lessThanEq" if \
-                    r[0] == "<=" \
-                    else "greaterThanEq" if r[0] == ">=" else "notEqual" if r[0] == "!=" else "strictEqual" if r[
-                                                                                                                   0] == "===" else ""
-                if op == "":
+                op = CompExpressionNode.OPERATORS.get(r[0])
+                if op is None:
                     gen_error(self.get_pos(), f"Invalid operator")
 
                 valc, valv = r[1].get()
 
                 tmpv2 = Gen.temp_var()
-                code += f"\n{valc}\nop {op} {tmpv2} {tmpv} {valv}"
+                code += valc + MInstruction(MInstructionType.OP, [op, tmpv2, tmpv, valv])
                 tmpv = tmpv2
 
             return code, tmpv
@@ -382,7 +401,7 @@ class ArithExpressionNode(Node):
 
         if len(self.right) > 0:
             tmpv = Gen.temp_var(valv)
-            code = f"{valc}\nset {tmpv} {valv}"
+            code = valc + MInstruction(MInstructionType.SET, [tmpv, valv])
 
             for r in self.right:
                 # determine operator
@@ -393,7 +412,7 @@ class ArithExpressionNode(Node):
                 valc, valv = r[1].get()
 
                 tmpv2 = Gen.temp_var()
-                code += f"\n{valc}\nop {op} {tmpv2} {tmpv} {valv}"
+                code += valc + MInstruction(MInstructionType.OP, [op, tmpv2, tmpv, valv])
                 tmpv = tmpv2
 
             return code, tmpv
@@ -434,7 +453,7 @@ class TermNode(Node):
 
         if len(self.right) > 0:
             tmpv = Gen.temp_var(valv)
-            code = f"{valc}\nset {tmpv} {valv}"
+            code = valc + MInstruction(MInstructionType.SET, [tmpv, valv])
 
             for r in self.right:
                 # determine operator
@@ -445,7 +464,7 @@ class TermNode(Node):
                 valc, valv = r[1].get()
 
                 tmpv2 = Gen.temp_var()
-                code += f"\n{valc}\nop {op} {tmpv2} {tmpv} {valv}"
+                code += valc + MInstruction(MInstructionType.OP, [op, tmpv2, tmpv, valv])
                 tmpv = tmpv2
 
             return code, tmpv
@@ -473,14 +492,14 @@ class FactorNode(Node):
     def get(self):
         valc, valv = self.value.get()
         tmpv = Gen.temp_var(valv)
-        code = f"{valc}\nset {tmpv} {valv}"
+        code = valc + MInstruction(MInstructionType.SET, [tmpv, valv])
 
         if not self.flags["sign"]:
-            code += f"\nop sub {tmpv} 0 {tmpv}"
+            code += MInstruction(MInstructionType.OP, ["sub", tmpv, "0", tmpv])
         if self.flags["not"]:
-            code += f"\nop not {tmpv} {tmpv} 0"
+            code += MInstruction(MInstructionType.OP, ["not", tmpv, tmpv, "0"])
         if self.flags["flip"]:
-            code += f"\nop flip {tmpv} {tmpv} _"
+            code += MInstruction(MInstructionType.OP, ["flip", tmpv, tmpv, "_"])
 
         return code, tmpv
 
@@ -504,17 +523,18 @@ class ValueNode(Node):
     def get(self):
         if Gen.REGEXES["ATTR"].fullmatch(self.value):
             tmpv = Gen.temp_var()
-            return f"sensor {tmpv} {self.value.replace('.', ' @')}", tmpv
+            spl = self.value.split(".")
+            return MInstruction(MInstructionType.SENSOR, [tmpv, spl[0], spl[1].replace(".", "@")]), tmpv
 
-        return "", Var(self.value, False)
+        return Instructions(), Var(self.value, False)
 
     def set(self):
         if Gen.REGEXES["ATTR"].fullmatch(self.value):
             tmpv = Gen.temp_var()
             spl = self.value.split(".")
-            return f"control {spl[1]} {spl[0]} {tmpv} _ _", tmpv
+            return MInstruction(MInstructionType.CONTROL, [spl[1], spl[0], tmpv, "_", "_"]), tmpv
 
-        return "", Var(self.value, False)
+        return Instructions(), Var(self.value, False)
 
     def table_rename(self, variables: dict):
         return ValueNode(self.pos, variables.get(self.value, self.value), self.is_id)
@@ -539,12 +559,12 @@ class IndexedValueNode(Node):
     def get(self):
         tmpv = Gen.temp_var()
         ic, iv = self.idx.get()
-        return f"{ic}\nread {tmpv} {self.value} {iv}", tmpv
+        return ic + MInstruction(MInstructionType.READ, [self.value, iv]), tmpv
 
     def set(self):
         tmpv = Gen.temp_var()
         ic, iv = self.idx.get()
-        return f"{ic}\nwrite {tmpv} {self.value} {iv}", tmpv
+        return ic + MInstruction(MInstructionType.WRITE, [tmpv, self.value, iv]), tmpv
 
     def table_rename(self, variables: dict):
         return IndexedValueNode(self.pos, variables.get(self.value, self.value), self.idx.table_rename(variables))
@@ -569,17 +589,18 @@ class IfNode(Node):
 
     def generate(self):
         condc, condv = self.cond.get()
-        code = self.code.generate().strip()
-        else_code = self.else_code.generate().strip()
+        code = self.code.generate()
+        else_code = self.else_code.generate()
 
         if else_code:
             ecl = Gen.temp_lab()
             el = Gen.temp_lab()
-            return f"{condc}\n>{ecl} {condv} notEqual true\n{code}\n>{el}\n<{ecl}\n{else_code}\n<{el}"
+            return condc + MppInstructionOJump(ecl, condv, "notEqual", "true") + code + MppInstructionJump(el) + \
+                MppInstructionLabel(ecl) + else_code + MppInstructionLabel(el)
 
         else:
             el = Gen.temp_lab()
-            return f"{condc}\n>{el} {condv} notEqual true\n{code}\n<{el}"
+            return condc + MppInstructionOJump(el, condv, "notEqual", "true") + code + MppInstructionLabel(el)
 
     def table_rename(self, variables: dict):
         return IfNode(self.pos, self.cond.table_rename(variables), self.code.table_rename(variables), self.else_code.table_rename(variables))
@@ -601,9 +622,11 @@ class WhileNode(Node):
 
     def generate(self):
         condc, condv = self.cond.get()
-        code = self.code.generate().strip()
+        code = self.code.generate()
 
-        return f"<{self.name}_s\n{condc}\n>{self.name}_e {condv} notEqual true\n{code}\n>{self.name}_s\n<{self.name}_e"
+        return MppInstructionLabel(f"{self.name}_s") + condc + \
+            MppInstructionOJump(f"{self.name}_e", condv, "notEqual", "true") + \
+            code + MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
 
     def table_rename(self, variables: dict):
         return WhileNode(self.pos, self.name, self.cond.table_rename(variables), self.code.table_rename(variables))
@@ -629,9 +652,11 @@ class ForNode(Node):
         condc, condv = self.cond.get()
         init = self.init.generate()
         action = self.action.generate()
-        code = self.code.generate().strip()
+        code = self.code.generate()
 
-        return f"{init}\n<{self.name}_s\n{condc}\n>{self.name}_e {condv} notEqual true\n{code}\n{action}\n>{self.name}_s\n<{self.name}_e"
+        return init + MppInstructionLabel(f"{self.name}_s") + condc + \
+            MppInstructionOJump(f">{self.name}_e", condv, "notEqual", "true") + \
+            code + action + MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
 
     def table_rename(self, variables: dict):
         return ForNode(self.pos, self.name, self.init.table_rename(variables), self.cond.table_rename(variables), self.action.table_rename(variables),
@@ -656,17 +681,12 @@ class RangeNode(Node):
 
     def generate(self):
         untilc, untilv = self.until.get()
-        code = self.code.generate().strip()
+        code = self.code.generate()
 
-        return f"""\
-set {self.counter} 0
-<{self.name}_s
-{untilc}
->{self.name}_e {self.counter} greaterThanEq {untilv}
-{code}
-op add {self.counter} {self.counter} 1
->{self.name}_s
-<{self.name}_e"""
+        return MInstruction(MInstructionType.SET, [self.counter, "0"]) + MppInstructionLabel(f"{self.name}_s") + \
+            untilc + MppInstructionOJump(f"{self.name}_e", self.counter, "greaterThanEq", untilv) + \
+            code + MInstruction(MInstructionType.OP, ["add", self.counter, self.counter, "1"]) + \
+            MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
 
     def table_rename(self, variables: dict):
         return RangeNode(self.pos, self.name, variables.get(self.counter, self.counter), self.until.table_rename(variables),
@@ -675,6 +695,7 @@ op add {self.counter} {self.counter} 1
     def function_rename(self, name: str):
         return RangeNode(self.pos, self.name, f"__f_{name}_lvar_{self.counter}", self.until.function_rename(name),
                          self.code.function_rename(name))
+
 
 class FunctionNode(Node):
     def __init__(self, pos: Position, name: str, args: list, code: CodeListNode):
@@ -697,9 +718,11 @@ class FunctionNode(Node):
                 Gen.add_globals(node.vars)
 
         end_label = Gen.temp_lab()
-        code = f"op add __f_{self.name} @counter 1\n>{end_label}\n"
-        code += self.code.table_rename(args).function_rename(self.name).generate()
-        code += f"\nset @counter __f_{self.name}_ret\n<{end_label}"
+        code = MInstruction(MInstructionType.OP, ["add", f"__f_{self.name}", "counter", "1"]) + \
+            MppInstructionJump(end_label) + \
+            self.code.table_rename(args).function_rename(self.name).generate() + \
+            MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.name}_ret"]) + \
+            MppInstructionLabel(end_label)
 
         Gen.pop_globals()
 
@@ -714,7 +737,7 @@ class EndNode(Node):
         return self.pos
 
     def generate(self):
-        return "jump 0 always _ _"
+        return MInstruction(MInstructionType.JUMP, ["0", "always", "_", "_"])
 
 
 class GlobalNode(Node):
