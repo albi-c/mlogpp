@@ -48,7 +48,7 @@ class CodeListNode(Node):
 
         return self.pos
 
-    def generate(self):
+    def generate(self) -> Instructions:
         ins = Instructions()
         for node in self.code:
             ins += node.generate()
@@ -252,10 +252,11 @@ class CallNode(Node):
         for i, arg in enumerate(self.args):
             valc, valv = arg.get()
             code += valc
-            code += MInstruction(MInstructionType.SET, [f"__f_{self.func}_a{i}", valv])
+            code += MInstruction(MInstructionType.SET, [f"__f_a{i}_{self.func}", valv])
             self._ret_var = Var(f"__f_{self.func}_retv", True)
 
-        code += f"op add __f_{self.func}_ret @counter 1\nset @counter __f_{self.func}"
+        code += MInstruction(MInstructionType.OP, ["add", f"__f_{self.func}_ret", "@counter", "1"]) + \
+            MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.func}"])
 
         return code
 
@@ -524,7 +525,7 @@ class ValueNode(Node):
         if Gen.REGEXES["ATTR"].fullmatch(self.value):
             tmpv = Gen.temp_var()
             spl = self.value.split(".")
-            return MInstruction(MInstructionType.SENSOR, [tmpv, spl[0], spl[1].replace(".", "@")]), tmpv
+            return MInstruction(MInstructionType.SENSOR, [tmpv, spl[0], "@" + spl[1]]), tmpv
 
         return Instructions(), Var(self.value, False)
 
@@ -543,7 +544,7 @@ class ValueNode(Node):
         if self.value.startswith("@") or not self.is_id or self.value.startswith("__f") or Gen.is_global(self.value):
             return self
 
-        return ValueNode(self.pos, f"__f_{name}_lvar_{self.value}", self.is_id)
+        return ValueNode(self.pos, f"__f_lvar_{name}_{self.value}", self.is_id)
 
 
 class IndexedValueNode(Node):
@@ -559,7 +560,7 @@ class IndexedValueNode(Node):
     def get(self):
         tmpv = Gen.temp_var()
         ic, iv = self.idx.get()
-        return ic + MInstruction(MInstructionType.READ, [self.value, iv]), tmpv
+        return ic + MInstruction(MInstructionType.READ, [tmpv, self.value, iv]), tmpv
 
     def set(self):
         tmpv = Gen.temp_var()
@@ -573,7 +574,7 @@ class IndexedValueNode(Node):
         if Gen.is_global(self.value):
             return self
 
-        return IndexedValueNode(self.pos, f"__f_{name}_lvar_{self.value}", self.idx.function_rename(name))
+        return IndexedValueNode(self.pos, f"__f_lvar_{name}_{self.value}", self.idx.function_rename(name))
 
 
 class IfNode(Node):
@@ -655,7 +656,7 @@ class ForNode(Node):
         code = self.code.generate()
 
         return init + MppInstructionLabel(f"{self.name}_s") + condc + \
-            MppInstructionOJump(f">{self.name}_e", condv, "notEqual", "true") + \
+            MppInstructionOJump(f"{self.name}_e", condv, "notEqual", "true") + \
             code + action + MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
 
     def table_rename(self, variables: dict):
@@ -693,7 +694,7 @@ class RangeNode(Node):
                          self.code.table_rename(variables))
 
     def function_rename(self, name: str):
-        return RangeNode(self.pos, self.name, f"__f_{name}_lvar_{self.counter}", self.until.function_rename(name),
+        return RangeNode(self.pos, self.name, f"__f_lvar_{name}_{self.counter}", self.until.function_rename(name),
                          self.code.function_rename(name))
 
 
@@ -709,7 +710,7 @@ class FunctionNode(Node):
         return self.pos
 
     def generate(self):
-        args = {arg: f"__f_{self.name}_a{i}" for i, arg in enumerate(self.args)}
+        args = {arg: f"__f_a{i}_{self.name}" for i, arg in enumerate(self.args)}
 
         Gen.push_globals()
 
@@ -718,7 +719,7 @@ class FunctionNode(Node):
                 Gen.add_globals(node.vars)
 
         end_label = Gen.temp_lab()
-        code = MInstruction(MInstructionType.OP, ["add", f"__f_{self.name}", "counter", "1"]) + \
+        code = MInstruction(MInstructionType.OP, ["add", f"__f_{self.name}", "@counter", "1"]) + \
             MppInstructionJump(end_label) + \
             self.code.table_rename(args).function_rename(self.name).generate() + \
             MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.name}_ret"]) + \
@@ -737,7 +738,7 @@ class EndNode(Node):
         return self.pos
 
     def generate(self):
-        return MInstruction(MInstructionType.JUMP, ["0", "always", "_", "_"])
+        return MInstruction(MInstructionType.JUMP, ["start", "always", "_", "_"])
 
 
 class GlobalNode(Node):

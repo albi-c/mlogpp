@@ -6,7 +6,7 @@ class VMSignal(Exception):
 
 
 class VM:
-    def __init__(self, ins: list):
+    def __init__(self, ins: list, labels: dict):
         self.ins = ins
         self.env = {
             "variables": {
@@ -28,6 +28,7 @@ class VM:
                 "@mapw": 0,
                 "@maph": 0
             },
+            "labels": labels,
 
             "print_buffer": ""
         }

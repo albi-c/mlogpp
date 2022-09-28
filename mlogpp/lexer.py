@@ -51,142 +51,6 @@ class Token:
         return self.pos
 
 
-# class Lexer:
-#     """
-#     splits code into tokens
-#     """
-#
-#     # token regexes
-#     REGEXES = {
-#         TokenType.ID: re.compile(r"^[a-zA-Z_@][a-zA-Z_0-9\-]*(\.)?([a-zA-Z_@][a-zA-Z_0-9\-]*)?$"),
-#         TokenType.STRING: re.compile("^\"([^\"\\\\]|\\\\.)*\"$"),
-#         TokenType.NUMBER: re.compile(r"^[0-9]+(\.)?([0-9]+)?$"),
-#         TokenType.LPAREN: re.compile(r"^\($"),
-#         TokenType.RPAREN: re.compile(r"^\)$"),
-#         TokenType.LBRACE: re.compile(r"^\{$"),
-#         TokenType.RBRACE: re.compile(r"^}$"),
-#         TokenType.LBRACK: re.compile(r"^\[$"),
-#         TokenType.RBRACK: re.compile(r"^]$"),
-#         TokenType.COMMA: re.compile(r"^,$"),
-#         TokenType.SEMICOLON: re.compile(r"^;$"),
-#         TokenType.COLON: re.compile(r"^:$"),
-#         TokenType.OPERATOR: re.compile(r"^[+\-*/!]|(//)|(\*\*)|(===)|(<=)|(>=)|(==)|(!=)|<|>|~|%|&|\||\^|(<<)|(>>)$"),
-#         TokenType.SET: re.compile(r"^=|(\+=)|(-=)|(\*=)|(/=)|(//=)|(%=)|(&=)|(\|=)|(\^=)|(<<=)|(>>=)$"),
-#         TokenType.LOGIC: re.compile(r"^(&&)|(\|\|)$")
-#     }
-#
-#     @staticmethod
-#     def lex(code: str, input_file: str, include_search_dir: str, imported_files: set = None) -> list:
-#         """
-#         split code into tokens
-#         """
-#
-#         imported_files = set() if imported_files is None else imported_files
-#
-#         tokens = []
-#         # iterate over lines
-#         for lni, ln in enumerate(code.splitlines()):
-#             ln = ln.strip()
-#
-#             # skip if empty or comment
-#             if not ln or ln.startswith("#"):
-#                 continue
-#
-#             if ln.startswith("%") and len(ln) > 1:
-#                 path = os.path.join(include_search_dir, ln[1:])
-#                 if os.path.isfile(path):
-#                     if path in imported_files:
-#                         lex_error(f"File [\"{path}\"] is already imported", Position(lni, 1, len(ln[1:]), ln, input_file))
-#                     imported_files.add(path)
-#
-#                     with open(path, "r") as f:
-#                         imported_code = f.read()
-#
-#                     imported_code = Preprocessor.preprocess(imported_code)
-#                     tokens += Lexer.lex(imported_code, path, include_search_dir, imported_files)
-#
-#                 else:
-#                     lex_error(f"Cannot find file [\"\"]", Position(lni, 1, len(ln[1:]), ln, input_file))
-#
-#                 continue
-#
-#             tok = ""
-#             i = 0
-#             while True:
-#                 start = i
-#
-#                 # continue if character is whitespace
-#                 if not ln[i].strip():
-#                     i += 1
-#                     continue
-#
-#                 # add characters until it matches
-#                 while Lexer.match(tok) == TokenType.NONE:
-#                     if i >= len(ln):
-#                         break
-#
-#                     c = ln[i]
-#                     tok += c
-#                     i += 1
-#
-#                 # add characters until it doesn't match anymore
-#                 while Lexer.match(tok) != TokenType.NONE:
-#                     if i >= len(ln):
-#                         break
-#
-#                     c = ln[i]
-#                     tok += c
-#                     i += 1
-#
-#                 # go one character back
-#                 i -= 1
-#                 tok = tok[:-1]
-#
-#                 # break if token is empty
-#                 if not tok.strip():
-#                     break
-#
-#                 # error if invalid token
-#                 if Lexer.match(tok) == TokenType.NONE:
-#                     lex_error(f"Invalid token: [\"{tok}\"]", Position(lni, start, i, ln, input_file))
-#
-#                 # add token to list
-#                 tokens.append(Token(Lexer.match(tok), tok, Position(lni, start, i, ln, input_file)))
-#                 tok = ""
-#
-#             # add last token
-#             tok = ln[-1].strip()
-#             token_type = Lexer.match(tok)
-#             if tok:
-#                 if token_type != TokenType.NONE:
-#                     if len(tokens) > 0 and tokens[-1].pos.line == lni and Lexer.match(tokens[-1].value + tok) == tokens[-1].type \
-#                                 and len(ln) >= 2 and ln[-2].strip() and tokens[-1].pos.file == input_file:
-#
-#                         tokens[-1].pos.end += 1
-#                         tokens[-1].value += tok
-#
-#                     else:
-#                         tokens.append(Token(token_type, tok, Position(lni, i - len(tok), i, ln, input_file)))
-#
-#                 else:
-#                     lex_error(f"Invalid token: [\"{tok}\"]", Position(lni, i - len(tok), i, ln, input_file))
-#
-#         return tokens
-#
-#     @staticmethod
-#     def match(token: str) -> TokenType:
-#         """
-#         match a token to a type
-#         """
-#
-#         # iterate over regexes
-#         for t, r in Lexer.REGEXES.items():
-#             if r.fullmatch(token):
-#                 return t
-#
-#         return TokenType.NONE
-
-
 class Lexer:
     ID_CHARS_START = string.ascii_letters + "_@"
     ID_CHARS = ID_CHARS_START + "-." + string.digits
@@ -433,8 +297,10 @@ class Lexer:
                 elif self.lookahead_char("="):
                     return ch + "="
             case "<" | ">":
-                if self.lookahead_char(ch) and self.lookahead_char("="):
-                    return ch + ch + "="
+                if self.lookahead_char(ch):
+                    if self.lookahead_char("="):
+                        return ch + ch + "="
+                    self.prev_char()
 
         self.prev_char()
 

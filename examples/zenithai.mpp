@@ -12,7 +12,7 @@ flag = @unit.flag
 health = @unit.health
 maxHealth = @unit.maxHealth
 
-if ((flag === REGEN_FLAG) && (health === maxHealth)) {
+if ((flag == REGEN_FLAG) && (health == maxHealth)) {
     ucontrol.flag(0)
 } else {
     if ((health < maxHealth * REGEN_HEALTH) || flag === REGEN_FLAG) {
