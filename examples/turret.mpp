@@ -1,4 +1,4 @@
-for (i: @links) {
+for (i : @links) {
     turret = getlink(i)
 
     enemy = radar(enemy, any, any, distance, turret, 1)

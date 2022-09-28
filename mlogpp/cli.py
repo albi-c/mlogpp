@@ -5,7 +5,7 @@ import enum
 
 import pyperclip
 
-from .lexer import Lexer
+from .lexer import Lexer, Lexer
 from .preprocess import Preprocessor
 from .parser_ import Parser
 from .optimizer import Optimizer
@@ -90,7 +90,7 @@ def main():
 
         try:
             out = Preprocessor.preprocess(data[1])
-            out = Lexer.lex(out, data[0], os.path.dirname(os.path.abspath(data[0])))
+            out = Lexer(os.path.dirname(os.path.abspath(data[0]))).lex(out, data[0])
             out = Parser().parse(out)
             out = out.generate()
             out = Optimizer.optimize(out)

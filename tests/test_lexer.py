@@ -21,8 +21,10 @@ function func(a, b) {
 
 ucontrol.move(x, x + 1)
 
+message = "Hello!"
 unit = @zenith
 
+print(message)
 print(unit)
 
 if (unit == @surge-alloy) {
@@ -100,9 +102,16 @@ ubind(@mega)
         (TokenType.OPERATOR, "+"),
         (TokenType.NUMBER, "1"),
         (TokenType.RPAREN, ")"),
+        (TokenType.ID, "message"),
+        (TokenType.SET, "="),
+        (TokenType.STRING, "\"Hello!\""),
         (TokenType.ID, "unit"),
         (TokenType.SET, "="),
         (TokenType.ID, "@zenith"),
+        (TokenType.ID, "print"),
+        (TokenType.LPAREN, "("),
+        (TokenType.ID, "message"),
+        (TokenType.RPAREN, ")"),
         (TokenType.ID, "print"),
         (TokenType.LPAREN, "("),
         (TokenType.ID, "unit"),
@@ -177,50 +186,10 @@ ubind(@mega)
         (TokenType.RPAREN, ")"),
     )
 
-    def test_lex(self):
-        tokens = Lexer.lex(LexerTestCase.SOURCE_CODE, "TEST_CODE_FILE", "TEST_CODE_DIR")
+    def test_lexer(self):
+        tokens = Lexer("TEST_CODE_DIR").lex(LexerTestCase.SOURCE_CODE, "TEST_CODE_FILE")
         token_tuples = tuple(map(lambda t: (t.type, t.value), tokens))
         self.assertEqual(token_tuples, LexerTestCase.TOKENS)
-
-    def test_match(self):
-        self.assertEqual(Lexer.match("@surge-alloy.property"), TokenType.ID)
-        self.assertEqual(Lexer.match("\"Hello, World!\""), TokenType.STRING)
-        self.assertEqual(Lexer.match("437689"), TokenType.NUMBER)
-        self.assertEqual(Lexer.match("12.569"), TokenType.NUMBER)
-        self.assertEqual(Lexer.match("("), TokenType.LPAREN)
-        self.assertEqual(Lexer.match(")"), TokenType.RPAREN)
-        self.assertEqual(Lexer.match("{"), TokenType.LBRACE)
-        self.assertEqual(Lexer.match("}"), TokenType.RBRACE)
-        self.assertEqual(Lexer.match("["), TokenType.LBRACK)
-        self.assertEqual(Lexer.match("]"), TokenType.RBRACK)
-        self.assertEqual(Lexer.match(","), TokenType.COMMA)
-        self.assertEqual(Lexer.match(";"), TokenType.SEMICOLON)
-        self.assertEqual(Lexer.match(":"), TokenType.COLON)
-
-        operator_tokens = ("+", "-", "*", "/", "//", "%", "!", "**", "===", "<=", ">=", "==", "!=", "<", ">", "~", "&", "|", "<<", ">>", "^")
-        self.assertEqual(
-            tuple(map(Lexer.match, operator_tokens)),
-            (TokenType.OPERATOR,) * len(operator_tokens)
-        )
-
-        set_tokens = ("=", "+=", "-=", "*=", "/=", "//=", "%=", "|=", "&=", "^=", "<<=", ">>=")
-        self.assertEqual(
-            tuple(map(Lexer.match, set_tokens)),
-            (TokenType.SET,) * len(set_tokens)
-        )
-
-        self.assertEqual(Lexer.match("&&"), TokenType.LOGIC)
-        self.assertEqual(Lexer.match("||"), TokenType.LOGIC)
-
-        none_tokens = (
-            "\"Hello, World!",
-            "#500",
-            "12value"
-        )
-        self.assertEqual(
-            tuple(map(Lexer.match, none_tokens)),
-            (TokenType.NONE,) * len(none_tokens)
-        )
 
 
 if __name__ == '__main__':

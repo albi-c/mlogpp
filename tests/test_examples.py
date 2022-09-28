@@ -18,7 +18,7 @@ class ExamplesTestCase(unittest.TestCase):
                     code = f.read()
 
                 code = Preprocessor.preprocess(code)
-                code = Lexer.lex(code, filename, directory)
+                code = Lexer(directory).lex(code, filename)
                 code = Parser().parse(code)
                 code = code.generate()
                 code = Optimizer.optimize(code)

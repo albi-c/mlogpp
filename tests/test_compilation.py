@@ -38,7 +38,7 @@ for (i : LOOP_UNTIL) {
 
     def test_compilation(self):
         code = Preprocessor.preprocess(CompilationTestCase.CODE)
-        code = Lexer.lex(code, "TEST_CODE_FILE", "TEST_CODE_DIR")
+        code = Lexer("TEST_CODE_DIR").lex(code, "TEST_CODE_FILE")
         code = Parser().parse(code)
         code = code.generate()
         code = Optimizer.optimize(code)
