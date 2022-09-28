@@ -81,7 +81,7 @@ a = 0
 b = 0
 
 function test(x) {
-    global b
+    local a
 
     a = x
     b = x
