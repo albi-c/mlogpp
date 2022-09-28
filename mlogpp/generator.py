@@ -17,6 +17,9 @@ class Var:
     
     def __str__(self) -> str:
         return self.n
+
+    def __repr__(self) -> str:
+        return self.n
     
     def e(self, can_edit: bool = False) -> 'Var':
         """

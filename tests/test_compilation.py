@@ -44,7 +44,7 @@ for (i : LOOP_UNTIL) {
         code = Optimizer.optimize(code)
         code = Linker.link([code])
 
-        vm = VM(VMParser.parse(code))
+        vm = VM(*VMParser.parse(code))
 
         vm.cycle()
 

@@ -6,6 +6,10 @@ def sanitize(s: str) -> str:
     return s.replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r")
 
 
+def flatten(lst: list) -> list:
+    return [item for sublist in lst for item in sublist]
+
+
 class Position:
     """
     position in code

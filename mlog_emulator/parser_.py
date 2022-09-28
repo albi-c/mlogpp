@@ -217,10 +217,6 @@ class Instruction:
             env["variables"]["@counter"] = 0
         elif self.name == "jump":
             pos = self.params[0]
-            try:
-                pos = int(pos)
-            except ValueError:
-                raise ExecutionError(f"Invalid jump destination \"{pos}\"")
             
             cond = self.params[1]
             a = self.resolve_value(self.params[2], env)
@@ -242,7 +238,10 @@ class Instruction:
                 raise ExecutionError(f"Invalid jump input [b] \"{b}\"")
             
             if JUMP_CONDITIONS[cond](a, b):
-                env["variables"]["@counter"] = pos
+                try:
+                    env["variables"]["@counter"] = int(pos)
+                except ValueError:
+                    env["variables"]["@counter"] = env["labels"].get(pos, 0)
         elif self.name == "ubind":
             pass
         elif self.name == "ucontrol":
@@ -255,11 +254,18 @@ class Instruction:
 
 class Parser:
     @staticmethod
-    def parse(code: str) -> list:
+    def parse(code: str) -> tuple[list[Instruction], dict]:
         tmp = []
+        num_labels = 0
+        labels = {}
 
-        for ln in code.splitlines():
+        for i, ln in enumerate(code.splitlines()):
             if not ln.strip():
+                continue
+
+            if ln.endswith(":") and len(ln) > 1:
+                labels[ln[:-1]] = i - num_labels
+                num_labels += 1
                 continue
             
             spl = shlex.split(ln, comments=False, posix=False)
@@ -276,4 +282,4 @@ class Parser:
                 else:
                     raise ParserException(f"Invalid instruction \"{spl[0]}\"")
 
-        return tmp
+        return tmp, labels
