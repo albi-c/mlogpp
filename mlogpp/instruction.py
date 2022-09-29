@@ -1,5 +1,7 @@
 import enum
 
+from .value import *
+
 
 class Instruction:
     def __add__(self, other):
@@ -64,7 +66,7 @@ class MInstruction(Instruction):
 
     __match_args__ = ("type", "params")
 
-    def __init__(self, type_: MInstructionType, params: list[str]):
+    def __init__(self, type_: MInstructionType, params: list[str | int | float | Value]):
         self.type = type_
         self.params = list(map(str, params))
 

@@ -7,10 +7,11 @@ import pyperclip
 
 from .lexer import Lexer, Lexer
 from .preprocess import Preprocessor
-from .parser_ import Parser
+from .parser_rewrite import Parser
 from .optimizer import Optimizer
 from .linker import Linker
 from .error import MlogError
+from .compile import compile_code
 from . import __version__
 
 
@@ -24,7 +25,7 @@ class IOMethod(enum.Enum):
 def main():
     parser = argparse.ArgumentParser(description="Mindustry logic compiler", prog="mlog++")
 
-    parser.add_argument("file", type=str, help="input file(s) [@clip for clipboard]", nargs="+")
+    parser.add_argument("file", type=str, help="input file [@clip for clipboard]")
 
     parser.add_argument("-o:f", "--output-file", help="write output to a file")
     parser.add_argument("-o:s", "--output-stdout", help="write output to stdout", action="store_true")
@@ -59,53 +60,24 @@ def main():
 
                 verbose = v
 
-    # check if files exist
-    for fn in args.file:
-        # exists or is `@clip`
-        if not os.path.isfile(fn) and fn != "@clip":
-            print(f"Error: input file \"{fn}\" does not exist")
-            sys.exit(1)
+    # check if input file exists
+    if not os.path.isfile(args.file) and args.file != "@clip":
+        print(f"Error: input file \"{args.file}\" does not exist")
+        sys.exit(1)
 
-    # read files
-    datas = []
-    for fn in args.file:
-        if fn == "@clip":
-            # clipboard
+    if args.file == "@clip":
+        code = pyperclip.paste()
+    else:
+        with open(args.file, "r") as f:
+            code = f.read()
 
-            datas.append((fn, pyperclip.paste()))
-
-        else:
-            # file
-
-            with open(fn, "r") as f:
-                datas.append((fn, f.read()))
-
-    # compile all files
-    outs = []
-    for data in datas:
-        # skip if already compiled
-        if data[0].endswith(".mind") or data[0].endswith(".masm"):
-            outs.append(data[1])
-            continue
-
-        try:
-            out = Preprocessor.preprocess(data[1])
-            out = Lexer(os.path.dirname(os.path.abspath(data[0]))).lex(out, data[0])
-            out = Parser().parse(out)
-            out = out.generate()
-            out = Optimizer.optimize(out)
-        except MlogError as e:
-            e.print()
-            if args.print_exceptions:
-                raise e
-            else:
-                sys.exit(1)
-
-        # add to compiled files
-        outs.append(out)
-
-    # link the compiled files
-    out = Linker.link(outs)
+    try:
+        out = compile_code(code, args.file)
+    except MlogError as e:
+        e.print()
+        if args.print_exceptions:
+            raise e
+        sys.exit(1)
 
     if output_method == IOMethod.FILE:
         # output to file

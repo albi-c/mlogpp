@@ -33,7 +33,7 @@ class Position:
         generate error arrows
         """
 
-        return f"{' ' * (self.start + 1)}{'^' * (self.end - self.start)}"
+        return f"{' ' * self.start}{'^' * (self.end - self.start)}"
     
     def code_section(self) -> str:
         """
@@ -53,6 +53,22 @@ class Position:
             return Position(self.line, self.start, len(self.code), self.code, self.file)
         else:
             return Position(other.line, other.start, len(other.code), other.code, self.file)
+
+    def __iadd__(self, other: "Position") -> "Position":
+        """
+        create a range of two positions
+        """
+
+        if self.line == other.line:
+            self.start = min(self.start, other.start)
+            self.end = max(self.end, other.end)
+        elif self.line < other.line:
+            self.end = len(self.code)
+        else:
+            self.line = other.line
+            self.start = other.start
+            self.end = len(other.code)
+            self.code = other.code
     
     def __repr__(self) -> str:
         return f"Position({self.line}, {self.start}, {self.end}, \"{sanitize(self.code)}\", \"{sanitize(self.file)}\")"
