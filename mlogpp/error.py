@@ -44,6 +44,14 @@ class Error:
     def incompatible_types(node: 'Node', a: 'Type', b: 'Type'):
         raise MlogError(f"Incompatible types [{a.name}, {b.name}]", node.get_pos())
 
+    @staticmethod
+    def undefined_function(node: 'Node', func: str):
+        raise MlogError(f"Undefined function [{func}]", node.get_pos())
+
+    @staticmethod
+    def invalid_arg_count(node: 'Node', count: int, expected: int):
+        raise MlogError(f"Invalid number of arguments to function ({count}, expected {expected})", node.get_pos())
+
 
 def lex_error(msg: str, pos: Position = None) -> None:
     """

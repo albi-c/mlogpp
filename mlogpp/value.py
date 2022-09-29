@@ -8,17 +8,18 @@ class Type(enum.Flag):
     STR = enum.auto()
     NULL = enum.auto()
 
-    BUILDING = enum.auto()
+    BLOCK = enum.auto()
     UNIT = enum.auto()
     TEAM = enum.auto()
 
     UNIT_TYPE = enum.auto()
     ITEM_TYPE = enum.auto()
-    BUILDING_TYPE = enum.auto()
+    BLOCK_TYPE = enum.auto()
+    LIQUID_TYPE = enum.auto()
 
-    OTHER = enum.auto()
+    CONTROLLER = enum.auto()
 
-    ANY = NUM | STR | NULL | BUILDING | UNIT | TEAM | UNIT_TYPE | ITEM_TYPE | BUILDING_TYPE | OTHER
+    ANY = NUM | STR | NULL | BLOCK | UNIT | TEAM | UNIT_TYPE | ITEM_TYPE | BLOCK_TYPE | LIQUID_TYPE | CONTROLLER
 
 
 class Value:

@@ -303,7 +303,7 @@ class CallNode(Node):
         "read": {
             "params": 3,
             inputs: {
-                1: Type.BUILDING,
+                1: Type.BLOCK,
                 2: Type.NUM
             },
             "outputs": {
@@ -314,12 +314,11 @@ class CallNode(Node):
             "params": 3,
             "inputs": {
                 0: Type.NUM,
-                1: Type.BUILDING,
+                1: Type.BLOCK,
                 2: Type.NUM
             }
         },
         "draw": {
-            "params": 7,
             "subcommands": True
         },
         "print": {
@@ -331,13 +330,13 @@ class CallNode(Node):
         "drawflush": {
             "params": 1,
             "inputs": {
-                0: Type.BUILDING
+                0: Type.BLOCK
             }
         },
         "printflush": {
             "params": 1,
             "inputs": {
-                0: Type.BUILDING
+                0: Type.BLOCK
             }
         },
         "getlink": {
@@ -346,17 +345,16 @@ class CallNode(Node):
                 1: Type.NUM
             },
             "outputs": {
-                0: Type.BUILDING
+                0: Type.BLOCK
             }
         },
         "control": {
-            "params": 6,
             "subcommands": True
         },
         "radar": {
             "params": 7,
             "inputs": {
-                4: Type.BUILDING,
+                4: Type.BLOCK,
                 5: Type.NUM
             },
             "outputs": {
@@ -364,7 +362,6 @@ class CallNode(Node):
             }
         },
         "sensor": {
-            "params": 3,
             "subcommands": True
         },
         "wait": {
@@ -372,6 +369,9 @@ class CallNode(Node):
             "inputs": {
                 0: Type.NUM
             }
+        },
+        "lookup": {
+            "subcommands": True
         },
         "packcolor": {
             "params": 5,
@@ -391,6 +391,9 @@ class CallNode(Node):
                 0: Type.UNIT_TYPE
             }
         },
+        "ucontrol": {
+            "subcommands": True
+        },
         "uradar": {
             "params": 7,
             "inputs": {
@@ -402,10 +405,13 @@ class CallNode(Node):
             "empty": {
                 4
             }
+        },
+        "ulocate": {
+            "params": 8,
+            "subcommands": True
         }
     }
 
-    # default input type - number, all inputs
     SUBCOMMANDS_DRAW = {
         "clear": 3,
         "color": 4,
@@ -417,57 +423,47 @@ class CallNode(Node):
         "poly": 5,
         "linePoly": 5,
         "triangle": 6,
-
-        "image": {
-            "params": 5,
-            "inputs": {
-                2: Type.ITEM_TYPE
-            }
-        }
+        "image": 5
     }
 
-    # default first parameter building
     SUBCOMMANDS_CONTROL = {
-        "enabled": {
-            "params": 2,
-            "inputs": {
-                1: Type.NUM
-            }
-        },
-        "shoot": {
-            "params": 4,
-            "inputs": {
-                1: Type.NUM,
-                2: Type.NUM,
-                3: Type.NUM
-            }
-        },
-        "shootp": {
-            "params": 2,
-            "inputs": {
-                1: Type.UNIT,
-                2: Type.NUM
-            }
-        },
-        "config": {
-            "params": 1,
-            "inputs": {
-                1: Type.NUM
-            }
-        },
-        "color": {
-            "params": 1,
-            "inputs": {
-                1: Type.NUM
-            }
-        }
+        "enabled": 2,
+        "shoot": 4,
+        "shootp": 2,
+        "config": 1,
+        "color": 1
     }
 
-    # default output type - number
-    SUBCOMMANDS_SENSOR = {
-        "type": Type.BUILDING_TYPE,
-        "controlled": Type.OTHER,
-        "controller": Type.BUILDING | Type.UNIT
+    SUBCOMMANDS_LOOKUP = {
+        "block": Type.BLOCK_TYPE,
+        "unit": Type.UNIT_TYPE,
+        "item": Type.ITEM_TYPE,
+        "liquid": Type.LIQUID_TYPE
+    }
+
+    SUBCOMMANDS_UCONTROL = {
+        "idle": 0,
+        "stop": 0,
+        "move": 2,
+        "approach": 3,
+        "boost": 1,
+        "target": 3,
+        "targetp": 2,  # UNIT, _
+        "itemDrop": 2,  # BUILDING, _
+        "itemTake": 3,  # BUILDING, ITEM_TYPE, _
+        "payDrop": 0,
+        "payTake": 1,
+        "payEnter": 0,
+        "mine": 2,
+        "flag": 1,
+        "build": 5,  # _, _, BLOCK_TYPE, _, _
+        "getBlock": 4,  # _, _, BLOCK_TYPE, BLOCK
+        "within": 4,  # _, _, _, result,
+        "unbind": 0
+    }
+
+    SUBCOMMANDS_ULOCATE = {
+
     }
 
     def __init__(self, pos: Position, name: str, params: list[Node]):
@@ -476,11 +472,86 @@ class CallNode(Node):
         self.name = name
         self.params = params
 
+        self.return_value = NullValue()
+
     def __str__(self):
         return f"{self.name}({', '.join(map(str, self.params))})"
 
     def generate(self) -> Instruction | Instructions:
-        pass
+        if "." in self.name:
+            name, subcommand = self.name.split(".")
+        else:
+            name, subcommand = self.name, ""
+
+        code = Instructions()
+
+        if (func := CallNode.NATIVES.get(name)) is not None:
+            if func.get("subcommands", False):
+                if name == "draw":
+                    if (sub := CallNode.SUBCOMMANDS_DRAW.get(subcommand)) is None:
+                        Error.undefined_function(self, self.name)
+
+                    if len(self.params) != sub:
+                        Error.invalid_arg_count(self, len(self.params), sub)
+
+                    params = []
+                    for i, param in enumerate(self.params):
+                        param_code, param_value = param.get()
+
+                        if subcommand == "image" and i == 2:
+                            if param_value.type != Type.ITEM_TYPE:
+                                Error.incompatible_types(self, param_value.type, Type.ITEM_TYPE)
+                        elif param_value.type != Type.NUM:
+                            Error.incompatible_types(self, param_value.type, Type.NUM)
+
+                        code += param_code
+                        params.append(param_value)
+
+                    code += MInstruction(MInstructionType.DRAW, [subcommand] + params + ["_"] * (6 - len(params)))
+
+                elif name == "control":
+                    if (sub := CallNode.SUBCOMMANDS_CONTROL.get(subcommand)) is None:
+                        Error.undefined_function(self, self.name)
+
+                    if len(self.params) != sub:
+                        Error.invalid_arg_count(self, len(self.params), sub)
+
+                    params = []
+                    for i, param in enumerate(self.params):
+                        param_code, param_value = param.get()
+
+                        if i == 0:
+                            if subcommand == "shootp":
+                                if param_value.type != Type.UNIT:
+                                    Error.incompatible_types(self, param_value.type, Type.UNIT)
+                            elif param_value.type != Type.BLOCK:
+                                Error.incompatible_types(self, param_value.type, Type.BLOCK)
+                        elif param_value.type != Type.NUM:
+                            Error.incompatible_types(self, param_value.type, Type.NUM)
+
+                        code += param_code
+                        params.append(param_value)
+
+                    code += MInstruction(MInstructionType.CONTROL, [subcommand] + params + ["_"] * (5 - len(params)))
+
+                elif name == "lookup":
+                    if (sub := CallNode.SUBCOMMANDS_LOOKUP.get(subcommand)) is None:
+                        Error.undefined_function(self, self.name)
+
+                    if len(self.params) != 1:
+                        Error.invalid_arg_count(self, len(self.params), 1)
+
+                    index_code, index = self.params[0].get()
+                    if index.type != Type.NUM:
+                        Error.incompatible_types(self, index.type, Type.NUM)
+
+                    code += index_code
+
+                    self.return_value = Gen.temp_var(sub)
+
+                    code += MInstruction(MInstructionType.LOOKUP, [subcommand, self.return_value, index])
+
+        return code
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
         return self.generate(), self.return_value
