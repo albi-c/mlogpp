@@ -10,7 +10,7 @@ setuptools.setup(
     name="mlogpp",
     version=__version__,
     author="albi-c",
-    description="mlog++ to mindustry logic compiler",
+    description="high level mindustry logic language",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/albi-c/mlog++",
