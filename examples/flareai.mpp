@@ -6,6 +6,8 @@ REGEN_NEHEALTH = 0.8
 REGEN_FLAG = 73584
 
 function go_heal() {
+    local x, y, found, building
+
     ulocate(building, repair, false, _, x, y, found, building)
     if (found) {
         ucontrol.flag(REGEN_FLAG)

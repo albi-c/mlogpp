@@ -24,6 +24,20 @@ native_ret = {
     "op": 1
 }
 
+# parameters to native functions that shouldn't be renamed
+native_no_rename = {
+    "draw": {0},
+    "control": {0},
+    "radar": {0, 1, 2, 3},
+    "sensor": {0},
+    "op": {0},
+    "lookup": {0},
+    "jump": {1},
+    "ucontrol": {0},
+    "uradar": {0, 1, 2, 3},
+    "ulocate": {0, 1}
+}
+
 # native subcommands
 native_sub = {
     "draw": {

@@ -255,8 +255,6 @@ class CallNode(Node):
             code += MInstruction(MInstructionType.SET, [f"__f_a{i}_{self.func}", valv])
             self._ret_var = Var(f"__f_{self.func}_retv", True)
 
-        # code += MInstruction(MInstructionType.OP, ["add", f"__f_{self.func}_ret", "@counter", "1"]) + \
-        #         MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.func}"])
         code += MInstruction(MInstructionType.OP, ["add", f"__f_{self.func}_ret", "@counter", "1"]) + \
                 MppInstructionJump(f"__f_{self.func}")
 
@@ -266,10 +264,14 @@ class CallNode(Node):
         return self.generate(), self._ret_var
 
     def table_rename(self, variables: dict):
-        return CallNode(self.pos, self.func, [a.table_rename(variables) for a in self.args])
+        return CallNode(self.pos, self.func, [
+            a.table_rename(variables) if i not in functions.native_no_rename.get(self.func, set()) else a for i, a in enumerate(self.args)
+        ])
 
     def function_rename(self, name: str):
-        return CallNode(self.pos, self.func, [a.function_rename(name) for a in self.args])
+        return CallNode(self.pos, self.func, [
+            a.function_rename(name) if i not in functions.native_no_rename.get(self.func, set()) else a for i, a in enumerate(self.args)
+        ])
 
 
 class ExpressionNode(Node):
@@ -733,11 +735,6 @@ class FunctionNode(Node):
                 Gen.add_locals(node.vars)
 
         end_label = Gen.temp_lab()
-        # code = MInstruction(MInstructionType.OP, ["add", f"__f_{self.name}", "@counter", "1"]) + \
-        #     MppInstructionJump(end_label) + \
-        #     self.code.table_rename(args).function_rename(self.name).generate() + \
-        #     MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.name}_ret"]) + \
-        #     MppInstructionLabel(end_label)
         code = MppInstructionJump(end_label) + MppInstructionLabel(f"__f_{self.name}") + \
                self.code.table_rename(args).function_rename(self.name).generate() + \
                MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.name}_ret"]) + \
