@@ -11,6 +11,8 @@ class Gen:
 
     LOCALS_STACK = []
 
+    SCOPE_COUNT = 0
+
     @staticmethod
     def reset():
         """
@@ -32,7 +34,7 @@ class Gen:
             return var
 
         Gen.VAR_COUNT += 1
-        return VariableValue(type_, "__tmp{Gen.VAR_COUNT-1}", True)
+        return VariableValue(type_, f"__tmp{Gen.VAR_COUNT-1}", True)
     
     @staticmethod
     def temp_lab() -> str:
@@ -42,6 +44,15 @@ class Gen:
 
         Gen.LAB_COUNT += 1
         return f"__tmp{Gen.LAB_COUNT-1}"
+
+    @staticmethod
+    def scope_name() -> str:
+        """
+        generate a scope name
+        """
+
+        Gen.SCOPE_COUNT += 1
+        return f"__s_{Gen.SCOPE_COUNT}"
     
     @staticmethod
     def is_local(name: str) -> bool:

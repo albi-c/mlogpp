@@ -11,6 +11,7 @@ class TokenType(enum.Flag):
     NONE = enum.auto()
     ID = enum.auto()
     KEYWORD = enum.auto()
+    NATIVE = enum.auto()
     STRING = enum.auto()
     NUMBER = enum.auto()
     LPAREN = enum.auto()
@@ -37,7 +38,9 @@ class Token:
 
     TYPES = (
         "num", "str",
-        "Building", "Unit"
+        "Block", "Unit", "Team",
+        "BlockType", "UnitType", "ItemType", "LiquidType",
+        "Controller"
     )
     BLOCK_STATEMENTS = (
         "if", "while", "for",

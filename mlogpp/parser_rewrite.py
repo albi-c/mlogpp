@@ -1,3 +1,5 @@
+import genericpath
+
 from .lexer import TokenType, Token
 from .error import parse_error, ParseErrorType
 from .node_rewrite import *
@@ -26,7 +28,7 @@ class Parser:
         self.loop_stack = []
         self.loop_count = 0
 
-        return self.parse_CodeBlock()
+        return self.parse_CodeBlock(None, False)
 
     def loop_name(self) -> str:
         self.loop_count += 1
@@ -137,6 +139,7 @@ class Parser:
                     return CallNode(tok.pos, tok.value, self.parse_funcArgVals())
 
                 elif self.lookahead_token(TokenType.LBRACK):
+                    self.next_token(TokenType.LBRACK)
                     index = self.parse_Value()
                     self.next_token(TokenType.RBRACK)
 
@@ -146,11 +149,45 @@ class Parser:
 
                     return IndexedAssignmentNode(tok.pos + value.get_pos(), tok.value, index, op.value, value)
 
+            case TokenType.NATIVE:
+                self.prev_token()
+                return self.parse_NativeCall()
+
         parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
 
-    def parse_BlockStatement(self) -> IfNode | LoopNode | FunctionNode:
-        tok = self.next_token(TokenType.ID)
+    def parse_NativeCall(self) -> NativeCallNode:
+        name = self.next_token(TokenType.NATIVE)
         self.next_token(TokenType.LPAREN)
+        nat = NativeCallNode.NATIVES[name.value]
+
+        params = []
+        for i in range(len(nat)):
+            match nat[i][0]:
+                case Param.UNUSED:
+                    params.append("_")
+                    continue
+                case Param.INPUT:
+                    params.append(self.parse_Value())
+                case Param.CONFIG:
+                    params.append(self.next_token(TokenType.ID).value)
+                case Param.OUTPUT:
+                    if NativeCallNode.NATIVES_RETURN_POS.get(name.value) == i:
+                        params.append("_")
+                        continue
+                    else:
+                        params.append(self.next_token(TokenType.ID).value)
+
+            if i == len(nat):
+                self.next_token(TokenType.COMMA)
+            else:
+                self.next_token(TokenType.RPAREN)
+
+        return NativeCallNode(name.pos, name.value, params)
+
+    def parse_BlockStatement(self) -> IfNode | LoopNode | FunctionNode:
+        tok = self.next_token(TokenType.KEYWORD)
+        if tok.value != "function":
+            self.next_token(TokenType.LPAREN)
 
         match tok.value:
             case "if":
@@ -158,13 +195,13 @@ class Parser:
                 self.next_token(TokenType.RPAREN)
 
                 self.next_token(TokenType.LBRACE)
-                code = self.parse_CodeBlock()
+                code = self.parse_CodeBlock(Gen.scope_name())
 
                 if self.lookahead_token(TokenType.KEYWORD, "else"):
                     self.next_token(TokenType.KEYWORD)
                     self.next_token(TokenType.LBRACE)
 
-                    return IfNode(tok.pos, cond, code, self.parse_CodeBlock())
+                    return IfNode(tok.pos, cond, code, self.parse_CodeBlock(Gen.scope_name()))
 
                 return IfNode(tok.pos, cond, code, None)
 
@@ -174,7 +211,9 @@ class Parser:
 
                 self.next_token(TokenType.LBRACE)
 
-                return WhileNode(tok.pos, self.loop_name(), cond, self.parse_CodeBlock())
+                name = self.loop_name()
+
+                return WhileNode(tok.pos, name, cond, self.parse_CodeBlock(name))
 
             case "for":
                 if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.COLON, None, 2):
@@ -185,7 +224,9 @@ class Parser:
 
                     self.next_token(TokenType.LBRACE)
 
-                    return RangeNode(tok.pos, self.loop_name(), var.value, until, self.parse_CodeBlock())
+                    name = self.loop_name()
+
+                    return RangeNode(tok.pos, name, var.value, until, self.parse_CodeBlock(name))
 
                 init = self.parse_Statement()
                 self.next_token(TokenType.SEMICOLON)
@@ -196,7 +237,9 @@ class Parser:
 
                 self.next_token(TokenType.LBRACE)
 
-                return ForNode(tok.pos, self.loop_name(), init, cond, action, self.parse_CodeBlock())
+                name = self.loop_name()
+
+                return ForNode(tok.pos, name, init, cond, action, self.parse_CodeBlock(name))
 
             case "function":
                 name = self.next_token(TokenType.ID)
@@ -205,20 +248,21 @@ class Parser:
 
                 self.next_token(TokenType.LBRACE)
                 self.function_stack.append(name.value)
-                code = self.parse_CodeBlock()
+                code = self.parse_CodeBlock(name.value)
                 self.function_stack.pop(-1)
 
                 return FunctionNode(tok.pos, name.value, params, code)
 
-    def parse_CodeBlock(self):
+    def parse_CodeBlock(self, name: str | None, end_at_rbrace: bool = True):
         code = []
         while self.has_token():
-            if self.lookahead_token(TokenType.RBRACE):
+            if self.lookahead_token(TokenType.RBRACE) and end_at_rbrace:
+                self.next_token()
                 break
 
             code.append(self.parse_Statement())
 
-        return CodeBlockNode(code)
+        return CodeBlockNode(code, name)
 
     def parse_funcArgVars(self) -> list[tuple[str, Type]]:
         variables = []
@@ -400,12 +444,14 @@ class Parser:
             self.parse_Call
         )
 
-    def parse_Call(self) -> CallNode | ValueNode | BinaryOpNode:
+    def parse_Call(self) -> CallNode | NativeCallNode | ValueNode | BinaryOpNode:
         if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.LPAREN, None, 2):
             name = self.next_token(TokenType.ID)
             self.next_token(TokenType.LPAREN)
             params = self.parse_funcArgVals()
             return CallNode(name.pos, name.value, params)
+        elif self.lookahead_token(TokenType.NATIVE):
+            return self.parse_NativeCall()
 
         return self.parse_Atom()
 

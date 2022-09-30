@@ -5,7 +5,9 @@ from .instruction import *
 from .value import *
 from .generator import Gen
 from .scope import Scopes
+from .function import Function
 from .error import gen_error, GenErrorType, Error
+from . import constants
 
 
 class Node:
@@ -30,9 +32,6 @@ class Node:
     def get(self) -> tuple[Instruction | Instructions, Value]:
         return Instructions(), NullValue()
 
-    def set(self) -> tuple[Instruction | Instructions, Value]:
-        return Instructions(), NullValue()
-
 
 class CodeBlockNode(Node):
     """
@@ -40,11 +39,13 @@ class CodeBlockNode(Node):
     """
 
     code: list[Node]
+    name: str | None
 
-    def __init__(self, code: list[Node]):
+    def __init__(self, code: list[Node], name: str | None):
         super().__init__(Position(0, 0, 0, "", ""))
 
         self.code = code
+        self.name = name
 
     def __str__(self):
         string = "{\n"
@@ -55,7 +56,7 @@ class CodeBlockNode(Node):
     def generate(self) -> Instruction | Instructions:
         ins = Instructions()
 
-        Scopes.push()
+        Scopes.push(self.name)
 
         for node in self.code:
             ins += node.generate()
@@ -83,15 +84,18 @@ class DeclarationNode(Node):
         return f"{self.var.type.name} {self.var.name} = {str(self.value)}"
 
     def generate(self) -> Instruction | Instructions:
+        if Scopes.get(self.var.name) is not None:
+            Error.already_defined_var(self, self.var.name)
+
         Scopes.add(self.var)
 
         if self.value is not None:
             value_code, value = self.value.get()
 
-            if value.type != self.var.type:
+            if value.type not in self.var.type:
                 Error.incompatible_types(self, value.type, self.var.type)
 
-            return value_code + MInstruction(MInstructionType.SET, [self.var.name, value])
+            return value_code + MInstruction(MInstructionType.SET, [self.var, value])
 
         return Instructions()
 
@@ -131,15 +135,18 @@ class AssignmentNode(Node):
         return f"{self.var} {self.op} {self.value}"
 
     def generate(self) -> Instruction | Instructions:
-        if (var := Scopes.get(self.var)) is not None:
+        if isinstance(var := Scopes.get(self.var), VariableValue):
             value_code, value = self.value.get()
 
             if self.op == "=":
+                if value.type not in var.type:
+                    Error.incompatible_types(self, value.type, var.type)
+
                 return value_code + MInstruction(MInstructionType.SET, [var, value])
             else:
-                if var.type != Type.NUM:
+                if var.type not in Type.NUM:
                     Error.incompatible_types(self, var.type, Type.NUM)
-                if value.type != Type.NUM:
+                if value.type not in Type.NUM:
                     Error.incompatible_types(self, value.type, Type.NUM)
 
                 return value_code + MInstruction(MInstructionType.OP, [self.OPERATORS[self.op], var, var, value])\
@@ -167,11 +174,11 @@ class IndexedAssignmentNode(AssignmentNode):
             value_code, value = self.value.get()
             index_code, index = self.index.get()
 
-            if var.type != Type.NUM:
+            if var.type not in Type.NUM:
                 Error.incompatible_types(self, var.type, Type.NUM)
-            if value.type != Type.NUM:
+            if value.type not in Type.NUM:
                 Error.incompatible_types(self, value.type, Type.NUM)
-            if index.type != Type.NUM:
+            if index.type not in Type.NUM:
                 Error.incompatible_types(self, index.type, Type.NUM)
 
             if self.op == "=":
@@ -217,6 +224,12 @@ class BinaryOpNode(Node):
         "^": "xor"
     }
 
+    EQUALITY = {
+        "==",
+        "!=",
+        "==="
+    }
+
     def __init__(self, pos: Position, left: Node, right: list[tuple[str, Node]] | None):
         super().__init__(pos)
 
@@ -232,21 +245,24 @@ class BinaryOpNode(Node):
     def get(self) -> tuple[Instruction | Instructions, Value]:
         code, value = self.left.get()
 
-        if value.type != Type.NUM:
-            Error.incompatible_types(self, value.type, Type.NUM)
+        if value.type not in Type.NUM and len(self.right) > 0:
+            for op, _ in self.right:
+                if op not in BinaryOpNode.EQUALITY:
+                    Error.incompatible_types(self, value.type, Type.NUM)
 
         if self.right is not None and len(self.right) > 0:
             tmpv = Gen.temp_var(Type.NUM, value)
+            print(tmpv, value)
             if tmpv != value:
                 code += MInstruction(MInstructionType.SET, [tmpv, value])
 
             for op, node in self.right:
                 value_code, value = node.get()
 
-                if value.type != Type.NUM:
+                if value.type not in Type.NUM:
                     Error.incompatible_types(self, value.type, Type.NUM)
 
-                code += value_code + MInstruction(MInstructionType.OP, [op, tmpv, tmpv, value])
+                code += value_code + MInstruction(MInstructionType.OP, [BinaryOpNode.OPERATORS[op], tmpv, tmpv, value])
 
             return code, tmpv
 
@@ -273,7 +289,7 @@ class UnaryOpNode(Node):
     def get(self) -> tuple[Instruction | Instructions, Value]:
         code, value = self.value.get()
 
-        if value.type != Type.NUM:
+        if value.type not in Type.NUM:
             Error.incompatible_types(self, value.type, Type.NUM)
 
         tmpv = Gen.temp_var(Type.NUM, value)
@@ -291,182 +307,328 @@ class UnaryOpNode(Node):
 
 class CallNode(Node):
     """
-    function call node
-    """
+        function call node
+        """
 
     name: str
     params: list[Node]
 
     return_value: Value
 
-    NATIVES = {
-        "read": {
-            "params": 3,
-            inputs: {
-                1: Type.BLOCK,
-                2: Type.NUM
-            },
-            "outputs": {
-                0: Type.NUM
-            }
-        },
-        "write": {
-            "params": 3,
-            "inputs": {
-                0: Type.NUM,
-                1: Type.BLOCK,
-                2: Type.NUM
-            }
-        },
-        "draw": {
-            "subcommands": True
-        },
-        "print": {
-            "params": 1,
-            "inputs": {
-                0: Type.ANY
-            }
-        },
-        "drawflush": {
-            "params": 1,
-            "inputs": {
-                0: Type.BLOCK
-            }
-        },
-        "printflush": {
-            "params": 1,
-            "inputs": {
-                0: Type.BLOCK
-            }
-        },
-        "getlink": {
-            "params": 2,
-            "inputs": {
-                1: Type.NUM
-            },
-            "outputs": {
-                0: Type.BLOCK
-            }
-        },
-        "control": {
-            "subcommands": True
-        },
-        "radar": {
-            "params": 7,
-            "inputs": {
-                4: Type.BLOCK,
-                5: Type.NUM
-            },
-            "outputs": {
-                6: Type.UNIT
-            }
-        },
-        "sensor": {
-            "subcommands": True
-        },
-        "wait": {
-            "params": 1,
-            "inputs": {
-                0: Type.NUM
-            }
-        },
-        "lookup": {
-            "subcommands": True
-        },
-        "packcolor": {
-            "params": 5,
-            "inputs": {
-                1: Type.NUM,
-                2: Type.NUM,
-                3: Type.NUM,
-                4: Type.NUM
-            },
-            "outputs": {
-                0: Type.NUM
-            }
-        },
-        "ubind": {
-            "params": 1,
-            "inputs": {
-                0: Type.UNIT_TYPE
-            }
-        },
-        "ucontrol": {
-            "subcommands": True
-        },
-        "uradar": {
-            "params": 7,
-            "inputs": {
-                5: Type.NUM
-            },
-            "outputs": {
-                6: Type.UNIT
-            },
-            "empty": {
-                4
-            }
-        },
-        "ulocate": {
-            "params": 8,
-            "subcommands": True
-        }
-    }
-
-    SUBCOMMANDS_DRAW = {
-        "clear": 3,
-        "color": 4,
-        "col": 1,
-        "stroke": 1,
-        "line": 4,
-        "rect": 4,
-        "lineRect": 4,
-        "poly": 5,
-        "linePoly": 5,
-        "triangle": 6,
-        "image": 5
-    }
-
-    SUBCOMMANDS_CONTROL = {
-        "enabled": 2,
-        "shoot": 4,
-        "shootp": 2,
-        "config": 1,
-        "color": 1
-    }
-
-    SUBCOMMANDS_LOOKUP = {
-        "block": Type.BLOCK_TYPE,
-        "unit": Type.UNIT_TYPE,
-        "item": Type.ITEM_TYPE,
-        "liquid": Type.LIQUID_TYPE
-    }
-
-    SUBCOMMANDS_UCONTROL = {
-        "idle": 0,
-        "stop": 0,
-        "move": 2,
-        "approach": 3,
-        "boost": 1,
-        "target": 3,
-        "targetp": 2,  # UNIT, _
-        "itemDrop": 2,  # BUILDING, _
-        "itemTake": 3,  # BUILDING, ITEM_TYPE, _
-        "payDrop": 0,
-        "payTake": 1,
-        "payEnter": 0,
-        "mine": 2,
-        "flag": 1,
-        "build": 5,  # _, _, BLOCK_TYPE, _, _
-        "getBlock": 4,  # _, _, BLOCK_TYPE, BLOCK
-        "within": 4,  # _, _, _, result,
-        "unbind": 0
-    }
-
-    SUBCOMMANDS_ULOCATE = {
-
-    }
-
     def __init__(self, pos: Position, name: str, params: list[Node]):
+        super().__init__(pos)
+
+        self.name = name
+        self.params = params
+
+        self.return_value = NullValue()
+
+    def generate(self) -> Instruction | Instructions:
+        code = Instructions()
+
+        if not isinstance(fun := Scopes.get(self.name), Function):
+            Error.undefined_function(self, self.name)
+
+        if len(self.params) != len(fun.params):
+            Error.invalid_arg_count(self, len(self.params), len(fun.params))
+
+        for i, param in enumerate(self.params):
+            param_code, param_value = param.get()
+
+            if param_value.type != fun.params[i][1]:
+                Error.incompatible_types(self, param_value.type, fun.params[i][1])
+
+            code += param_code
+            # TODO: scopes, pass to function
+
+        # TODO: return address. jump
+
+        return code
+
+
+class Param(enum.Enum):
+    INPUT = enum.auto()
+    OUTPUT = enum.auto()
+    CONFIG = enum.auto()
+    UNUSED = enum.auto()
+
+
+class NativeCallNode(Node):
+    """
+    native function call node
+    """
+
+    name: str
+    params: list[Node | str]
+
+    return_value: Value
+
+    NATIVES = {
+        "read": (
+            (Param.OUTPUT, Type.NUM),
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "write": (
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "draw.clear": (
+            (Param.INPUT, Type.NUM),
+        ) * 3,
+        "draw.color": (
+            (Param.INPUT, Type.NUM),
+        ) * 4,
+        "draw.col": (
+            (Param.INPUT, Type.NUM),
+        ),
+        "draw.stroke": (
+            (Param.INPUT, Type.NUM),
+        ),
+        "draw.line": (
+            (Param.INPUT, Type.NUM),
+        ) * 4,
+        "draw.rect": (
+            (Param.INPUT, Type.NUM),
+        ) * 4,
+        "draw.lineRect": (
+            (Param.INPUT, Type.NUM),
+        ) * 4,
+        "draw.poly": (
+            (Param.INPUT, Type.NUM),
+        ) * 5,
+        "draw.linePoly": (
+            (Param.INPUT, Type.NUM),
+        ) * 5,
+        "draw.triangle": (
+            (Param.INPUT, Type.NUM),
+        ) * 5,
+        "draw.image": (
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.ITEM_TYPE),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "print": (
+            (Param.INPUT, Type.ANY),
+        ),
+
+        "drawflush": (
+            (Param.CONFIG, Type.ANY),
+        ),
+
+        "printflush": (
+            (Param.CONFIG, Type.ANY),
+        ),
+
+        "getlink": (
+            (Param.OUTPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "control.enabled": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+        "control.shoot": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM)
+        ),
+        "control.shootp": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.UNIT),
+            (Param.INPUT, Type.NUM)
+        ),
+        "control.config": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+        "control.color": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "radar": (
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("distance", "health", "shield", "armor", "maxHealth")),
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM),
+            (Param.OUTPUT, Type.UNIT)
+        )
+    } | \
+              {
+                    f"sensor.{property}": (
+                        (Param.OUTPUT, type_),
+                        (Param.INPUT, Type.BLOCK | Type.UNIT)
+                    ) for property, type_ in constants.SENSOR_READABLE.items()
+    } | \
+              {
+        "wait": (
+            (Param.INPUT, Type.NUM),
+        ),
+
+        "lookup.block": (
+            (Param.OUTPUT, Type.BLOCK_TYPE),
+            (Param.INPUT, Type.NUM)
+        ),
+        "lookup.unit": (
+            (Param.OUTPUT, Type.UNIT_TYPE),
+            (Param.INPUT, Type.NUM)
+        ),
+        "lookup.item": (
+            (Param.OUTPUT, Type.ITEM_TYPE),
+            (Param.INPUT, Type.NUM)
+        ),
+        "lookup.liquid": (
+            (Param.OUTPUT, Type.LIQUID_TYPE),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "packcolor": (
+            (Param.OUTPUT, Type.NUM),
+        ) + (
+            (Param.INPUT, Type.NUM),
+        ) * 4,
+
+        "ubind": (
+            (Param.INPUT, Type.UNIT_TYPE),
+        ),
+
+        "ucontrol.idle": tuple(),
+        "ucontrol.stop": tuple(),
+        "ucontrol.move": (
+            (Param.INPUT, Type.NUM),
+        ) * 2,
+        "ucontrol.approach": (
+            (Param.INPUT, Type.NUM),
+        ) * 3,
+        "ucontrol.boost": (
+            (Param.INPUT, Type.NUM),
+        ),
+        "ucontrol.target": (
+            (Param.INPUT, Type.NUM),
+        ) * 3,
+        "ucontrol.targetp": (
+            (Param.INPUT, Type.UNIT),
+            (Param.INPUT, Type.NUM),
+        ),
+        "ucontrol.itemDrop": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM),
+        ),
+        "ucontrol.itemTake": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.ITEM_TYPE),
+            (Param.INPUT, Type.NUM)
+        ),
+        "ucontrol.payDrop": tuple(),
+        "ucontrol.payTake": (
+            (Param.INPUT, Type.NUM),
+        ),
+        "ucontrol.payEnter": tuple(),
+        "ucontrol.mine": (
+            (Param.INPUT, Type.NUM),
+        ) * 2,
+        "ucontrol.flag": (
+            (Param.INPUT, Type.NUM),
+        ),
+        "ucontrol.build": (
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.BLOCK_TYPE),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM)
+        ),
+        "ucontrol.getBlock": (
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.OUTPUT, Type.BLOCK_TYPE),
+            (Param.OUTPUT, Type.BLOCK),
+        ),
+        "ucontrol.within": (
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM)
+        ),
+        "ucontrol.unbind": tuple(),
+
+        "uradar": (
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("distance", "health", "shield", "armor", "maxHealth")),
+            (Param.UNUSED, Type.ANY),
+            (Param.INPUT, Type.NUM),
+            (Param.OUTPUT, Type.UNIT)
+        ),
+
+        "ulocate.ore": (
+            (Param.UNUSED, Type.ANY),
+            (Param.UNUSED, Type.ANY),
+            (Param.INPUT, Type.BLOCK_TYPE),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.UNUSED, Type.ANY)
+        ),
+        "ulocate.building": (
+            (Param.CONFIG, ("core", "storage", "generator", "turret", "factory", "repair", "battery", "reactor")),
+            (Param.INPUT, Type.NUM),
+            (Param.UNUSED, Type.ANY),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.BLOCK)
+        ),
+        "ulocate.spawn": (
+            (Param.UNUSED, Type.ANY),
+            (Param.UNUSED, Type.ANY),
+            (Param.UNUSED, Type.ANY),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.BLOCK)
+        ),
+        "ulocate.damaged": (
+            (Param.UNUSED, Type.ANY),
+            (Param.UNUSED, Type.ANY),
+            (Param.UNUSED, Type.ANY),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.BLOCK)
+        )
+    }
+
+    NATIVES_RETURN_POS = {
+        "read": 0,
+        "getlink": 0,
+        "radar": 6
+    } | \
+                         {
+        f"sensor.{property}": 0 for property in constants.SENSOR_READABLE.keys()
+    } | \
+                         {
+        "lookup.block": 0,
+        "lookup.unit": 0,
+        "lookup.item": 0,
+        "lookup.liquid": 0,
+        "packcolor": 0,
+        "ucontrol.within": 3,
+        "uradar": 6
+    }
+
+    def __init__(self, pos: Position, name: str, params: list[Node | str]):
         super().__init__(pos)
 
         self.name = name
@@ -478,78 +640,44 @@ class CallNode(Node):
         return f"{self.name}({', '.join(map(str, self.params))})"
 
     def generate(self) -> Instruction | Instructions:
-        if "." in self.name:
-            name, subcommand = self.name.split(".")
-        else:
-            name, subcommand = self.name, ""
+        if (nat := NativeCallNode.NATIVES.get(self.name)) is None:
+            Error.undefined_function(self, self.name)
 
         code = Instructions()
 
-        if (func := CallNode.NATIVES.get(name)) is not None:
-            if func.get("subcommands", False):
-                if name == "draw":
-                    if (sub := CallNode.SUBCOMMANDS_DRAW.get(subcommand)) is None:
-                        Error.undefined_function(self, self.name)
+        params = []
 
-                    if len(self.params) != sub:
-                        Error.invalid_arg_count(self, len(self.params), sub)
+        if len(self.params) != len(nat):
+            Error.invalid_arg_count(self, len(self.params), len(nat))
 
-                    params = []
-                    for i, param in enumerate(self.params):
-                        param_code, param_value = param.get()
+        for i, param in enumerate(self.params):
+            match nat[i][0]:
+                case Param.CONFIG:
+                    if isinstance(param, str):
+                        params.append(param)
+                case Param.UNUSED:
+                    params.append("_")
+                case Param.INPUT:
+                    param_code, param_value = param.get()
+                    if param_value.type not in nat[i][1]:
+                        Error.incompatible_types(self, param_value.type, nat[i][1])
+                    code += param_code
+                    params.append(param_value)
+                case Param.OUTPUT:
+                    if i == NativeCallNode.NATIVES_RETURN_POS.get(self.name):
+                        value = Gen.temp_var(nat[i][1])
+                        self.return_value = value
+                        params.append(value)
+                    else:
+                        params.append(param)
 
-                        if subcommand == "image" and i == 2:
-                            if param_value.type != Type.ITEM_TYPE:
-                                Error.incompatible_types(self, param_value.type, Type.ITEM_TYPE)
-                        elif param_value.type != Type.NUM:
-                            Error.incompatible_types(self, param_value.type, Type.NUM)
+        if "." in self.name:
+            if self.name == sensor:
+                params.append("@" + self.name.split(".")[1])
+            else:
+                params = [self.name.split(".")[1]] + params
 
-                        code += param_code
-                        params.append(param_value)
-
-                    code += MInstruction(MInstructionType.DRAW, [subcommand] + params + ["_"] * (6 - len(params)))
-
-                elif name == "control":
-                    if (sub := CallNode.SUBCOMMANDS_CONTROL.get(subcommand)) is None:
-                        Error.undefined_function(self, self.name)
-
-                    if len(self.params) != sub:
-                        Error.invalid_arg_count(self, len(self.params), sub)
-
-                    params = []
-                    for i, param in enumerate(self.params):
-                        param_code, param_value = param.get()
-
-                        if i == 0:
-                            if subcommand == "shootp":
-                                if param_value.type != Type.UNIT:
-                                    Error.incompatible_types(self, param_value.type, Type.UNIT)
-                            elif param_value.type != Type.BLOCK:
-                                Error.incompatible_types(self, param_value.type, Type.BLOCK)
-                        elif param_value.type != Type.NUM:
-                            Error.incompatible_types(self, param_value.type, Type.NUM)
-
-                        code += param_code
-                        params.append(param_value)
-
-                    code += MInstruction(MInstructionType.CONTROL, [subcommand] + params + ["_"] * (5 - len(params)))
-
-                elif name == "lookup":
-                    if (sub := CallNode.SUBCOMMANDS_LOOKUP.get(subcommand)) is None:
-                        Error.undefined_function(self, self.name)
-
-                    if len(self.params) != 1:
-                        Error.invalid_arg_count(self, len(self.params), 1)
-
-                    index_code, index = self.params[0].get()
-                    if index.type != Type.NUM:
-                        Error.incompatible_types(self, index.type, Type.NUM)
-
-                    code += index_code
-
-                    self.return_value = Gen.temp_var(sub)
-
-                    code += MInstruction(MInstructionType.LOOKUP, [subcommand, self.return_value, index])
+        code += MInstruction(MInstructionType[self.name.split(".")[0].upper()], params)
 
         return code
 
@@ -772,15 +900,18 @@ class FunctionNode(Node):
     """
 
     name: str
-    params: list[str]
+    params: list[tuple[str, Type]]
     code: CodeBlockNode
 
-    def __init__(self, pos: Position, name: str, params: list[str], code: CodeBlockNode):
+    def __init__(self, pos: Position, name: str, params: list[tuple[str, Type]], code: CodeBlockNode):
         super().__init__(pos)
 
         self.name = name
         self.params = params
         self.code = code
+
+    def __str__(self):
+        return f"function {self.name} ({', '.join(map(lambda t: t[1].name + ' ' + t[0], self.params))}) {self.code}"
 
     def generate(self) -> Instruction | Instructions:
         # TODO: function definition generation

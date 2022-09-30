@@ -1,5 +1,9 @@
 num a = 12
-a += 3
+a += 3.5
+print(a)
+str x = "Hello, World!"
+print(x)
+printflush(message1)
 
 # read result cell1 0
 # write result cell1 0

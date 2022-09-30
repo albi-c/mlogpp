@@ -40,7 +40,7 @@ class Position:
         get code section defined by the position
         """
 
-        return self.code[self.start+1:self.end+1]
+        return self.code[self.start:self.end]
     
     def __add__(self, other: "Position") -> "Position":
         """

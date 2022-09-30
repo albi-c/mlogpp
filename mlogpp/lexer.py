@@ -4,6 +4,7 @@ import string
 from .preprocess import Preprocessor
 from .error import Error
 from .util import Position, sanitize
+from .node_rewrite import NativeCallNode
 from .tokens import *
 
 
@@ -134,6 +135,8 @@ class Lexer:
             elif ch in self.ID_CHARS_START and (token := self.lex_id()) is not None:
                 if token in Token.KEYWORDS:
                     tokens.append(self.make_token(TokenType.KEYWORD, token))
+                elif token in NativeCallNode.NATIVES:
+                    tokens.append(self.make_token(TokenType.NATIVE, token))
                 else:
                     tokens.append(self.make_token(TokenType.ID, token))
 
@@ -196,13 +199,26 @@ class Lexer:
         token = ""
         while (ch := self.next_char()) != "\n":
             token += ch
+
         return token
 
     def lex_id(self) -> str:
         token = ""
         while (ch := self.lookahead_char()) in Lexer.ID_CHARS:
             self.next_char()
+
+            if ch == ".":
+                if "." in token:
+                    Error.unexpected_character(self.make_position(1), ch)
+                else:
+                    token += ch
+                    if (ch := self.lookahead_char()) not in Lexer.ID_CHARS:
+                        Error.unexpected_character(self.make_position(1), ch)
+
+                    continue
+
             token += ch
+
         return token
 
     def lex_string(self) -> str:
@@ -212,13 +228,19 @@ class Lexer:
             if ch == '"':
                 return f"\"{token}\""
             token += ch
+
         return f"\"{token}\""
 
     def lex_number(self) -> str:
         token = ""
         while (ch := self.lookahead_char()) in Lexer.NUMBER_CHARS:
             self.next_char()
+
+            if ch == "." and "." in token:
+                Error.unexpected_character(self.make_position(1), ch)
+
             token += ch
+
         return token
 
     def lex_operator(self) -> str | None:

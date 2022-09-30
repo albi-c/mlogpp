@@ -62,7 +62,7 @@ class MInstructionType(enum.Enum):
 
 class MInstruction(Instruction):
     type: MInstructionType
-    params: list[str]
+    params: list[str | int | float | Value]
 
     __match_args__ = ("type", "params")
 

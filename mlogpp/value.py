@@ -48,9 +48,6 @@ class StringValue(Value):
     def __str__(self):
         return self.value
 
-    def __eq__(self, other):
-        return self.value == other.value
-
     def __hash__(self):
         return hash((self.writable, self.type, self.value))
 
@@ -65,9 +62,6 @@ class NumberValue(Value):
 
     def __str__(self):
         return str(self.value)
-
-    def __eq__(self, other):
-        return self.value == other.value
 
     def __hash__(self):
         return hash((self.writable, self.type, self.value))
@@ -84,9 +78,6 @@ class NullValue(Value):
     def __str__(self):
         return "null"
 
-    def __eq__(self, other):
-        return self.value == other.value
-
     def __hash__(self):
         return hash((self.writable, self.type, self.value))
 
@@ -101,9 +92,6 @@ class VariableValue(Value):
 
     def __str__(self):
         return self.name
-
-    def __eq__(self, other):
-        return self.type == other.type and self.name == other.name and self.writable == other.writable
 
     def __hash__(self):
         return hash((self.writable, self.type, self.name))
