@@ -359,6 +359,9 @@ class CallNode(Node):
         if len(self.params) != len(fun.params):
             Error.invalid_arg_count(self, len(self.params), len(fun.params))
 
+        if fun.return_type != Type.NULL:
+            self.return_value = VariableValue(fun.return_type, f"__f_{self.name}_retv", True)
+
         for i, param in enumerate(self.params):
             param_code, param_value = param.get()
 
@@ -380,6 +383,9 @@ class CallNode(Node):
         code += MppInstructionJump(f"__f_{self.name}")
 
         return code
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        return self.generate(), self.return_value
 
     def scope_rename(self):
         for param in self.params:
@@ -860,6 +866,23 @@ class ReturnNode(Node):
         self.func = func
         self.value = value
 
+    def generate(self) -> Instruction | Instructions:
+        if self.value is None:
+            return Instructions()
+
+        value_code, value = self.value.get()
+
+        if not isinstance(fun := Scopes.get(self.func), Function):
+            Error.undefined_function(self, self.name)
+
+        if value.type != fun.return_type:
+            Error.incompatible_types(self, value.type, fun.return_type)
+
+        return value_code + MInstruction(MInstructionType.SET, [
+            VariableValue(value.type, f"__f_{self.func}_retv", True),
+            value
+        ])
+
     def scope_rename(self):
         if self.value is not None:
             self.value.scope_rename()
@@ -998,6 +1021,27 @@ class RangeNode(LoopNode):
         self.until = until
         self.code = code
 
+    def generate(self) -> Instruction | Instructions:
+        if (var := Scopes.get(self.var)) is None:
+            var = VariableValue(Type.NUM, self.var, True)
+            Scopes.add(var)
+        elif isinstance(var, Function):
+            Error.already_defined_var(self, self.var)
+        elif var.type != Type.NUM:
+            Error.incompatible_types(self, var.type, Type.NUM)
+
+        until_code, until = self.until.get()
+
+        if until.type != Type.NUM:
+            Error.incompatible_types(self, until.type, Type.NUM)
+
+        code = MInstruction(MInstructionType.SET, [var, NumberValue(0)]) + MppInstructionLabel(f"{self.name}_s") + \
+               until_code + MppInstructionOJump(f"{self.name}_e", var, "greaterThanEq", until) + \
+               self.code.generate() + MInstruction(MInstructionType.OP, ["add", var, var, NumberValue(1)]) + \
+               MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
+
+        return code
+
     def scope_rename(self):
         self.var = Scopes.rename(self.var)
         self.until.scope_rename()
@@ -1011,25 +1055,27 @@ class FunctionNode(Node):
 
     name: str
     params: list[tuple[str, Type]]
+    return_type: Type
     code: CodeBlockNode
 
-    def __init__(self, pos: Position, name: str, params: list[tuple[str, Type]], code: CodeBlockNode):
+    def __init__(self, pos: Position, name: str, params: list[tuple[str, Type]], return_type: Type, code: CodeBlockNode):
         super().__init__(pos)
 
         self.name = name
         self.params = params
+        self.return_type = return_type
         self.code = code
 
     def __str__(self):
         return f"function {self.name} ({', '.join(map(lambda t: t[1].name + ' ' + t[0], self.params))}) {self.code}"
 
     def generate(self) -> Instruction | Instructions:
-        Scopes.add(Function(self.name, self.params))
+        Scopes.add(Function(self.name, self.params, self.return_type))
 
         code = Instructions()
 
-        code += MppInstructionLabel(f"__f_{self.name}")
         code += MppInstructionJump(f"__f_{self.name}_end")
+        code += MppInstructionLabel(f"__f_{self.name}")
 
         Scopes.push(self.name)
         for name, type_ in self.params:

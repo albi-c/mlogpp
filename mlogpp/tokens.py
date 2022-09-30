@@ -23,6 +23,7 @@ class TokenType(enum.Flag):
     COMMA = enum.auto()
     SEMICOLON = enum.auto()
     COLON = enum.auto()
+    ARROW = enum.auto()
     OPERATOR = enum.auto()
     SET = enum.auto()
 

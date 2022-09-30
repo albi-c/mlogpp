@@ -120,11 +120,11 @@ class MppInstructionJump(Instruction):
 
 class MppInstructionOJump(Instruction):
     label: str
-    op1: str
+    op1: str | Value
     op: str
-    op2: str
+    op2: str | Value
 
-    def __init__(self, label: str, op1: str, op: str, op2: str):
+    def __init__(self, label: str, op1: str | Value, op: str, op2: str | Value):
         self.label = str(label)
         self.op1 = str(op1)
         self.op = str(op)

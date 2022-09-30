@@ -246,12 +246,21 @@ class Parser:
                 self.next_token(TokenType.LPAREN)
                 params = self.parse_funcArgVars()
 
+                type_ = Type.NULL
+                if self.lookahead_token(TokenType.ARROW):
+                    self.next_token(TokenType.ARROW)
+                    type_tok = self.next_token(TokenType.KEYWORD)
+                    if type_tok.value in Token.TYPES:
+                        type_ = Type[type_tok.value.upper()]
+                    else:
+                        Error.unexpected_token(self.current_token())
+
                 self.next_token(TokenType.LBRACE)
                 self.function_stack.append(name.value)
                 code = self.parse_CodeBlock(name.value)
                 self.function_stack.pop(-1)
 
-                return FunctionNode(tok.pos, name.value, params, code)
+                return FunctionNode(tok.pos, name.value, params, type_, code)
 
     def parse_CodeBlock(self, name: str | None, end_at_rbrace: bool = True):
         code = []

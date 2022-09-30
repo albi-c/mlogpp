@@ -177,6 +177,9 @@ class Lexer:
                 self.next_char()
                 tokens.append(self.make_token(TokenType.COLON, ch))
 
+            elif ch == "-" and (token := self.lex_arrow()) is not None:
+                tokens.append(self.make_token(TokenType.ARROW, token))
+
             elif ch in Lexer.SET_CHARS_START and (token := self.lex_set()) is not None:
                 tokens.append(self.make_token(TokenType.SET, token))
 
@@ -242,6 +245,15 @@ class Lexer:
             token += ch
 
         return token
+
+    def lex_arrow(self) -> str | None:
+        if self.next_char() == "-":
+            if self.next_char() == ">":
+                return "->"
+
+            self.prev_char()
+
+        self.prev_char()
 
     def lex_operator(self) -> str | None:
         match ch := self.next_char():
