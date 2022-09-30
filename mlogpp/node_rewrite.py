@@ -459,11 +459,11 @@ class NativeCallNode(Node):
         ),
 
         "drawflush": (
-            (Param.CONFIG, Type.ANY),
+            (Param.INPUT, Type.BLOCK),
         ),
 
         "printflush": (
-            (Param.CONFIG, Type.ANY),
+            (Param.INPUT, Type.BLOCK),
         ),
 
         "getlink": (
@@ -772,6 +772,37 @@ class NumberValueNode(ValueNode):
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
         return Instructions(), NumberValue(self.value)
+
+
+class ContentValueNode(ValueNode):
+    """
+    content value node
+    """
+
+    value: str
+    type: Type
+
+    def __init__(self, pos: Position, value: str, type_: Type):
+        super().__init__(pos, value)
+
+        self.type = type_
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        return Instructions(), VariableValue(self.type, self.value, False)
+
+
+class BlockValueNode(ValueNode):
+    """
+    linker block value node
+    """
+
+    value: str
+
+    def __init__(self, pos: Position, value: str):
+        super().__init__(pos, value)
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        return Instructions(), BlockValue(self.value)
 
 
 class VariableValueNode(ValueNode):

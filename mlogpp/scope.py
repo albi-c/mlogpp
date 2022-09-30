@@ -80,14 +80,15 @@ class Scopes:
             VariableValue(Type.CONTROLLER, "@ctrlPlayer", False),
             VariableValue(Type.CONTROLLER, "@ctrlCommand", False),
 
-            VariableValue(Type.TEAM, "@derelict", False),
-            VariableValue(Type.TEAM, "@sharded", False),
-            VariableValue(Type.TEAM, "@crux", False),
-            VariableValue(Type.TEAM, "@malis", False),
-            VariableValue(Type.TEAM, "@green", False),
-            VariableValue(Type.TEAM, "@blue", False),
-
             VariableValue(Type.BLOCK_TYPE, "@solid", False)
+        } | {
+            VariableValue(Type.BLOCK_TYPE, "@" + block, False) for block in constants.BLOCKS
+        } | {
+            VariableValue(Type.ITEM_TYPE, "@" + item, False) for item in constants.ITEMS
+        } | {
+            VariableValue(Type.LIQUID_TYPE, "@" + liquid, False) for liquid in constants.LIQUIDS
+        } | {
+            VariableValue(Type.TEAM, "@" + team, False) for team in constants.TEAMS
         }
     )]
 

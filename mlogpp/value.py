@@ -4,8 +4,8 @@ from .error import MlogError
 
 
 class Type(enum.Flag):
-    NUM = enum.auto()
     STR = enum.auto()
+    NUM = enum.auto()
     NULL = enum.auto()
 
     BLOCK = enum.auto()
@@ -80,6 +80,21 @@ class NullValue(Value):
 
     def __hash__(self):
         return hash((self.writable, self.type, self.value))
+
+
+class BlockValue(Value):
+    name: str
+
+    def __init__(self, name: str):
+        super().__init__(False, Type.BLOCK)
+
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def __hash__(self):
+        return hash((self.writable, self.type, self.name))
 
 
 class VariableValue(Value):

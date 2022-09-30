@@ -460,12 +460,33 @@ class Parser:
 
         match tok.type:
             case TokenType.ID:
-                if tok.type == TokenType.ID and self.lookahead_token(TokenType.LBRACK):
+                if self.lookahead_token(TokenType.LBRACK):
                     self.next_token(TokenType.LBRACK)
                     index = self.parse_Value()
                     self.next_token(TokenType.RBRACK)
 
                     return IndexedValueNode(tok.pos + index.pos, tok.value, index)
+
+                elif len(tok.value) > 1 and tok.value.startswith("@"):
+                    if tok.value[1:] in constants.BLOCKS:
+                        return ContentValueNode(tok.pos, tok.value, Type.BLOCK_TYPE)
+                    elif tok.value[1:] in constants.ITEMS:
+                        return ContentValueNode(tok.pos, tok.value, Type.ITEM_TYPE)
+                    elif tok.value[1:] in constants.LIQUIDS:
+                        return ContentValueNode(tok.pos, tok.value, Type.LIQUID_TYPE)
+                    elif tok.value[1:] in constants.UNITS:
+                        return ContentValueNode(tok.pos, tok.value, Type.UNIT_TYPE)
+                    elif tok.value[1:] in constants.TEAMS:
+                        return ContentValueNode(tok.pos, tok.value, Type.TEAM)
+
+                for block in constants.BLOCK_LINKS:
+                    if tok.value.startswith(block) and len(tok.value) > len(block):
+                        try:
+                            int(tok.value[len(block):])
+                        except ValueError:
+                            pass
+                        else:
+                            return BlockValueNode(tok.pos, tok.value)
 
                 return VariableValueNode(tok.pos, tok.value)
 
