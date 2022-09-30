@@ -177,7 +177,7 @@ class Parser:
                     else:
                         params.append(self.next_token(TokenType.ID).value)
 
-            if i == len(nat):
+            if i < len(nat) - 1:
                 self.next_token(TokenType.COMMA)
             else:
                 self.next_token(TokenType.RPAREN)

@@ -52,7 +52,7 @@ class Gen:
         """
 
         Gen.SCOPE_COUNT += 1
-        return f"__s_{Gen.SCOPE_COUNT}"
+        return f"s{Gen.SCOPE_COUNT}"
     
     @staticmethod
     def is_local(name: str) -> bool:

@@ -53,6 +53,10 @@ class Error:
         raise MlogError(f"Variable [{name}] is already defined", node.get_pos())
 
     @staticmethod
+    def undefined_variable(node: 'Node', name: str):
+        raise MlogError(f"Undefined variable [{name}]", node.get_pos())
+
+    @staticmethod
     def invalid_arg_count(node: 'Node', count: int, expected: int):
         raise MlogError(f"Invalid number of arguments to function ({count}, expected {expected})", node.get_pos())
 

@@ -29,7 +29,7 @@ class Scope:
         if self.name is None:
             return var
 
-        return f"{self.name}_{var}"
+        return f"__s_{self.name}_{var}"
 
     def get(self, name: str) -> VariableValue | Function | None:
         for var in self.variables:
@@ -108,8 +108,11 @@ class Scopes:
         Scopes.SCOPES[-1].remove(var)
 
     @staticmethod
-    def rename(var: str) -> str:
-        return Scopes.SCOPES[-1].rename(var)
+    def rename(var: str, scope_name: str | None = None) -> str:
+        if scope_name is None:
+            return Scopes.SCOPES[-1].rename(var)
+        else:
+            return Scope(scope_name).rename(var)
 
     @staticmethod
     def get(name: str) -> VariableValue | Function | None:

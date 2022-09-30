@@ -1,9 +1,15 @@
+function f (num a) {
+    print(a + 1)
+}
+
 num a = 12
 a += 3.5
 print(a)
 str x = "Hello, World!"
 print(x)
 printflush(message1)
+
+f(9)
 
 # read result cell1 0
 # write result cell1 0

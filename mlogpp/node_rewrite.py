@@ -32,6 +32,9 @@ class Node:
     def get(self) -> tuple[Instruction | Instructions, Value]:
         return Instructions(), NullValue()
 
+    def scope_rename(self):
+        pass
+
 
 class CodeBlockNode(Node):
     """
@@ -64,6 +67,10 @@ class CodeBlockNode(Node):
         Scopes.pop()
 
         return ins
+
+    def scope_rename(self):
+        for node in self.code:
+            node.scope_rename()
 
 
 class DeclarationNode(Node):
@@ -98,6 +105,11 @@ class DeclarationNode(Node):
             return value_code + MInstruction(MInstructionType.SET, [self.var, value])
 
         return Instructions()
+
+    def scope_rename(self):
+        self.var.name = Scopes.rename(self.var.name)
+        if self.value is not None:
+            self.value.scope_rename()
 
 
 class AssignmentNode(Node):
@@ -151,7 +163,11 @@ class AssignmentNode(Node):
 
                 return value_code + MInstruction(MInstructionType.OP, [self.OPERATORS[self.op], var, var, value])\
 
-        raise RuntimeError()
+        Error.undefined_variable(self, self.var)
+
+    def scope_rename(self):
+        self.var = Scopes.rename(self.var)
+        self.value.scope_rename()
 
 
 class IndexedAssignmentNode(AssignmentNode):
@@ -189,7 +205,11 @@ class IndexedAssignmentNode(AssignmentNode):
                        MInstruction(MInstructionType.OP, [AssignmentNode.OPERATORS[self.op], tmp, tmp, value]) + \
                        MInstruction(MInstructionType.WRITE, [tmp, var, index])
 
-        raise RuntimeError()
+        Error.undefined_variable(self, self.var)
+
+    def scope_rename(self):
+        super().scope_rename()
+        self.index.scope_rename()
 
 
 class BinaryOpNode(Node):
@@ -252,7 +272,6 @@ class BinaryOpNode(Node):
 
         if self.right is not None and len(self.right) > 0:
             tmpv = Gen.temp_var(Type.NUM, value)
-            print(tmpv, value)
             if tmpv != value:
                 code += MInstruction(MInstructionType.SET, [tmpv, value])
 
@@ -267,6 +286,11 @@ class BinaryOpNode(Node):
             return code, tmpv
 
         return code, value
+
+    def scope_rename(self):
+        self.left.scope_rename()
+        for _, node in self.right:
+            node.scope_rename()
 
 
 class UnaryOpNode(Node):
@@ -304,11 +328,14 @@ class UnaryOpNode(Node):
 
         return code, value
 
+    def scope_rename(self):
+        self.value.scope_rename()
+
 
 class CallNode(Node):
     """
-        function call node
-        """
+    function call node
+    """
 
     name: str
     params: list[Node]
@@ -339,11 +366,24 @@ class CallNode(Node):
                 Error.incompatible_types(self, param_value.type, fun.params[i][1])
 
             code += param_code
-            # TODO: scopes, pass to function
+            code += MInstruction(MInstructionType.SET, [
+                VariableValue(fun.params[i][1], Scopes.rename(fun.params[i][0], self.name)),
+                param_value
+            ])
 
-        # TODO: return address. jump
+        code += MInstruction(MInstructionType.OP, [
+            "add",
+            VariableValue(Type.NUM, f"__f_{self.name}_ret"),
+            VariableValue(Type.NUM, "@counter"),
+            NumberValue(1)
+        ])
+        code += MppInstructionJump(f"__f_{self.name}")
 
         return code
+
+    def scope_rename(self):
+        for param in self.params:
+            param.scope_rename()
 
 
 class Param(enum.Enum):
@@ -672,7 +712,7 @@ class NativeCallNode(Node):
                         params.append(param)
 
         if "." in self.name:
-            if self.name == sensor:
+            if self.name == "sensor":
                 params.append("@" + self.name.split(".")[1])
             else:
                 params = [self.name.split(".")[1]] + params
@@ -683,6 +723,13 @@ class NativeCallNode(Node):
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
         return self.generate(), self.return_value
+
+    def scope_rename(self):
+        for param in self.params:
+            if isinstance(param, str):
+                continue
+
+            param.scope_rename()
 
 
 class ValueNode(Node):
@@ -741,7 +788,10 @@ class VariableValueNode(ValueNode):
         if (var := Scopes.get(self.value)) is not None:
             return Instructions(), var
 
-        raise RuntimeError()
+        Error.undefined_variable(self, self.value)
+
+    def scope_rename(self):
+        self.value = Scopes.rename(self.value)
 
 
 class IndexedValueNode(ValueNode):
@@ -760,6 +810,10 @@ class IndexedValueNode(ValueNode):
     def __str__(self):
         return f"{self.value}[{self.index}]"
 
+    def scope_rename(self):
+        self.value = Scopes.rename(self.value)
+        self.index.scope_rename()
+
 
 class ReturnNode(Node):
     """
@@ -774,6 +828,10 @@ class ReturnNode(Node):
 
         self.func = func
         self.value = value
+
+    def scope_rename(self):
+        if self.value is not None:
+            self.value.scope_rename()
 
 
 class BreakNode(Node):
@@ -827,6 +885,12 @@ class IfNode(Node):
         self.code = code
         self.else_code = else_code
 
+    def scope_rename(self):
+        self.cond.scope_rename()
+        self.code.scope_rename()
+        if self.else_code is not None:
+            self.else_code.scope_rename()
+
 
 class LoopNode(Node):
     """
@@ -853,6 +917,10 @@ class WhileNode(LoopNode):
         self.cond = cond
         self.code = code
 
+    def scope_rename(self):
+        self.code.scope_rename()
+        self.code.scope_rename()
+
 
 class ForNode(LoopNode):
     """
@@ -874,6 +942,12 @@ class ForNode(LoopNode):
         self.action = action
         self.code = code
 
+    def scope_rename(self):
+        self.init.scope_rename()
+        self.cond.scope_rename()
+        self.action.scope_rename()
+        self.code.scope_rename()
+
 
 class RangeNode(LoopNode):
     """
@@ -892,6 +966,11 @@ class RangeNode(LoopNode):
         self.var = var
         self.until = until
         self.code = code
+
+    def scope_rename(self):
+        self.var = Scopes.rename(self.var)
+        self.until.scope_rename()
+        self.code.scope_rename()
 
 
 class FunctionNode(Node):
@@ -914,5 +993,26 @@ class FunctionNode(Node):
         return f"function {self.name} ({', '.join(map(lambda t: t[1].name + ' ' + t[0], self.params))}) {self.code}"
 
     def generate(self) -> Instruction | Instructions:
-        # TODO: function definition generation
-        return Instructions()
+        Scopes.add(Function(self.name, self.params))
+
+        code = Instructions()
+
+        code += MppInstructionLabel(f"__f_{self.name}")
+        code += MppInstructionJump(f"__f_{self.name}_end")
+
+        Scopes.push(self.name)
+        for name, type_ in self.params:
+            Scopes.add(VariableValue(type_, Scopes.rename(name)))
+
+        self.code.scope_rename()
+        code += self.code.generate()
+
+        Scopes.pop()
+
+        code += MInstruction(MInstructionType.SET, [
+            VariableValue(Type.NUM, "@counter"),
+            VariableValue(Type.NUM, f"__f_{self.name}_ret")
+        ])
+        code += MppInstructionLabel(f"__f_{self.name}_end")
+
+        return code
