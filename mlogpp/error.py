@@ -60,64 +60,6 @@ class Error:
     def invalid_arg_count(node: 'Node', count: int, expected: int):
         raise MlogError(f"Invalid number of arguments to function ({count}, expected {expected})", node.get_pos())
 
-
-def lex_error(msg: str, pos: Position = None) -> None:
-    """
-    raise lexer error
-    """
-
-    raise MlogError(msg, pos)
-
-
-class ParseErrorType(enum.Enum):
-    UNEXPECTED_TOKEN = "Unexpected token"
-    UNEXPECTED_EOF = "Unexpected EOF"
-    INVALID_TOKEN = "Invalid token"
-
-
-def parse_error(pos: Position, msg: str | ParseErrorType) -> None:
-    """
-    raise parser error
-    """
-
-    if isinstance(msg, ParseErrorType):
-        if msg == ParseErrorType.UNEXPECTED_TOKEN:
-            raise MlogError(f"{msg.value} [\"{pos.code_section()}\"]", pos)
-        else:
-            raise MlogError(msg.value, pos)
-    else:
-        if msg == "Unexpected token":
-            raise MlogError(f"{msg} [\"{pos.code_section()}\"]", pos)
-        else:
-            raise MlogError(msg, pos)
-
-
-def link_error(pos: Position, msg: str) -> None:
-    """
-    raise linker error
-    """
-
-    raise MlogError(msg, pos)
-
-
-class GenErrorType(enum.Enum):
-    INCOMPATIBLE_TYPES = "Incompatible types"
-
-
-def gen_error(pos: Position, msg: str | GenErrorType) -> None:
-    """
-    raise generator error
-    """
-
-    if isinstance(msg, GenErrorType):
-        raise MlogError(msg.value, pos)
-    else:
-        raise MlogError(msg, pos)
-
-
-def error(msg: str) -> None:
-    """
-    raise error
-    """
-
-    raise MlogError(msg)
+    @staticmethod
+    def write_to_const(node: 'Node', var: str):
+        raise MlogError(f"Trying to write into a constant [{var}]", node.get_pos())

@@ -21,27 +21,37 @@ class Type(enum.Flag):
 
     ANY = NUM | STR | NULL | BLOCK | UNIT | TEAM | UNIT_TYPE | ITEM_TYPE | BLOCK_TYPE | LIQUID_TYPE | CONTROLLER
 
+    @staticmethod
+    def from_code(var: str) -> 'Type':
+        tok = ""
+        last = ""
+        for ch in var:
+            if ch.upper() == ch and last:
+                tok += "_"
+            tok += ch
+            last = ch
+
+        return Type[tok.upper()]
+
 
 class Value:
-    writable: bool
     type: Type
 
-    def __init__(self, writable: bool, type_: Type):
-        self.writable = writable
+    def __init__(self, type_: Type):
         self.type = type_
 
     def __str__(self):
         raise MlogError(f"Invalid value [{repr(self)}]")
 
     def __hash__(self):
-        return hash((self.writable, self.type))
+        return hash(self.type)
 
 
 class StringValue(Value):
     value: str
 
     def __init__(self, value: str):
-        super().__init__(False, Type.STR)
+        super().__init__(Type.STR)
 
         self.value = value
 
@@ -49,14 +59,14 @@ class StringValue(Value):
         return self.value
 
     def __hash__(self):
-        return hash((self.writable, self.type, self.value))
+        return hash((self.type, self.value))
 
 
 class NumberValue(Value):
     value: int | float
 
     def __init__(self, value: int | float):
-        super().__init__(False, Type.NUM)
+        super().__init__(Type.NUM)
 
         self.value = value
 
@@ -64,14 +74,14 @@ class NumberValue(Value):
         return str(self.value)
 
     def __hash__(self):
-        return hash((self.writable, self.type, self.value))
+        return hash((self.type, self.value))
 
 
 class NullValue(Value):
     value: None
 
     def __init__(self):
-        super().__init__(False, Type.NULL)
+        super().__init__(Type.NULL)
 
         self.value = None
 
@@ -79,14 +89,14 @@ class NullValue(Value):
         return "null"
 
     def __hash__(self):
-        return hash((self.writable, self.type, self.value))
+        return hash((self.type, self.value))
 
 
 class BlockValue(Value):
     name: str
 
     def __init__(self, name: str):
-        super().__init__(False, Type.BLOCK)
+        super().__init__(Type.BLOCK)
 
         self.name = name
 
@@ -94,19 +104,21 @@ class BlockValue(Value):
         return self.name
 
     def __hash__(self):
-        return hash((self.writable, self.type, self.name))
+        return hash((self.type, self.name))
 
 
 class VariableValue(Value):
     name: str
+    const: bool
 
-    def __init__(self, type_: Type, name: str, writable: bool = True):
-        super().__init__(writable, type_)
+    def __init__(self, type_: Type, name: str, const: bool = False):
+        super().__init__(type_)
 
         self.name = name
+        self.const = const
 
     def __str__(self):
         return self.name
 
     def __hash__(self):
-        return hash((self.writable, self.type, self.name))
+        return hash((self.type, self.name, self.const))

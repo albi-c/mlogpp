@@ -1,10 +1,8 @@
-a = 0
-b = 0
+num a = 0
+num b = 0
 
-function test(x) {
-    local a
-
-    a = x
+function test(num x) {
+    num a = x
     b = x
 }
 

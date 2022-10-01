@@ -127,3 +127,7 @@ SENSOR_READABLE = {
 } | {
     liquid: Type.NUM for liquid in LIQUIDS
 }
+
+CONTROLLABLE = {
+    "enabled", "config", "color"
+}

@@ -1,8 +1,8 @@
-function draw_line(x1, y1, x2, y2) {
-    dx = x2 - x1
-    dy = y2 - y1
-    D = 2 * dy - dx
-    y = y1
+function draw_line(num x1, num y1, num x2, num y2) {
+    num dx = x2 - x1
+    num dy = y2 - y1
+    num D = 2 * dy - dx
+    num y = y1
 
     for (x = x1; x < x2; x += 1) {
         draw.rect(x, y, 1, 1)
@@ -16,10 +16,10 @@ function draw_line(x1, y1, x2, y2) {
 }
 
 draw.clear(0, 0, 0)
-for (i = 10; i < 100; i += 1) {
-    r = op(abs, op(noise, i, 0), _)
-    g = op(abs, op(noise, i, 1), _)
-    b = op(abs, op(noise, i, 2), _)
+for (num i = 10; i < 100; i += 1) {
+    num r = abs(op(noise, i, 0))
+    num g = abs(op(noise, i, 1))
+    num b = abs(op(noise, i, 2))
 
     draw.color(r * 255, g * 255, b * 255, 255)
     draw_line(i, 10, 100, 100)

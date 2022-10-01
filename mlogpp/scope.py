@@ -56,39 +56,39 @@ class Scopes:
     SCOPES = [Scope(
         None,
         {
-            VariableValue(Type.BLOCK, "@this", False),
-            VariableValue(Type.NUM, "@thisx", False),
-            VariableValue(Type.NUM, "@thisy", False),
-            VariableValue(Type.NUM, "@ipt", False),
+            VariableValue(Type.BLOCK, "@this", True),
+            VariableValue(Type.NUM, "@thisx", True),
+            VariableValue(Type.NUM, "@thisy", True),
+            VariableValue(Type.NUM, "@ipt", True),
             VariableValue(Type.NUM, "@counter"),
-            VariableValue(Type.NUM, "@links", False),
+            VariableValue(Type.NUM, "@links", True),
             VariableValue(Type.UNIT, "@unit"),
-            VariableValue(Type.NUM, "@time", False),
-            VariableValue(Type.NUM, "@tick", False),
-            VariableValue(Type.NUM, "@second", False),
-            VariableValue(Type.NUM, "@minute", False),
-            VariableValue(Type.NUM, "@waveNumber", False),
-            VariableValue(Type.NUM, "@waveTime", False),
-            VariableValue(Type.NUM, "@mapw", False),
-            VariableValue(Type.NUM, "@maph", False),
+            VariableValue(Type.NUM, "@time", True),
+            VariableValue(Type.NUM, "@tick", True),
+            VariableValue(Type.NUM, "@second", True),
+            VariableValue(Type.NUM, "@minute", True),
+            VariableValue(Type.NUM, "@waveNumber", True),
+            VariableValue(Type.NUM, "@waveTime", True),
+            VariableValue(Type.NUM, "@mapw", True),
+            VariableValue(Type.NUM, "@maph", True),
 
-            VariableValue(Type.NUM, "true", False),
-            VariableValue(Type.NUM, "false", False),
-            VariableValue(Type.NULL, "null", False),
+            VariableValue(Type.NUM, "true", True),
+            VariableValue(Type.NUM, "false", True),
+            VariableValue(Type.NULL, "null", True),
 
-            VariableValue(Type.CONTROLLER, "@ctrlProcessor", False),
-            VariableValue(Type.CONTROLLER, "@ctrlPlayer", False),
-            VariableValue(Type.CONTROLLER, "@ctrlCommand", False),
+            VariableValue(Type.CONTROLLER, "@ctrlProcessor", True),
+            VariableValue(Type.CONTROLLER, "@ctrlPlayer", True),
+            VariableValue(Type.CONTROLLER, "@ctrlCommand", True),
 
-            VariableValue(Type.BLOCK_TYPE, "@solid", False)
+            VariableValue(Type.BLOCK_TYPE, "@solid", True)
         } | {
-            VariableValue(Type.BLOCK_TYPE, "@" + block, False) for block in constants.BLOCKS
+            VariableValue(Type.BLOCK_TYPE, "@" + block, True) for block in constants.BLOCKS
         } | {
-            VariableValue(Type.ITEM_TYPE, "@" + item, False) for item in constants.ITEMS
+            VariableValue(Type.ITEM_TYPE, "@" + item, True) for item in constants.ITEMS
         } | {
-            VariableValue(Type.LIQUID_TYPE, "@" + liquid, False) for liquid in constants.LIQUIDS
+            VariableValue(Type.LIQUID_TYPE, "@" + liquid, True) for liquid in constants.LIQUIDS
         } | {
-            VariableValue(Type.TEAM, "@" + team, False) for team in constants.TEAMS
+            VariableValue(Type.TEAM, "@" + team, True) for team in constants.TEAMS
         }
     )]
 
@@ -109,11 +109,15 @@ class Scopes:
         Scopes.SCOPES[-1].remove(var)
 
     @staticmethod
-    def rename(var: str, scope_name: str | None = None) -> str:
-        if scope_name is None:
+    def rename(var: str, declare: bool = False) -> str:
+        if declare:
             return Scopes.SCOPES[-1].rename(var)
-        else:
-            return Scope(scope_name).rename(var)
+
+        for scope in reversed(Scopes.SCOPES):
+            if scope.rename(var) in scope:
+                return scope.rename(var)
+
+        return Scopes.SCOPES[0].rename(var)
 
     @staticmethod
     def get(name: str) -> VariableValue | Function | None:
@@ -124,15 +128,11 @@ class Scopes:
         return None
 
     @staticmethod
-    def __len__(self):
+    def __len__(self) -> int:
         return len(Scopes.SCOPES)
 
     @staticmethod
-    def __getitem__(item: int):
-        return Scopes.SCOPES[i]
-
-    @staticmethod
-    def __contains__(self, item: VariableValue | Function | str):
+    def __contains__(item: VariableValue | Function | str) -> bool:
         for scope in Scopes.SCOPES:
             if item in scope:
                 return True

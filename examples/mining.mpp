@@ -8,12 +8,12 @@
 # - message [message1] #
 ########################
 
-UNIT = @mono
-VAULT = vault1
-DEPOSIT_FLAG = floor(@thisx + @thisy * @mapw)
+UnitType UNIT = @mono
+Block VAULT = vault1
+num DEPOSIT_FLAG = floor(@thisx + @thisy * @mapw)
 
-x = 0
-y = 0
+num x = 0
+num y = 0
 
 print("[orange]Miner v1.2\nEnable switch and click\n on an ore to mine\n")
 print("[yellow]Selected unit: ")
@@ -33,7 +33,7 @@ if (cell1[0] == 1) {
 printflush(message1)
 
 if (switch1.enabled) {
-    player = radar(player, ally, any, distance, hail1, 1)
+    Unit player = radar(player, ally, any, distance, hail1, 1)
 
     if (player.shooting) {
         x = floor(player.shootX + 0.5)
@@ -46,7 +46,7 @@ if (switch1.enabled) {
         switch1.enabled = false
 
         ubind(UNIT)
-        first = @unit
+        Unit first = @unit
         while (true) {
             if (@unit.totalItems > 0) {
                 ucontrol.flag(DEPOSIT_FLAG)
@@ -78,8 +78,8 @@ if (@unit.flag == DEPOSIT_FLAG) {
             }
         }
     } else {
-        vx = VAULT.x
-        vy = VAULT.y
+        num vx = VAULT.x
+        num vy = VAULT.y
         ucontrol.approach(vx, vy, 4)
         if (ucontrol.within(vx, vy, 6)) {
             ucontrol.itemDrop(VAULT, @unit.itemCapacity)

@@ -1,14 +1,15 @@
 const PM = 22
 const DS = 176
-dsize = DS / PM
+num dsize = DS / PM
 
-for (seed = 0; seed >= 0; seed += 1) {
+num seed = 0
+while (true) {
     print(seed)
     printflush(message1)
 
     for (y = 0; y < dsize; y += 1) {
         for (x = 0; x < dsize; x += 1) {
-            val = op(noise, x + seed, y + seed)
+            num val = op(noise, x + seed, y + seed)
             val = op(abs, val, _)
             val *= 255
             draw.color(val, val, val, 255)
@@ -16,4 +17,6 @@ for (seed = 0; seed >= 0; seed += 1) {
         }
     }
     drawflush(display1)
+
+    seed += 1
 }

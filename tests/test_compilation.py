@@ -18,8 +18,12 @@ function func1(num x, num y) -> num {
     return x + y
 }
 
-x = func1(3, 4)
-x **= 2
+function func2(num n) {
+    x = n ** 2
+}
+
+num val = func1(3, 4)
+func2(val)
 
 num y = 0
 for (i : LOOP_UNTIL) {

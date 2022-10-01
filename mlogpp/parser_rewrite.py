@@ -1,9 +1,8 @@
 import genericpath
 
 from .lexer import TokenType, Token
-from .error import parse_error, ParseErrorType
+from .error import Error
 from .node_rewrite import *
-from . import functions
 
 
 class Parser:
@@ -50,19 +49,19 @@ class Parser:
             tok = self.current_token()
 
             if type_ is not None and tok.type not in type_:
-                parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+                Error.unexpected_token(tok)
 
             if value is not None:
                 if isinstance(value, str):
                     if tok.value != value:
-                        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+                        Error.unexpected_token(tok)
                 else:
                     if tok.value not in value:
-                        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+                        Error.unexpected_token(tok)
 
             return tok
 
-        parse_error(self.tokens[self.pos - 1].pos, ParseErrorType.UNEXPECTED_EOF)
+        Error.unexpected_token(self.tokens[self.pos - 1])
 
     def lookahead_token(self, type_: TokenType, value: str | tuple | list | None = None, n: int = 1) -> bool:
         if self.has_token(n):
@@ -97,10 +96,10 @@ class Parser:
                         self.next_token(TokenType.SET, "=")
                         value = self.parse_Value()
                         return DeclarationNode(tok.pos + name.pos,
-                                               VariableValue(Type[tok.value.upper()], name.value), value)
+                                               VariableValue(Type.from_code(tok.value), name.value), value)
 
                     return DeclarationNode(tok.pos + name.pos,
-                                           VariableValue(Type[tok.value.upper()], name.value), None)
+                                           VariableValue(Type.from_code(tok.value), name.value), None)
 
                 elif tok.value in Token.BLOCK_STATEMENTS:
                     self.prev_token()
@@ -113,17 +112,17 @@ class Parser:
                                 value = self.parse_Value()
                                 return ReturnNode(tok.pos + value.get_pos(), self.function_stack[-1], value)
                             return ReturnNode(tok.pos, self.function_stack[-1], None)
-                        parse_error(tok.pos, "Return statement used outside of a function")
+                        Error.unexpected_token(tok)
 
                     case "break":
                         if len(self.loop_stack) > 0:
                             return BreakNode(tok.pos, self.loop_stack[-1])
-                        parse_error(tok.pos, "Break statement used outside of a function")
+                        Error.unexpected_token(tok)
 
                     case "continue":
                         if len(self.loop_stack) > 0:
                             return ContinueNode(tok.pos, self.loop_stack[-1])
-                        parse_error(tok.pos, "Continue statement used outside of a function")
+                        Error.unexpected_token(tok)
 
                     case "end":
                         return EndNode(tok.pos)
@@ -153,36 +152,52 @@ class Parser:
                 self.prev_token()
                 return self.parse_NativeCall()
 
-        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+        Error.unexpected_token(tok)
 
     def parse_NativeCall(self) -> NativeCallNode:
         name = self.next_token(TokenType.NATIVE)
         self.next_token(TokenType.LPAREN)
-        nat = NativeCallNode.NATIVES[name.value]
 
-        params = []
-        for i in range(len(nat)):
-            match nat[i][0]:
-                case Param.UNUSED:
-                    params.append("_")
-                    continue
-                case Param.INPUT:
-                    params.append(self.parse_Value())
-                case Param.CONFIG:
-                    params.append(self.next_token(TokenType.ID).value)
-                case Param.OUTPUT:
-                    if NativeCallNode.NATIVES_RETURN_POS.get(name.value) == i:
+        if (nat := NativeCallNode.NATIVES.get(name.value)) is not None:
+            length_check_sub = 1 + (name.value in NativeCallNode.NATIVES_RETURN_POS)
+
+            params = []
+            for i in range(len(nat)):
+                match nat[i][0]:
+                    case Param.UNUSED:
                         params.append("_")
                         continue
-                    else:
+                    case Param.INPUT:
+                        params.append(self.parse_Value())
+                    case Param.CONFIG:
                         params.append(self.next_token(TokenType.ID).value)
+                    case Param.OUTPUT:
+                        if NativeCallNode.NATIVES_RETURN_POS.get(name.value) == i:
+                            params.append("_")
+                            continue
+                        else:
+                            params.append(self.next_token(TokenType.ID).value)
 
-            if i < len(nat) - 1:
-                self.next_token(TokenType.COMMA)
-            else:
-                self.next_token(TokenType.RPAREN)
+                if i < len(nat) - length_check_sub:
+                    self.next_token(TokenType.COMMA)
+                else:
+                    self.next_token(TokenType.RPAREN)
 
-        return NativeCallNode(name.pos, name.value, params)
+            return NativeCallNode(name.pos, name.value, params)
+
+        elif (nat := NativeCallNode.BUILTINS.get(name.value)) is not None:
+            params = []
+            for i in range(nat):
+                params.append(self.parse_Value())
+
+                if i < nat - 1:
+                    self.next_token(TokenType.COMMA)
+                else:
+                    self.next_token(TokenType.RPAREN)
+
+            return NativeCallNode(name.pos, name.value, params)
+
+        Error.unexpected_token(name)
 
     def parse_BlockStatement(self) -> IfNode | LoopNode | FunctionNode:
         tok = self.next_token(TokenType.KEYWORD)
@@ -213,7 +228,11 @@ class Parser:
 
                 name = self.loop_name()
 
-                return WhileNode(tok.pos, name, cond, self.parse_CodeBlock(name))
+                self.loop_stack.append(name)
+                code = self.parse_CodeBlock(name)
+                self.loop_stack.pop(-1)
+
+                return WhileNode(tok.pos, name, cond, code)
 
             case "for":
                 if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.COLON, None, 2):
@@ -226,7 +245,11 @@ class Parser:
 
                     name = self.loop_name()
 
-                    return RangeNode(tok.pos, name, var.value, until, self.parse_CodeBlock(name))
+                    self.loop_stack.append(name)
+                    code = self.parse_CodeBlock(name)
+                    self.loop_stack.pop(-1)
+
+                    return RangeNode(tok.pos, name, var.value, until, code)
 
                 init = self.parse_Statement()
                 self.next_token(TokenType.SEMICOLON)
@@ -239,7 +262,11 @@ class Parser:
 
                 name = self.loop_name()
 
-                return ForNode(tok.pos, name, init, cond, action, self.parse_CodeBlock(name))
+                self.loop_stack.append(name)
+                code = self.parse_CodeBlock(name)
+                self.loop_stack.pop(-1)
+
+                return ForNode(tok.pos, name, init, cond, action, code)
 
             case "function":
                 name = self.next_token(TokenType.ID)
@@ -251,7 +278,7 @@ class Parser:
                     self.next_token(TokenType.ARROW)
                     type_tok = self.next_token(TokenType.KEYWORD)
                     if type_tok.value in Token.TYPES:
-                        type_ = Type[type_tok.value.upper()]
+                        type_ = Type.from_code(type_tok.value)
                     else:
                         Error.unexpected_token(self.current_token())
 
@@ -284,27 +311,27 @@ class Parser:
             match tok.type:
                 case TokenType.RPAREN:
                     if last_tok in TokenType.COMMA | TokenType.KEYWORD:
-                        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+                        Error.unexpected_token(tok)
 
                     break
 
                 case TokenType.COMMA:
                     if last_tok != TokenType.ID:
-                        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+                        Error.unexpected_token(tok)
 
                 case TokenType.KEYWORD:
                     if last_tok in TokenType.ID | TokenType.KEYWORD or tok.value not in Token.TYPES:
-                        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
-                    type_ = Type[tok.value.upper()]
+                        Error.unexpected_token(tok)
+                    type_ = Type.from_code(tok.value)
 
                 case TokenType.ID:
                     if last_tok != TokenType.KEYWORD:
-                        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+                        Error.unexpected_token(tok)
 
                     variables.append((tok.value, type_))
 
                 case _:
-                    parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+                    Error.unexpected_token(tok)
 
             last_tok = tok.type
 
@@ -320,19 +347,19 @@ class Parser:
             match tok.type:
                 case TokenType.RPAREN:
                     if last_tok == TokenType.COMMA:
-                        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+                        Error.unexpected_token(tok)
 
                     break
 
                 case TokenType.COMMA:
                     if last_tok != TokenType.ID:
-                        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+                        Error.unexpected_token(tok)
 
                     last_tok = TokenType.COMMA
 
                 case _:
                     if last_tok == TokenType.ID:
-                        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+                        Error.unexpected_token(tok)
 
                     last_tok = TokenType.ID
                     self.prev_token()
@@ -401,7 +428,7 @@ class Parser:
 
     def parse_Comparison(self) -> BinaryOpNode:
         return self.parse_binaryOp(
-            ("<", ">", "==", ">=", "!="),
+            ("<", ">", "==", "===", ">=", "!="),
             self.parse_OrExpr
         )
 
@@ -506,7 +533,7 @@ class Parser:
                 try:
                     val = float(tok.value)
                 except ValueError:
-                    parse_error(tok.pos, ParseErrorType.INVALID_TOKEN)
+                    Error.unexpected_token(tok)
                 else:
                     if val.is_integer():
                         val = int(val)
@@ -518,4 +545,4 @@ class Parser:
 
                 return value
 
-        parse_error(tok.pos, ParseErrorType.UNEXPECTED_TOKEN)
+        Error.unexpected_token(tok)

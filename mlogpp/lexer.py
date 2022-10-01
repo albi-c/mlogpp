@@ -135,8 +135,10 @@ class Lexer:
             elif ch in self.ID_CHARS_START and (token := self.lex_id()) is not None:
                 if token in Token.KEYWORDS:
                     tokens.append(self.make_token(TokenType.KEYWORD, token))
-                elif token in NativeCallNode.NATIVES:
+
+                elif token in NativeCallNode.NATIVES or token in NativeCallNode.BUILTINS:
                     tokens.append(self.make_token(TokenType.NATIVE, token))
+
                 else:
                     tokens.append(self.make_token(TokenType.ID, token))
 

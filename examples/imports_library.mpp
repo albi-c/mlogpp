@@ -1,3 +1,3 @@
-function test_func(a, b) {
+function test_func(num a, num b) {
     print(a * b)
 }
