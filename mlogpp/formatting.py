@@ -1,6 +1,6 @@
 class Format:
     """
-    formatting codes
+    Formatting codes.
     """
 
     RED = "\033[91m"

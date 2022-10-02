@@ -1,6 +1,7 @@
 from .value import Type
 
 
+# block names inside of logic processors
 BLOCKS = set("""\
     siliconSmelter, siliconCrucible, kiln, graphitePress, plastaniumCompressor, multiPress, phaseWeaver,
     surgeSmelter, pyratiteMixer, blastMixer, cryofluidMixer,
@@ -40,6 +41,7 @@ BLOCKS = set("""\
     launchPad, interplanetaryAccelerator
 """.replace(" ", "").replace("\n", "").split(","))
 
+# block names inside the Mindustry code
 BLOCK_IDS = set("""\
     graphite-press, multi-press, silicon-smelter, silicon-crucible, kiln, plastanium-compressor, phase-weaver,
     surge-smelter, cryofluid-mixer, pyratite-mixer, blast-mixer, melter, separator, disassembler, spore-press,
@@ -77,14 +79,19 @@ BLOCK_IDS = set("""\
     logic-display-large
 """.replace(" ", "").replace("\n", "").split(","))
 
+# block link names
 BLOCK_LINKS = set()
 for name in BLOCK_IDS:
     if "-" in name:
         spl = name.split("-")
+
+        # filter out "large" from names
         if len(spl) >= 2 and spl[-1] == "large":
             name = spl[-2]
+
         else:
             name = spl[-1]
+
     BLOCK_LINKS.add(name)
 
 ITEMS = set("""\
@@ -110,6 +117,7 @@ UNITS = set("""\
 
 TEAMS = {"derelict", "sharded", "crux", "malis", "green", "blue"}
 
+# values readable by the sensor command
 SENSOR_READABLE = {
     "totalItems": Type.NUM,
     "firstItem": Type.NUM,
@@ -161,6 +169,7 @@ SENSOR_READABLE = {
     liquid: Type.NUM for liquid in LIQUIDS
 }
 
+# values writable by "." access
 CONTROLLABLE = {
     "enabled", "config", "color"
 }

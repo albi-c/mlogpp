@@ -1,18 +1,34 @@
 def sanitize(s: str) -> str:
     """
-    sanitize a string
+    Sanitize a string.
+
+    Args:
+        s: The string to be sanitized.
+
+    Returns:
+        The sanitized string.
     """
 
     return s.replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r")
 
 
-def flatten(lst: list) -> list:
+def flatten(lst: list[list]) -> list:
+    """
+    Flatten a two-dimensional list.
+
+    Args:
+        lst: The list to be flattened.
+
+    Returns:
+        The flattened list.
+    """
+
     return [item for sublist in lst for item in sublist]
 
 
 class Position:
     """
-    position in code
+    Position in code.
     """
 
     line: int
@@ -30,21 +46,27 @@ class Position:
     
     def arrows(self) -> str:
         """
-        generate error arrows
+        Generate error arrows for the position.
+
+        Returns:
+            The generated arrows.
         """
 
         return f"{' ' * self.start}{'^' * (self.end - self.start)}"
     
     def code_section(self) -> str:
         """
-        get code section defined by the position
+        Get the code section in the position.
+
+        Returns:
+            The code section in the position.
         """
 
         return self.code[self.start:self.end]
     
     def __add__(self, other: "Position") -> "Position":
         """
-        create a range of two positions
+        Create a range of two positions.
         """
 
         if self.line == other.line:
@@ -56,7 +78,7 @@ class Position:
 
     def __iadd__(self, other: "Position") -> "Position":
         """
-        create a range of two positions
+        Create a range of two positions.
         """
 
         if self.line == other.line:

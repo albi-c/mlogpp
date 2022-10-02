@@ -15,14 +15,21 @@ from .compile import compile_code
 from . import __version__
 
 
-# input/output method
 class IOMethod(enum.Enum):
+    """
+    Method for code input/output.
+    """
+
     FILE = enum.auto()
     STD = enum.auto()
     CLIP = enum.auto()
 
 
-def main():
+def main() -> None:
+    """
+    Parse command line arguments and compile code.
+    """
+
     parser = argparse.ArgumentParser(description="Mindustry logic compiler", prog="mlog++")
 
     parser.add_argument("file", type=str, help="input file [@clip for clipboard]")
@@ -40,6 +47,7 @@ def main():
 
     args = parser.parse_args()
 
+    # default output method
     output_method = IOMethod.CLIP
     output_file = ""
 
@@ -65,6 +73,7 @@ def main():
         print(f"Error: input file \"{args.file}\" does not exist")
         sys.exit(1)
 
+    # @clip is clipboard input
     if args.file == "@clip":
         code = pyperclip.paste()
     else:
@@ -75,8 +84,11 @@ def main():
         out = compile_code(code, args.file)
     except MlogError as e:
         e.print()
+
+        # print the traceback
         if args.print_exceptions:
             raise e
+
         sys.exit(1)
 
     if output_method == IOMethod.FILE:
@@ -88,8 +100,9 @@ def main():
     elif output_method == IOMethod.STD:
         # output to stdout
 
-        # check if line numbers should be printed
         if vars(args)["lines"]:
+            # print line numbers
+
             lines = out.splitlines()
             max_line = len(str(len(lines)))
             for i, ln in enumerate(lines):

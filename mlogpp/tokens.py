@@ -5,7 +5,7 @@ from .util import Position, sanitize
 
 class TokenType(enum.Flag):
     """
-    token types
+    Token type.
     """
 
     NONE = enum.auto()
@@ -30,13 +30,14 @@ class TokenType(enum.Flag):
 
 class Token:
     """
-    token of code
+    Token.
     """
 
     type: TokenType
     value: str
     pos: Position
 
+    # builtin types
     TYPES = (
         "num", "str",
         "Block", "Unit", "Team",
@@ -53,6 +54,7 @@ class Token:
         "else"
     )
 
+    # reserved keywords
     KEYWORDS = TYPES + STATEMENTS
 
     def __init__(self, type_: TokenType, value: str, pos: Position):

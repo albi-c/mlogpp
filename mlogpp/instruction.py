@@ -4,13 +4,34 @@ from .value import *
 
 
 class Instruction:
+    """
+    An instruction that will be directly converted to Mindustry logic.
+    """
+
     def __add__(self, other):
+        """
+        Joins the instruction with another instruction or instruction list.
+
+        Args:
+            other (Instruction | Instructions): The instruction or instruction list to be joined.
+
+        Returns:
+            The joined instructions.
+        """
+
         if isinstance(other, Instruction):
             return Instructions([self, other])
         elif isinstance(other, Instructions):
             return Instructions([self] + other.ins)
 
     def iter(self) -> list['Instruction']:
+        """
+        Create a lists of all instructions.
+
+        Returns:
+            A list with the one element being `self`
+        """
+
         return [self]
 
     def __len__(self) -> int:
@@ -26,17 +47,38 @@ class Instruction:
         return self
 
     def variables(self) -> tuple:
+        """
+        Returns:
+            All variables used by the instruction.
+        """
+
         return tuple()
 
-    def param_replace(self, from_: str, to: str):
+    def param_replace(self, from_: str, to: str) -> None:
+        """
+        Replaces parameter names.
+
+        Args:
+            from_: Which names to replace.
+            to: What to replace them with.
+        """
+
         pass
 
 
 class NoopInstruction(Instruction):
+    """
+    No operation instruction.
+    """
+
     pass
 
 
 class MInstructionType(enum.Enum):
+    """
+    Type of Mindustry instruction.
+    """
+
     READ = enum.auto()
     WRITE = enum.auto()
     DRAW = enum.auto()
@@ -61,6 +103,10 @@ class MInstructionType(enum.Enum):
 
 
 class MInstruction(Instruction):
+    """
+    Mindustry instruction.
+    """
+
     type: MInstructionType
     params: list[str | int | float | Value]
 
@@ -68,6 +114,7 @@ class MInstruction(Instruction):
 
     def __init__(self, type_: MInstructionType, params: list[str | int | float | Value]):
         self.type = type_
+        # convert all parameters to strings
         self.params = list(map(str, params))
 
     def __str__(self):
@@ -87,6 +134,10 @@ class MInstruction(Instruction):
 
 
 class MppInstructionLabel(Instruction):
+    """
+    Label instruction.
+    """
+
     name: str
 
     def __init__(self, name: str):
@@ -103,6 +154,10 @@ class MppInstructionLabel(Instruction):
 
 
 class MppInstructionJump(Instruction):
+    """
+    Jump instruction.
+    """
+
     label: str
 
     def __init__(self, label: str):
@@ -119,6 +174,10 @@ class MppInstructionJump(Instruction):
 
 
 class MppInstructionOJump(Instruction):
+    """
+    Conditional jump instruction.
+    """
+
     label: str
     op1: str | Value
     op: str
@@ -148,16 +207,40 @@ class MppInstructionOJump(Instruction):
 
 
 class Instructions:
+    """
+    A list of instructions.
+    """
+
     def __init__(self, ins: list[Instruction] | None = None):
         self.ins = [] if ins is None else ins
 
     def __add__(self, other):
+        """
+        Join this list with an instruction or instructions.
+
+        Args:
+            other (Instruction | Instructions): The instruction or instructions to join.
+
+        Returns:
+            The joined instructions.
+        """
+
         if isinstance(other, Instruction):
             return Instructions(self.ins + [other])
         elif isinstance(other, Instructions):
             return Instructions(self.ins + other.ins)
 
-    def __iadd__(self, other):
+    def __iadd__(self, other) -> 'Instructions':
+        """
+        Append an instruction or instructions to this list.
+
+        Args:
+            other (Instruction | Instructions): The instruction or instructions to be appended.
+
+        Returns:
+            This list.
+        """
+
         if isinstance(other, Instruction):
             self.ins.append(other)
         elif isinstance(other, Instructions):
@@ -166,6 +249,13 @@ class Instructions:
         return self
 
     def iter(self) -> list[Instruction]:
+        """
+        Create a list of all instructions in this list.
+
+        Returns:
+            A list of all instructions in this list.
+        """
+
         return self.ins
 
     def __len__(self) -> int:
@@ -181,5 +271,13 @@ class Instructions:
         return Instructions([ins.copy() for ins in self.ins])
 
     def param_replace(self, from_: str, to: str):
+        """
+        Replaces parameter names.
+
+        Args:
+            from_: Which names to replace.
+            to: What to replace them with.
+        """
+
         for ins in self.ins:
             ins.param_replace(from_, to)

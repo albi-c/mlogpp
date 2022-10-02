@@ -3,7 +3,7 @@ import re
 
 class Preprocessor:
     """
-    preprocesses code
+    Resolves constants.
     """
 
     # code regexes
@@ -13,6 +13,16 @@ class Preprocessor:
 
     @staticmethod
     def preprocess(code: str) -> str:
+        """
+        Resolve constants in code.
+
+        Args:
+            code: The code to be processed.
+
+        Returns:
+            The code with resolved constants.
+        """
+
         consts = {}
         tmp = ""
         for ln in code.splitlines():
@@ -25,7 +35,7 @@ class Preprocessor:
 
                 continue
             
-            # replace constant references with values
+            # replace constant references with values sorted by length in order to not replace non-equal constants
             for k, v in sorted(consts.items(), key=lambda pair: len(pair[0]), reverse=True):
                 ln = ln.replace(k, v)
             

@@ -5,13 +5,30 @@ from .util import Position, sanitize
 
 
 class MlogError(Exception):
-    def __init__(self, msg: str, pos: Position = None):
+    """
+    Compilation error.
+    """
+
+    msg: str
+    pos: Position | None
+
+    def __init__(self, msg: str, pos: Position | None = None):
+        """
+        Args:
+            msg: The message to be displayed.
+            pos: Position at which the error occurred.
+        """
+
         self.message = f"{msg}: {pos}"
 
         self.msg = msg
         self.pos = pos
     
     def print(self):
+        """
+        Print the error message and position.
+        """
+
         if self.pos is not None:
             print(f"{Format.ERROR}{Format.BOLD}Error{Format.RESET}{Format.ERROR} in file {self.pos.file} on line {self.pos.line}, column {self.pos.start+1}: {self.msg}{Format.RESET}")
             print(f"Here:\n{self.pos.code}\n{self.pos.arrows()}")

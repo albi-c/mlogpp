@@ -3,12 +3,11 @@ from .value import *
 
 class Gen:
     """
-    generates temporary values, stores compile time values
+    Generates unnamed values.
     """
 
     VAR_COUNT = 0
     LAB_COUNT = 0
-
     SCOPE_COUNT = 0
 
     @staticmethod
@@ -19,6 +18,7 @@ class Gen:
 
         Gen.VAR_COUNT = 0
         Gen.LAB_COUNT = 0
+        Gen.SCOPE_COUNT = 0
 
     @staticmethod
     def temp_var(type_: Type) -> VariableValue:

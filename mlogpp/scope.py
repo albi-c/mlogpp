@@ -4,6 +4,10 @@ from . import constants
 
 
 class Scope:
+    """
+    Scope, contains variable and function definitions.
+    """
+
     name: str | None
     variables: set[VariableValue]
     functions: set[Function]
@@ -13,25 +17,59 @@ class Scope:
         self.variables = variables if variables is not None else set()
         self.functions = functions if functions is not None else set()
 
-    def add(self, var: VariableValue | Function):
+    def add(self, var: VariableValue | Function) -> None:
+        """
+        Add a variable or function to the scope.
+
+        Args:
+            var: The variable or function to be added.
+        """
+
         if isinstance(var, VariableValue):
             self.variables.add(var)
         elif isinstance(var, Function):
             self.functions.add(var)
 
-    def remove(self, var: VariableValue | Function):
+    def remove(self, var: VariableValue | Function) -> None:
+        """
+        Remove a variable or function from scope.
+
+        Args:
+            var: The variable or function to be removed.
+        """
+
         if isinstance(var, VariableValue):
             self.variables.remove(var)
         elif isinstance(var, Function):
             self.functions.remove(var)
 
     def rename(self, var: str) -> str:
+        """
+        Rename a variable with the scope name.
+
+        Args:
+            var: The variable to be renamed.
+
+        Returns:
+            The renamed variable.
+        """
+
         if self.name is None:
             return var
 
         return f"__s_{self.name}_{var}"
 
     def get(self, name: str) -> VariableValue | Function | None:
+        """
+        Get a variable or function definition.
+
+        Args:
+            name: Name of the variable or function.
+
+        Returns:
+            The variable or function definition, None if nothing is found.
+        """
+
         for var in self.variables:
             if var.name == name:
                 return var
@@ -53,6 +91,7 @@ class Scope:
 
 
 class Scopes:
+    # the default scope, containing global constants and variables
     DEFAULT_SCOPE = Scope(
         None,
         {
@@ -95,27 +134,67 @@ class Scopes:
     SCOPES = [DEFAULT_SCOPE, Scope(None)]
 
     @staticmethod
-    def reset():
+    def reset() -> None:
+        """
+        Reset all the scopes.
+        """
+
         Scopes.SCOPES = [Scopes.DEFAULT_SCOPE, Scope(None)]
 
     @staticmethod
-    def push(name: str | None):
+    def push(name: str | None) -> None:
+        """
+        Push a scope to the stack.
+
+        Args:
+            name: Name of the scope to be pushed.
+        """
+
         Scopes.SCOPES.append(Scope(name))
 
     @staticmethod
-    def pop():
+    def pop() -> None:
+        """
+        Pop a scope from the stack.
+        """
+
         Scopes.SCOPES.pop(-1)
 
     @staticmethod
-    def add(var: VariableValue | Function):
+    def add(var: VariableValue | Function) -> None:
+        """
+        Add a variable or function to the top scope on the stack.
+
+        Args:
+            var: The variable or function to be added.
+        """
+
         Scopes.SCOPES[-1].add(var)
 
     @staticmethod
-    def remove(var: VariableValue | Function):
+    def remove(var: VariableValue | Function) -> None:
+        """
+        Remove a variable or function from the top scope on the stack.
+
+        Args:
+            var: The variable or function to be removed.
+        """
+
         Scopes.SCOPES[-1].remove(var)
 
     @staticmethod
     def rename(var: str, declare: bool = False) -> str:
+        """
+        Rename a variable using the scope names.
+
+        Args:
+            var: The variable to be renamed.
+            declare: If true, variable will be renamed using topmost scope, otherwise using first one that contains it.
+
+        Returns:
+            The renamed variable.
+        """
+
         if declare:
             return Scopes.SCOPES[-1].rename(var)
 
@@ -127,6 +206,15 @@ class Scopes:
 
     @staticmethod
     def get(name: str) -> VariableValue | Function | None:
+        """
+        Get a variable or function by name.
+
+        Args:
+            name: Name of the variable or function to be searched for.
+
+        Returns:
+            The variable or function, None if not found.
+        """
         for scope in reversed(Scopes.SCOPES):
             if (var := scope.get(name)) is not None:
                 return var

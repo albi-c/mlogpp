@@ -4,6 +4,10 @@ from .error import MlogError
 
 
 class Type(enum.Flag):
+    """
+    Type of value.
+    """
+
     STR = enum.auto()
     NUM = enum.auto()
     NULL = enum.auto()
@@ -23,6 +27,16 @@ class Type(enum.Flag):
 
     @staticmethod
     def from_code(var: str) -> 'Type':
+        """
+        Create a type from an in-code name without "_"
+
+        Args:
+            var: The in-code name.
+
+        Returns:
+            The created type.
+        """
+
         tok = ""
         last = ""
         for ch in var:

@@ -11,6 +11,18 @@ from .linker import Linker
 
 
 def compile_code(code: str, filename: str) -> str:
+    """
+    Compile mlog++ code
+
+    Args:
+        code: The code to be compiled.
+        filename: Name of the compiled file. Used for imports and errors.
+
+    Returns:
+        The compiled code.
+    """
+
+    # reset the state
     Scopes.reset()
     Gen.reset()
 

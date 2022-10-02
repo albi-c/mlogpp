@@ -12,7 +12,7 @@ from . import constants
 
 class Node:
     """
-    base node class
+    Base node class.
     """
 
     pos: Position
@@ -21,21 +21,48 @@ class Node:
         self.pos = pos
 
     def get_pos(self) -> Position:
+        """
+        Get position of the node.
+
+        Returns:
+            Position of the node.
+        """
+
         return self.pos
 
     def __str__(self):
+        """
+        Convert the node to a string, debug only.
+
+        Returns:
+            A string, similar to the unparsed mlog++ code.
+        """
+
         return "NODE"
 
     def generate(self) -> Instruction | Instructions:
+        """
+        Generate the node.
+
+        Returns:
+            The generated code.
+        """
         return Instructions()
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        """
+        Get the node's value and code to obtain it.
+
+        Returns:
+            A tuple containing the code to obtain the value and the value.
+        """
+
         return Instructions(), NullValue()
 
 
 class CodeBlockNode(Node):
     """
-    block of code
+    Block of code.
     """
 
     code: list[Node]
@@ -61,17 +88,25 @@ class CodeBlockNode(Node):
 
         return ins
 
-    def push_scope(self):
+    def push_scope(self) -> None:
+        """
+        Push this node's scope to the scope stack.
+        """
+
         Scopes.push(self.name)
 
     @staticmethod
-    def pop_scope():
+    def pop_scope() -> None:
+        """
+        Pop this node's scope from the scope stack.
+        """
+
         Scopes.pop()
 
 
 class DeclarationNode(Node):
     """
-    variable declaration node
+    Variable declaration.
     """
 
     var: VariableValue
@@ -89,14 +124,17 @@ class DeclarationNode(Node):
     def generate(self) -> Instruction | Instructions:
         self.var.name = Scopes.rename(self.var.name, True)
 
+        # check if variable already exists
         if Scopes.get(self.var.name) is not None:
             Error.already_defined_var(self, self.var.name)
 
         Scopes.add(self.var)
 
+        # assign a value to the variable
         if self.value is not None:
             value_code, value = self.value.get()
 
+            # check if the value has a correct type
             if value.type not in self.var.type:
                 Error.incompatible_types(self, value.type, self.var.type)
 
@@ -107,13 +145,14 @@ class DeclarationNode(Node):
 
 class AssignmentNode(Node):
     """
-    variable assignment node
+    Variable assignment.
     """
 
     var: str
     op: str
     value: Node
 
+    # mlog++ to mindustry logic operator map
     OPERATORS = {
         "+=": "add",
         "-=": "sub",
@@ -140,40 +179,50 @@ class AssignmentNode(Node):
         return f"{self.var} {self.op} {self.value}"
 
     def generate(self) -> Instruction | Instructions:
+        # rename only the first part of the variable if name contains an "."
         if "." in self.var:
             spl = self.var.split(".")
             self.var = Scopes.rename(spl[0]) + "." + spl[1]
         else:
             self.var = Scopes.rename(self.var)
 
+        # check if the variable exists
         if isinstance(var := Scopes.get(self.var), VariableValue):
+            # check if the variable is a constant
             if var.const:
                 Error.write_to_const(self, self.var)
 
             value_code, value = self.value.get()
 
             if self.op == "=":
+                # check if the variable being assigned to is of the same type as the value being used
                 if value.type not in var.type:
                     Error.incompatible_types(self, value.type, var.type)
 
                 return value_code + MInstruction(MInstructionType.SET, [var, value])
             else:
+                # check if the variable being assigned to is a number for arithmetic operations
                 if var.type not in Type.NUM:
                     Error.incompatible_types(self, var.type, Type.NUM)
+                # check if the value being used is a number for arithmetic operations
                 if value.type not in Type.NUM:
                     Error.incompatible_types(self, value.type, Type.NUM)
 
                 return value_code + MInstruction(MInstructionType.OP, [self.OPERATORS[self.op], var, var, value])
 
+        # if variable doesn't exist, check if it is a control command
         if self.op == "=" and "." in self.var and (spl := self.var.split("."))[1] in constants.CONTROLLABLE:
             value_code, value = self.value.get()
 
+            # check if the value used is a number
             if value.type != Type.NUM:
                 Error.incompatible_types(self, value.type, Type.NUM)
 
+            # check if the block being controlled exists
             if not isinstance(var := Scopes.get(spl[0]), VariableValue):
                 Error.undefined_variable(self, spl[0])
 
+            # check if the variable is a block
             if var.type != Type.BLOCK:
                 Error.incompatible_types(self, var.type, Type.BLOCK)
 
@@ -189,7 +238,7 @@ class AssignmentNode(Node):
 
 class IndexedAssignmentNode(AssignmentNode):
     """
-    indexed variable assignment node
+    Memory cell indexed assignment.
     """
 
     index: Node
@@ -203,21 +252,27 @@ class IndexedAssignmentNode(AssignmentNode):
         return f"{self.var}[{self.index}] {self.op} {self.value}"
 
     def generate(self) -> Instruction | Instructions:
+        # check if the variable exists
         if (var := Scopes.get(self.var)) is not None:
             value_code, value = self.value.get()
             index_code, index = self.index.get()
 
+            # check if the memory cell variable is a block
             if var.type not in Type.BLOCK:
                 Error.incompatible_types(self, var.type, Type.NUM)
+            # check if the value being used is a number
             if value.type not in Type.NUM:
                 Error.incompatible_types(self, value.type, Type.NUM)
+            # check if the index is a number
             if index.type not in Type.NUM:
                 Error.incompatible_types(self, index.type, Type.NUM)
 
             if self.op == "=":
                 return value_code + index_code + MInstruction(MInstructionType.WRITE, [value, var, index])
             else:
+                # a temporary variable for the arithmetic operation
                 tmp = Gen.temp_var(Type.NUM)
+
                 return index_code + MInstruction(MInstructionType.READ, [tmp, var, index]) + value_code + \
                        MInstruction(MInstructionType.OP, [AssignmentNode.OPERATORS[self.op], tmp, tmp, value]) + \
                        MInstruction(MInstructionType.WRITE, [tmp, var, index])
@@ -233,6 +288,7 @@ class BinaryOpNode(Node):
     left: Node
     right: list[tuple[str, Node]] | None
 
+    # mlog++ to mindustry logic operator map
     OPERATORS = {
         "+": "add",
         "-": "sub",
@@ -257,6 +313,7 @@ class BinaryOpNode(Node):
         "^": "xor"
     }
 
+    # equality check operators
     EQUALITY = {
         "==",
         "!=",
@@ -278,6 +335,7 @@ class BinaryOpNode(Node):
     def get(self) -> tuple[Instruction | Instructions, Value]:
         code, value = self.left.get()
 
+        # check if the value is a number for arithmetic operations
         if value.type not in Type.NUM and len(self.right) > 0:
             for op, _ in self.right:
                 if op not in BinaryOpNode.EQUALITY:
@@ -289,9 +347,11 @@ class BinaryOpNode(Node):
             for op, node in self.right:
                 value_code, value = node.get()
 
+                # check if the right side value of the arithmetic operation has the right type
                 if value.type not in Type.NUM and op not in BinaryOpNode.EQUALITY:
                     Error.incompatible_types(self, value.type, Type.NUM)
 
+                # temporary variable for the output of the operation
                 tmpv = Gen.temp_var(Type.NUM)
 
                 code += value_code + MInstruction(MInstructionType.OP, [BinaryOpNode.OPERATORS[op], tmpv, current_value, value])
@@ -305,7 +365,7 @@ class BinaryOpNode(Node):
 
 class UnaryOpNode(Node):
     """
-    unary operator node
+    Unary operator.
     """
 
     op: str
@@ -323,6 +383,7 @@ class UnaryOpNode(Node):
     def get(self) -> tuple[Instruction | Instructions, Value]:
         code, value = self.value.get()
 
+        # check if the value is a number
         if value.type not in Type.NUM:
             Error.incompatible_types(self, value.type, Type.NUM)
 
@@ -341,7 +402,7 @@ class UnaryOpNode(Node):
 
 class CallNode(Node):
     """
-    function call node
+    Function call.
     """
 
     name: str
@@ -360,18 +421,23 @@ class CallNode(Node):
     def generate(self) -> Instruction | Instructions:
         code = Instructions()
 
+        # check if the function is defined
         if not isinstance(fun := Scopes.get(self.name), Function):
             Error.undefined_function(self, self.name)
 
+        # check if the parameter count is correct
         if len(self.params) != len(fun.params):
             Error.invalid_arg_count(self, len(self.params), len(fun.params))
 
+        # save the return value for later use
         if fun.return_type != Type.NULL:
             self.return_value = VariableValue(fun.return_type, f"__f_{self.name}_retv")
 
+        # generate every parameter
         for i, param in enumerate(self.params):
             param_code, param_value = param.get()
 
+            # check if the parameter is of the correct type
             if param_value.type != fun.params[i][1]:
                 Error.incompatible_types(self, param_value.type, fun.params[i][1])
 
@@ -396,6 +462,10 @@ class CallNode(Node):
 
 
 class Param(enum.Enum):
+    """
+    Parameter type to a native function.
+    """
+
     INPUT = enum.auto()
     OUTPUT = enum.auto()
     CONFIG = enum.auto()
@@ -404,7 +474,7 @@ class Param(enum.Enum):
 
 class NativeCallNode(Node):
     """
-    native function call node
+    Native function call.
     """
 
     name: str
@@ -412,6 +482,7 @@ class NativeCallNode(Node):
 
     return_value: Value
 
+    # native functions
     NATIVES = {
         "read": (
             (Param.OUTPUT, Type.NUM),
@@ -659,6 +730,7 @@ class NativeCallNode(Node):
         )
     }
 
+    # return position of native functions
     NATIVES_RETURN_POS = {
         "read": 0,
         "getlink": 0,
@@ -677,6 +749,7 @@ class NativeCallNode(Node):
         "uradar": 6
     }
 
+    # builtin functions
     BUILTINS = {
         "max": 2,
         "min": 2,
@@ -718,9 +791,11 @@ class NativeCallNode(Node):
         Error.undefined_function(self, self.name)
 
     def generate_native(self) -> Instruction | Instructions:
+        # check if the function is native
         if (nat := NativeCallNode.NATIVES.get(self.name)) is None:
             Error.undefined_function(self, self.name)
 
+        # check the number of parameters
         if len(self.params) != len(nat):
             Error.invalid_arg_count(self, len(self.params), len(nat))
 
@@ -728,38 +803,62 @@ class NativeCallNode(Node):
 
         params = []
 
+        # generate the parameters
         for i, param in enumerate(self.params):
             match nat[i][0]:
+                # a configuration string
                 case Param.CONFIG:
                     if isinstance(param, str):
                         params.append(param)
+
+                # an unused parameter
                 case Param.UNUSED:
                     params.append("_")
+
+                # an input parameter
                 case Param.INPUT:
                     param_code, param_value = param.get()
+
+                    # check if the parameter's type is correct
                     if param_value.type not in nat[i][1]:
                         Error.incompatible_types(self, param_value.type, nat[i][1])
+
                     code += param_code
                     params.append(param_value)
+
+                # an output parameter
                 case Param.OUTPUT:
                     if i == NativeCallNode.NATIVES_RETURN_POS.get(self.name):
+                        # the returned value
                         value = Gen.temp_var(nat[i][1])
                         self.return_value = value
                         params.append(value)
+
                     else:
                         param = Scopes.rename(param, True)
+
+                        # declare the output variable if it doesn't exist yet
                         if (var := Scopes.get(param)) is None:
                             var = VariableValue(nat[i][1], param)
                             Scopes.add(var)
+
+                        # check if the output variable is already defined as a function
                         elif isinstance(var, Function):
                             Error.already_defined_var(self, param)
+
+                        # check if the output variable is of the correct type
                         elif var.type != nat[i][1]:
                             Error.incompatible_types(self, var.type, nat[i][1])
+
                         params.append(var)
 
+        # subcall
         if "." in self.name:
+            # sensor has its subcall at the end
             if self.name == "sensor":
                 params.append("@" + self.name.split(".")[1])
+
+            # others have the subcall at the start
             else:
                 params = [self.name.split(".")[1]] + params
 
@@ -768,9 +867,11 @@ class NativeCallNode(Node):
         return code
 
     def generate_builtin(self) -> Instruction | Instructions:
+        # check if the function is builtin
         if (nat := NativeCallNode.BUILTINS.get(self.name)) is None:
             Error.undefined_function(self, self.name)
 
+        # check the parameter count
         if len(self.params) != nat:
             Error.invalid_arg_count(self, len(self.params), nat)
 
@@ -778,8 +879,11 @@ class NativeCallNode(Node):
 
         params = []
 
+        # generate the parameters
         for param in self.params:
             param_code, param_value = param.get()
+
+            # check if the parameter is a number
             if param_value.type != Type.NUM:
                 Error.incompatible_types(self, param_value.type, Type.NUM)
 
@@ -804,7 +908,7 @@ class NativeCallNode(Node):
 
 class ValueNode(Node):
     """
-    value node
+    Value.
     """
 
     def __init__(self, pos: Position, value):
@@ -818,7 +922,7 @@ class ValueNode(Node):
 
 class StringValueNode(ValueNode):
     """
-    string value node
+    String value.
     """
 
     value: str
@@ -832,7 +936,7 @@ class StringValueNode(ValueNode):
 
 class NumberValueNode(ValueNode):
     """
-    number value node
+    Number value.
     """
 
     value: int | float
@@ -846,7 +950,7 @@ class NumberValueNode(ValueNode):
 
 class ContentValueNode(ValueNode):
     """
-    content value node
+    Content value.
     """
 
     value: str
@@ -863,7 +967,7 @@ class ContentValueNode(ValueNode):
 
 class BlockValueNode(ValueNode):
     """
-    linker block value node
+    Linked block value.
     """
 
     value: str
@@ -877,7 +981,7 @@ class BlockValueNode(ValueNode):
 
 class VariableValueNode(ValueNode):
     """
-    variable value node
+    Variable value.
     """
 
     value: str
@@ -886,17 +990,21 @@ class VariableValueNode(ValueNode):
         super().__init__(pos, value)
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        # rename only the first part of the variable if it contains a "."
         if "." in self.value:
             spl = self.value.split(".")
             self.value = Scopes.rename(spl[0]) + "." + spl[1]
         else:
             self.value = Scopes.rename(self.value)
 
+        # check if it is a plain variable
         if isinstance(var := Scopes.get(self.value), VariableValue):
             return Instructions(), var
 
+        # check if it is a property access
         if "." in self.value and (spl := self.value.split("."))[1] in constants.SENSOR_READABLE:
             if isinstance(var := Scopes.get(spl[0]), VariableValue):
+                # check if the variable is of the correct type
                 if var.type not in Type.BLOCK | Type.UNIT:
                     Error.incompatible_types(self, var.type, Type.BLOCK)
 
@@ -909,7 +1017,7 @@ class VariableValueNode(ValueNode):
 
 class IndexedValueNode(ValueNode):
     """
-    indexed variable value node
+    Memory cell indexed value.
     """
 
     value: str
@@ -926,13 +1034,20 @@ class IndexedValueNode(ValueNode):
     def get(self) -> tuple[Instruction | Instructions, Value]:
         self.value = Scopes.rename(self.value)
 
+        # check if the variable exists
         if not isinstance(var := Scopes.get(self.value), VariableValue):
             Error.undefined_variable(self, self.value)
 
+        # check if the variable is a block
         if var.type != Type.BLOCK:
             Error.incompatible_types(self, var.type, Type.BLOCK)
 
         index_code, index = self.index.get()
+
+        # check if the index is a number
+        if index.type != Type.NUM:
+            Error.incompatible_types(self, index.type, Type.NUM)
+
         out = Gen.temp_var(Type.NUM)
 
         return index_code + MInstruction(MInstructionType.READ, [out, var, index]), out
@@ -940,7 +1055,7 @@ class IndexedValueNode(ValueNode):
 
 class ReturnNode(Node):
     """
-    return from function node
+    Return from a function.
     """
 
     func: str
@@ -953,26 +1068,35 @@ class ReturnNode(Node):
         self.value = value
 
     def generate(self) -> Instruction | Instructions:
+        # check if it returns a value
         if self.value is None:
-            return Instructions()
+            return Instructions() + MInstruction(MInstructionType.SET, [
+                VariableValue(Type.NUM, "@counter"),
+                VariableValue(Type.NUM, f"__f_{self.func}_ret")
+            ])
 
         value_code, value = self.value.get()
 
+        # check if the function returned from exists
         if not isinstance(fun := Scopes.get(self.func), Function):
             Error.undefined_function(self, self.name)
 
+        # check if the returned value is of the correct type
         if value.type != fun.return_type:
             Error.incompatible_types(self, value.type, fun.return_type)
 
         return value_code + MInstruction(MInstructionType.SET, [
             VariableValue(value.type, f"__f_{self.func}_retv"),
             value
+        ]) + MInstruction(MInstructionType.SET, [
+            VariableValue(Type.NUM, "@counter"),
+            VariableValue(Type.NUM, f"__f_{self.func}_ret")
         ])
 
 
 class BreakNode(Node):
     """
-    break loop node
+    Break a loop.
     """
 
     loop: str
@@ -988,7 +1112,7 @@ class BreakNode(Node):
 
 class ContinueNode(Node):
     """
-    continue loop node
+    Continue a loop.
     """
 
     loop: str
@@ -1004,7 +1128,7 @@ class ContinueNode(Node):
 
 class EndNode(Node):
     """
-    end program node
+    End the program.
     """
 
     def __init__(self, pos: Position):
@@ -1016,7 +1140,7 @@ class EndNode(Node):
 
 class IfNode(Node):
     """
-    if conditional node
+    If conditional.
     """
 
     cond: Node
@@ -1059,7 +1183,7 @@ class IfNode(Node):
 
 class LoopNode(Node):
     """
-    loop node
+    Loop.
     """
 
     def __init__(self, pos: Position):
@@ -1068,7 +1192,7 @@ class LoopNode(Node):
 
 class WhileNode(LoopNode):
     """
-    while loop node
+    While loop.
     """
 
     name: str
@@ -1091,6 +1215,7 @@ class WhileNode(LoopNode):
 
         self.code.pop_scope()
 
+        # check if the conditions is a number
         if cond.type != Type.NUM:
             Error.incompatible_types(self, cond.type, Type.NUM)
 
@@ -1101,7 +1226,7 @@ class WhileNode(LoopNode):
 
 class ForNode(LoopNode):
     """
-    for loop node
+    For loop.
     """
 
     name: str
@@ -1130,6 +1255,7 @@ class ForNode(LoopNode):
 
         self.code.pop_scope()
 
+        # check if the condition is a number
         if cond.type != Type.NUM:
             Error.incompatible_types(self, cond.type, Type.NUM)
 
@@ -1141,7 +1267,7 @@ class ForNode(LoopNode):
 
 class RangeNode(LoopNode):
     """
-    range loop node
+    Range loop.
     """
 
     name: str
@@ -1160,16 +1286,22 @@ class RangeNode(LoopNode):
     def generate(self) -> Instruction | Instructions:
         self.var = Scopes.rename(self.var, True)
 
+        # check if the counter variable is already defined
         if (var := Scopes.get(self.var)) is None:
             var = VariableValue(Type.NUM, self.var)
             Scopes.add(var)
+
+        # check if the counter variable is already defined as a function
         elif isinstance(var, Function):
             Error.already_defined_var(self, self.var)
+
+        # check if the counter variable is a number
         elif var.type != Type.NUM:
             Error.incompatible_types(self, var.type, Type.NUM)
 
         until_code, until = self.until.get()
 
+        # check if the until condition is a number
         if until.type != Type.NUM:
             Error.incompatible_types(self, until.type, Type.NUM)
 
@@ -1184,7 +1316,7 @@ class RangeNode(LoopNode):
 
 class FunctionNode(Node):
     """
-    function definition node
+    Function definition.
     """
 
     name: str
@@ -1204,6 +1336,7 @@ class FunctionNode(Node):
         return f"function {self.name} ({', '.join(map(lambda t: t[1].name + ' ' + t[0], self.params))}) {self.code}"
 
     def generate(self) -> Instruction | Instructions:
+        # declare the function
         Scopes.add(Function(self.name, self.params, self.return_type))
 
         code = Instructions()
@@ -1212,6 +1345,7 @@ class FunctionNode(Node):
         code += MppInstructionLabel(f"__f_{self.name}")
 
         Scopes.push(self.name)
+        # declare all parameters
         for name, type_ in self.params:
             Scopes.add(VariableValue(type_, Scopes.rename(name, True)))
 
