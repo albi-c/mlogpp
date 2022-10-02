@@ -2,7 +2,7 @@
 
 [![Run Unit Tests](https://github.com/albi-c/mlogpp/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/albi-c/mlogpp/actions/workflows/test.yml)
 
-high level mindustry logic language
+statically typed high level mindustry logic language
 
 ## Installation:
 `pip install mlogpp`
@@ -28,7 +28,7 @@ Prints `Hello, World!`
 
 ### For loops:
 ```javascript
-for (i = 1; i < 11; i += 1) {
+for (num i = 1; i < 11; i += 1) {
     print(i)
     if (i < 10) {
         print(", ")
@@ -45,13 +45,14 @@ for (i : 5) {
     print(i + 1)
     print(" ")
 }
+
 printflush(message1)
 ```
 Prints `1 2 3 4 5`
 
 ### Functions:
 ```javascript
-function length(x, y) {
+function length(num x, num y) -> num {
     return sqrt(x * x + y * y)
 }
 
@@ -77,13 +78,11 @@ Makes all `@mega` units move to the processor
 
 ### Scopes:
 ```javascript
-a = 0
-b = 0
+num a = 0
+num b = 0
 
-function test(x) {
-    local a
-
-    a = x
+function test(num x) {
+    num a = x
     b = x
 }
 
@@ -101,13 +100,18 @@ Prints `0 10`
 
 ## Features:
 * variables \
-  `x = 1`
+  `num x = 1`
+* types \
+  * `num`, `str`
+  * `Block`, `Unit`,
+  * `BlockType`, `UnitType`, `ItemType`, `LiquidType`,
+  * `Controller`, `Team`
 * comments \
   `# comment`
 * memory cell access \
   `cell1[0] = cell1[1]`
 * functions \
-  `function f(x, y) { return x + y }`
+  `function f(num x, num y) -> num { return x + y }`
 * subcommands \
   `ucontrol.move(1, 2)`
 * if / else \
@@ -115,7 +119,7 @@ Prints `0 10`
 * while loops \
   `while (a > b) { b += 1 }`
 * for loops \
-  `for (i = 0; i < 10; i += 1) { print(i) }`
+  `for (num i = 0; i < 10; i += 1) { print(i) }`
 * ranges \
   `for (i : 5) { print(i) }`
 * break / continue
@@ -123,8 +127,6 @@ Prints `0 10`
   `ubind(@mega)`
 * constants \
   `const VALUE = 30`
-* global variables in functions \
-  `function func() { global a, b, c }`
 
 ## Native functions:
 * read `result`, `cell`, `position`
