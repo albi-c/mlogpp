@@ -1,8 +1,13 @@
+import types
+
 from .util import Position
-from .error import gen_error
-from .generator import Gen, Var
 from .instruction import *
-from . import functions
+from .value import *
+from .generator import Gen
+from .scope import Scope, Scopes
+from .function import Function
+from .error import Error
+from . import constants
 
 
 class Node:
@@ -10,647 +15,1102 @@ class Node:
     base node class
     """
 
+    pos: Position
+
     def __init__(self, pos: Position):
         self.pos = pos
 
     def get_pos(self) -> Position:
         return self.pos
 
-    def generate(self) -> Instructions | Instruction:
+    def __str__(self):
+        return "NODE"
+
+    def generate(self) -> Instruction | Instructions:
         return Instructions()
 
-    def get(self) -> tuple[Instructions | Instruction, str | Var]:
-        return Instructions(), ""
-
-    def set(self) -> tuple[Instructions | Instruction, str | Var]:
-        return Instructions(), ""
-
-    def table_rename(self, _: dict):
-        return self
-
-    def function_rename(self, _: str):
-        return self
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        return Instructions(), NullValue()
 
 
-class CodeListNode(Node):
+class CodeBlockNode(Node):
     """
-    node with a list of code
+    block of code
     """
 
-    def __init__(self, pos: Position, code: list):
-        super().__init__(pos)
+    code: list[Node]
+    name: str | None
+
+    def __init__(self, code: list[Node], name: str | None):
+        super().__init__(Position(0, 0, 0, "", ""))
 
         self.code = code
+        self.name = name
 
-    def get_pos(self) -> Position:
-        if len(self.code) > 0:
-            return self.pos + self.code[-1].get_pos()
+    def __str__(self):
+        string = "{\n"
+        for node in self.code:
+            string += str(node) + "\n"
+        return string + "}"
 
-        return self.pos
-
-    def generate(self) -> Instructions:
+    def generate(self) -> Instruction | Instructions:
         ins = Instructions()
+
         for node in self.code:
             ins += node.generate()
+
         return ins
 
-    def table_rename(self, variables: dict):
-        return CodeListNode(self.pos, [c.table_rename(variables) for c in self.code])
+    def push_scope(self):
+        Scopes.push(self.name)
 
-    def function_rename(self, name: str):
-        return CodeListNode(self.pos, [c.function_rename(name) for c in self.code])
+    @staticmethod
+    def pop_scope():
+        Scopes.pop()
 
 
-class ReturnNode(Node):
+class DeclarationNode(Node):
     """
-    function return node
+    variable declaration node
     """
 
-    def __init__(self, pos: Position, func: str, value: Node):
+    var: VariableValue
+    value: Node | None
+
+    def __init__(self, pos: Position, var: VariableValue, value: Node | None):
         super().__init__(pos)
 
-        self.func = func
+        self.var = var
         self.value = value
 
-    def get_pos(self) -> Position:
-        return self.value.get_pos()
+    def __str__(self):
+        return f"{self.var.type.name} {self.var.name} = {str(self.value)}"
 
-    def generate(self):
-        valc, valv = self.value.get()
-        return valc + MInstruction(MInstructionType.SET, [f"__f_{self.func}_retv", valv])
+    def generate(self) -> Instruction | Instructions:
+        self.var.name = Scopes.rename(self.var.name, True)
 
-    def table_rename(self, variables: dict):
-        return ReturnNode(self.pos, self.func, self.value.table_rename(variables))
+        if Scopes.get(self.var.name) is not None:
+            Error.already_defined_var(self, self.var.name)
 
-    def function_rename(self, name: str):
-        return ReturnNode(self.pos, self.func, self.value.function_rename(name))
+        Scopes.add(self.var)
 
+        if self.value is not None:
+            value_code, value = self.value.get()
 
-class LoopActionNode(Node):
-    ACTIONS = ["break", "continue"]
+            if value.type not in self.var.type:
+                Error.incompatible_types(self, value.type, self.var.type)
 
-    def __init__(self, pos: Position, name: str, action: str):
-        super().__init__(pos)
+            return value_code + MInstruction(MInstructionType.SET, [self.var, value])
 
-        self.name = name
-        self.action = action
-
-    def get_pos(self) -> Position:
-        return self.pos
-
-    def generate(self):
-        if self.action == "break":
-            return MppInstructionJump(f"{self.name}_e")
-        elif self.action == "continue":
-            return MppInstructionJump(f"{self.name}_s")
+        return Instructions()
 
 
 class AssignmentNode(Node):
+    """
+    variable assignment node
+    """
+
+    var: str
+    op: str
+    value: Node
+
     OPERATORS = {
         "+=": "add",
         "-=": "sub",
-        "*=": "mul",
-        "/=": "div",
-        "//=": "idiv",
         "%=": "mod",
         "&=": "and",
         "|=": "or",
         "^=": "xor",
-        "<<=": "shl",
-        ">>=": "shr"
+        "*=": "mul",
+        "/=": "div",
+        "**=": "pow",
+        "//=": "idiv",
+        "<<": "shl",
+        ">>": "shr"
     }
 
-    def __init__(self, pos: Position, var: Node, op: str, value: Node):
+    def __init__(self, pos: Position, var: str, op: str, value: Node):
         super().__init__(pos)
 
         self.var = var
         self.op = op
         self.value = value
 
-    def get_pos(self) -> Position:
-        return self.pos + self.value.get_pos()
+    def __str__(self):
+        return f"{self.var} {self.op} {self.value}"
 
-    def generate(self):
-        if self.op == "=":
-            varc, varv = self.var.set()
-            valc, valv = self.value.get()
-            return valc + MInstruction(MInstructionType.SET, [varv, valv]) + varc
-
+    def generate(self) -> Instruction | Instructions:
+        if "." in self.var:
+            spl = self.var.split(".")
+            self.var = Scopes.rename(spl[0]) + "." + spl[1]
         else:
-            # determine operator
-            op = AssignmentNode.OPERATORS.get(self.op)
-            if op is None:
-                gen_error(self.get_pos(), f"Invalid operator: \"{self.op}\"")
+            self.var = Scopes.rename(self.var)
 
-            vasc, vasv = self.var.get()
-            varc, varv = self.var.set()
-            valc, valv = self.value.get()
-            return vasc + valc + MInstruction(MInstructionType.OP, [op, varv, vasv, valv]) + varc
+        if isinstance(var := Scopes.get(self.var), VariableValue):
+            if var.const:
+                Error.write_to_const(self, self.var)
 
-    def table_rename(self, variables: dict):
-        return AssignmentNode(self.pos, self.var.table_rename(variables), self.op, self.value.table_rename(variables))
+            value_code, value = self.value.get()
 
-    def function_rename(self, name: str):
-        return AssignmentNode(self.pos, self.var.function_rename(name), self.op, self.value.function_rename(name))
+            if self.op == "=":
+                if value.type not in var.type:
+                    Error.incompatible_types(self, value.type, var.type)
 
-
-class CallNode(Node):
-    def __init__(self, pos: Position, func: str, args: list):
-        super().__init__(pos)
-
-        self.func = func
-        self.args = args
-
-        self._ret_var = "_"
-
-    def get_pos(self) -> Position:
-        if len(self.args) > 0:
-            return self.pos + self.args[-1].get_pos()
-
-        return self.pos
-
-    def generate(self):
-        if self.func in functions.native:
-            nargs = functions.native[self.func]
-            return_var = "_"
-            if self.func in functions.native_ret:
-                nargs -= 1
-                return_var = Gen.temp_var()
-
-            if len(self.args) != nargs:
-                gen_error(self.get_pos(),
-                          f"Invalid number of arguments to function \"{self.func}\" (expected {nargs}, got {len(self.args)})")
-
-            code = Instructions()
-            args = []
-            for a in self.args:
-                ac, av = a.get()
-                code += ac
-                args.append(av)
-            if self.func in functions.native_ret:
-                args.insert(functions.native_ret[self.func], return_var)
-                self._ret_var = return_var
+                return value_code + MInstruction(MInstructionType.SET, [var, value])
             else:
-                self._ret_var = "_"
+                if var.type not in Type.NUM:
+                    Error.incompatible_types(self, var.type, Type.NUM)
+                if value.type not in Type.NUM:
+                    Error.incompatible_types(self, value.type, Type.NUM)
 
-            try:
-                return code + MInstruction(MInstructionType[self.func.upper()], list(map(str, args)))
-            except KeyError:
-                gen_error(self.get_pos(), f"Invalid native function \"{self.func}\"")
+                return value_code + MInstruction(MInstructionType.OP, [self.OPERATORS[self.op], var, var, value])
 
-        elif self.func in functions.native_sublist:
-            spl = self.func.split(".")
+        if self.op == "=" and "." in self.var and (spl := self.var.split("."))[1] in constants.CONTROLLABLE:
+            value_code, value = self.value.get()
 
-            nargs = functions.native_sub[spl[0]][spl[1]]
-            return_var = "_"
-            if self.func in functions.native_sub_ret:
-                nargs -= 1
-                return_var = Gen.temp_var()
-            self._ret_var = return_var
+            if value.type != Type.NUM:
+                Error.incompatible_types(self, value.type, Type.NUM)
 
-            if len(self.args) != nargs:
-                gen_error(self.get_pos(),
-                          f"Invalid number of arguments to function \"{self.func}\" (expected {nargs}, got {len(self.args)})")
+            if not isinstance(var := Scopes.get(spl[0]), VariableValue):
+                Error.undefined_variable(self, spl[0])
 
-            code = Instructions()
-            args = []
-            for a in self.args:
-                ac, av = a.get()
-                code += ac
-                args.append(av)
+            if var.type != Type.BLOCK:
+                Error.incompatible_types(self, var.type, Type.BLOCK)
 
-            if return_var != "_":
-                args.insert(functions.native_sub_ret[self.func], return_var)
+            return value_code + MInstruction(MInstructionType.CONTROL, [
+                spl[1],
+                var,
+                value,
+                "_", "_", "_"
+            ])
 
-            try:
-                return code + MInstruction(MInstructionType[spl[0].upper()], [spl[1]] + list(map(str, args)))
-            except KeyError:
-                gen_error(self.get_pos(), f"Invalid native function \"{self.func}\"")
-
-        elif self.func in functions.builtin:
-            n_args = functions.builtin_params.get(self.func, functions.builtin_params_default)
-            if len(self.args) != n_args:
-                gen_error(self.get_pos(),
-                          f"Invalid number of arguments to function \"{self.func}\" (expected {n_args}, got {len(self.args)})")
-
-            return_var = Gen.temp_var()
-            self._ret_var = return_var
-
-            code = Instructions()
-            args = []
-            for a in self.args:
-                ac, av = a.get()
-                code += ac
-                args.append(av)
-
-            while len(args) < 2:
-                args.append("_")
-
-            return code + MInstruction(MInstructionType.OP, [self.func, return_var] + list(map(str, args)))
-
-        code = Instructions()
-        for i, arg in enumerate(self.args):
-            valc, valv = arg.get()
-            code += valc
-            code += MInstruction(MInstructionType.SET, [f"__f_a{i}_{self.func}", valv])
-            self._ret_var = Var(f"__f_{self.func}_retv", True)
-
-        code += MInstruction(MInstructionType.OP, ["add", f"__f_{self.func}_ret", "@counter", "1"]) + \
-                MppInstructionJump(f"__f_{self.func}")
-
-        return code
-
-    def get(self):
-        return self.generate(), self._ret_var
-
-    def table_rename(self, variables: dict):
-        return CallNode(self.pos, self.func, [
-            a.table_rename(variables) if i not in functions.native_no_rename.get(self.func, set()) else a for i, a in enumerate(self.args)
-        ])
-
-    def function_rename(self, name: str):
-        return CallNode(self.pos, self.func, [
-            a.function_rename(name) if i not in functions.native_no_rename.get(self.func, set()) else a for i, a in enumerate(self.args)
-        ])
+        Error.undefined_variable(self, self.var)
 
 
-class ExpressionNode(Node):
-    OPERATORS = {
-        "&&": "land",
-        "||": "or"
-    }
+class IndexedAssignmentNode(AssignmentNode):
+    """
+    indexed variable assignment node
+    """
 
-    def __init__(self, pos: Position, left: Node, right: list):
-        super().__init__(pos)
+    index: Node
 
-        self.left = left
-        self.right = right
+    def __init__(self, pos: Position, var: str, index: Node, op: str, value: Node):
+        super().__init__(pos, var, op, value)
 
-    def get_pos(self) -> Position:
-        if len(self.right) > 0:
-            return self.pos + self.right[-1][1].get_pos()
+        self.index = index
 
-        return self.pos
+    def __str__(self):
+        return f"{self.var}[{self.index}] {self.op} {self.value}"
 
-    def get(self):
-        valc, valv = self.left.get()
+    def generate(self) -> Instruction | Instructions:
+        if (var := Scopes.get(self.var)) is not None:
+            value_code, value = self.value.get()
+            index_code, index = self.index.get()
 
-        if len(self.right) > 0:
-            tmpv = Gen.temp_var(valv)
-            code = valc + MInstruction(MInstructionType.SET, [tmpv, valv])
+            if var.type not in Type.BLOCK:
+                Error.incompatible_types(self, var.type, Type.NUM)
+            if value.type not in Type.NUM:
+                Error.incompatible_types(self, value.type, Type.NUM)
+            if index.type not in Type.NUM:
+                Error.incompatible_types(self, index.type, Type.NUM)
 
-            for r in self.right:
-                # determine operator
-                op = ExpressionNode.OPERATORS.get(r[0])
-                if op is None:
-                    gen_error(self.get_pos(), f"Invalid operator")
+            if self.op == "=":
+                return value_code + index_code + MInstruction(MInstructionType.WRITE, [value, var, index])
+            else:
+                tmp = Gen.temp_var(Type.NUM)
+                return index_code + MInstruction(MInstructionType.READ, [tmp, var, index]) + value_code + \
+                       MInstruction(MInstructionType.OP, [AssignmentNode.OPERATORS[self.op], tmp, tmp, value]) + \
+                       MInstruction(MInstructionType.WRITE, [tmp, var, index])
 
-                valc, valv = r[1].get()
-
-                tmpv2 = Gen.temp_var()
-                code += valc + MInstruction(MInstructionType.OP, [op, tmpv2, tmpv, valv])
-                tmpv = tmpv2
-
-            return code, tmpv
-
-        else:
-            return valc, valv
-
-    def table_rename(self, variables: dict):
-        return ExpressionNode(self.pos, self.left.table_rename(variables),
-                              [(r[0], r[1].table_rename(variables)) for r in self.right])
-
-    def function_rename(self, name: str):
-        return ExpressionNode(self.pos, self.left.function_rename(name),
-                              [(r[0], r[1].function_rename(name)) for r in self.right])
+        Error.undefined_variable(self, self.var)
 
 
-class CompExpressionNode(Node):
-    OPERATORS = {
-        "==": "equal",
-        "<": "lessThan",
-        ">": "greaterThan",
-        "<=": "lessThanEq",
-        ">=": "greaterThanEq",
-        "!=": "notEqual",
-        "===": "strictEqual"
-    }
+class BinaryOpNode(Node):
+    """
+    binary operator node
+    """
 
-    def __init__(self, pos: Position, left: Node, right: list):
-        super().__init__(pos)
+    left: Node
+    right: list[tuple[str, Node]] | None
 
-        self.left = left
-        self.right = right
-
-    def get_pos(self) -> Position:
-        if len(self.right) > 0:
-            return self.pos + self.right[-1][1].get_pos()
-
-        return self.pos
-
-    def get(self):
-        valc, valv = self.left.get()
-
-        if len(self.right) > 0:
-            tmpv = Gen.temp_var(valv)
-            code = valc + MInstruction(MInstructionType.SET, [tmpv, valv])
-
-            for r in self.right:
-                # determine operator
-                op = CompExpressionNode.OPERATORS.get(r[0])
-                if op is None:
-                    gen_error(self.get_pos(), f"Invalid operator")
-
-                valc, valv = r[1].get()
-
-                tmpv2 = Gen.temp_var()
-                code += valc + MInstruction(MInstructionType.OP, [op, tmpv2, tmpv, valv])
-                tmpv = tmpv2
-
-            return code, tmpv
-
-        else:
-            return valc, valv
-
-    def table_rename(self, variables: dict):
-        return CompExpressionNode(self.pos, self.left.table_rename(variables),
-                                  [(r[0], r[1].table_rename(variables)) for r in self.right])
-
-    def function_rename(self, name: str):
-        return CompExpressionNode(self.pos, self.left.function_rename(name),
-                                  [(r[0], r[1].function_rename(name)) for r in self.right])
-
-
-class ArithExpressionNode(Node):
     OPERATORS = {
         "+": "add",
         "-": "sub",
+        "*": "mul",
+        "/": "div",
+        "//": "idiv",
+        "%": "mod",
+        "**": "pow",
+        "==": "equal",
+        "!=": "notEqual",
+        "&&": "land",
+        "||": "or",
+        "<": "lessThan",
+        "<=": "lessThanEq",
+        ">": "greaterThan",
+        ">=": "greaterThanEq",
+        "===": "strictEqual",
         "<<": "shl",
         ">>": "shr",
-        "&": "and",
         "|": "or",
+        "&": "and",
         "^": "xor"
     }
 
-    def __init__(self, pos: Position, left: Node, right: list):
-        super().__init__(pos)
-
-        self.left = left
-        self.right = right
-
-    def get_pos(self) -> Position:
-        if len(self.right) > 0:
-            return self.pos + self.right[-1][1].get_pos()
-
-        return self.pos
-
-    def get(self):
-        valc, valv = self.left.get()
-
-        if len(self.right) > 0:
-            tmpv = Gen.temp_var(valv)
-            code = valc + MInstruction(MInstructionType.SET, [tmpv, valv])
-
-            for r in self.right:
-                # determine operator
-                op = ArithExpressionNode.OPERATORS.get(r[0])
-                if op is None:
-                    gen_error(self.get_pos(), f"Invalid operator")
-
-                valc, valv = r[1].get()
-
-                tmpv2 = Gen.temp_var()
-                code += valc + MInstruction(MInstructionType.OP, [op, tmpv2, tmpv, valv])
-                tmpv = tmpv2
-
-            return code, tmpv
-
-        else:
-            return valc, valv
-
-    def table_rename(self, variables: dict):
-        return ArithExpressionNode(self.pos, self.left.table_rename(variables),
-                                   [(r[0], r[1].table_rename(variables)) for r in self.right])
-
-    def function_rename(self, name: str):
-        return ArithExpressionNode(self.pos, self.left.function_rename(name),
-                                   [(r[0], r[1].function_rename(name)) for r in self.right])
-
-
-class TermNode(Node):
-    OPERATORS = {
-        "*": "mul",
-        "/": "div",
-        "**": "pow",
-        "%": "mod",
-        "//": "idiv"
+    EQUALITY = {
+        "==",
+        "!=",
+        "==="
     }
 
-    def __init__(self, pos: Position, left: Node, right: list):
+    def __init__(self, pos: Position, left: Node, right: list[tuple[str, Node]] | None):
         super().__init__(pos)
 
         self.left = left
         self.right = right
 
-    def get_pos(self) -> Position:
-        if len(self.right) > 0:
-            return self.pos + self.right[-1][1].get_pos()
+    def __str__(self):
+        string = str(self.left)
+        for op, node in self.right:
+            string += " " + op + f" {str(node)}"
+        return string
 
-        return self.pos
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        code, value = self.left.get()
 
-    def get(self):
-        valc, valv = self.left.get()
+        if value.type not in Type.NUM and len(self.right) > 0:
+            for op, _ in self.right:
+                if op not in BinaryOpNode.EQUALITY:
+                    Error.incompatible_types(self, value.type, Type.NUM)
 
-        if len(self.right) > 0:
-            tmpv = Gen.temp_var(valv)
-            code = valc + MInstruction(MInstructionType.SET, [tmpv, valv])
+        if self.right is not None and len(self.right) > 0:
+            current_value = value
 
-            for r in self.right:
-                # determine operator
-                op = TermNode.OPERATORS.get(r[0])
-                if op is None:
-                    gen_error(self.get_pos(), f"Invalid operator")
+            for op, node in self.right:
+                value_code, value = node.get()
 
-                valc, valv = r[1].get()
+                if value.type not in Type.NUM and op not in BinaryOpNode.EQUALITY:
+                    Error.incompatible_types(self, value.type, Type.NUM)
 
-                tmpv2 = Gen.temp_var()
-                code += valc + MInstruction(MInstructionType.OP, [op, tmpv2, tmpv, valv])
-                tmpv = tmpv2
+                tmpv = Gen.temp_var(Type.NUM)
 
-            return code, tmpv
+                code += value_code + MInstruction(MInstructionType.OP, [BinaryOpNode.OPERATORS[op], tmpv, current_value, value])
 
-        else:
-            return valc, valv
+                current_value = tmpv
 
-    def table_rename(self, variables: dict):
-        return TermNode(self.pos, self.left.table_rename(variables),
-                        [(r[0], r[1].table_rename(variables)) for r in self.right])
+            return code, current_value
 
-    def function_rename(self, name: str):
-        return TermNode(self.pos, self.left.function_rename(name),
-                        [(r[0], r[1].function_rename(name)) for r in self.right])
+        return code, value
 
 
-class FactorNode(Node):
-    def __init__(self, pos: Position, value: Node, flags: dict):
+class UnaryOpNode(Node):
+    """
+    unary operator node
+    """
+
+    op: str
+    value: Node
+
+    def __init__(self, pos: Position, op: str, value: Node):
         super().__init__(pos)
 
+        self.op = op
         self.value = value
-        self.flags = flags
 
-    def get_pos(self) -> Position:
-        return self.pos + self.value.get_pos()
+    def __str__(self):
+        return f"{self.op}{str(self.value)}"
 
-    def get(self):
-        valc, valv = self.value.get()
-        tmpv = Gen.temp_var(valv)
-        code = valc + MInstruction(MInstructionType.SET, [tmpv, valv])
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        code, value = self.value.get()
 
-        if not self.flags["sign"]:
-            code += MInstruction(MInstructionType.OP, ["sub", tmpv, "0", tmpv])
-        if self.flags["not"]:
-            code += MInstruction(MInstructionType.OP, ["not", tmpv, tmpv, "0"])
-        if self.flags["flip"]:
-            code += MInstruction(MInstructionType.OP, ["flip", tmpv, tmpv, "_"])
+        if value.type not in Type.NUM:
+            Error.incompatible_types(self, value.type, Type.NUM)
 
-        return code, tmpv
+        tmpv = Gen.temp_var(Type.NUM)
 
-    def table_rename(self, variables: dict):
-        return FactorNode(self.pos, self.value.table_rename(variables), self.flags)
+        match self.op:
+            case "-":
+                code += MInstruction(MInstructionType.OP, ["sub", tmpv, NumberValue(0), tmpv])
+            case "!":
+                code += MInstruction(MInstructionType.OP, ["equal", tmpv, tmpv, NumberValue(0)])
+            case "~":
+                code += MInstruction(MInstructionType.OP, ["not", tmpv, tmpv, "_"])
 
-    def function_rename(self, name: str):
-        return FactorNode(self.pos, self.value.function_rename(name), self.flags)
+        return code, value
+
+
+class CallNode(Node):
+    """
+    function call node
+    """
+
+    name: str
+    params: list[Node]
+
+    return_value: Value
+
+    def __init__(self, pos: Position, name: str, params: list[Node]):
+        super().__init__(pos)
+
+        self.name = name
+        self.params = params
+
+        self.return_value = NullValue()
+
+    def generate(self) -> Instruction | Instructions:
+        code = Instructions()
+
+        if not isinstance(fun := Scopes.get(self.name), Function):
+            Error.undefined_function(self, self.name)
+
+        if len(self.params) != len(fun.params):
+            Error.invalid_arg_count(self, len(self.params), len(fun.params))
+
+        if fun.return_type != Type.NULL:
+            self.return_value = VariableValue(fun.return_type, f"__f_{self.name}_retv")
+
+        for i, param in enumerate(self.params):
+            param_code, param_value = param.get()
+
+            if param_value.type != fun.params[i][1]:
+                Error.incompatible_types(self, param_value.type, fun.params[i][1])
+
+            code += param_code
+            code += MInstruction(MInstructionType.SET, [
+                VariableValue(fun.params[i][1], Scope(self.name).rename(fun.params[i][0])),
+                param_value
+            ])
+
+        code += MInstruction(MInstructionType.OP, [
+            "add",
+            VariableValue(Type.NUM, f"__f_{self.name}_ret"),
+            VariableValue(Type.NUM, "@counter"),
+            NumberValue(1)
+        ])
+        code += MppInstructionJump(f"__f_{self.name}")
+
+        return code
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        return self.generate(), self.return_value
+
+
+class Param(enum.Enum):
+    INPUT = enum.auto()
+    OUTPUT = enum.auto()
+    CONFIG = enum.auto()
+    UNUSED = enum.auto()
+
+
+class NativeCallNode(Node):
+    """
+    native function call node
+    """
+
+    name: str
+    params: list[Node | str]
+
+    return_value: Value
+
+    NATIVES = {
+        "read": (
+            (Param.OUTPUT, Type.NUM),
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "write": (
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "draw.clear": (
+            (Param.INPUT, Type.NUM),
+        ) * 3,
+        "draw.color": (
+            (Param.INPUT, Type.NUM),
+        ) * 4,
+        "draw.col": (
+            (Param.INPUT, Type.NUM),
+        ),
+        "draw.stroke": (
+            (Param.INPUT, Type.NUM),
+        ),
+        "draw.line": (
+            (Param.INPUT, Type.NUM),
+        ) * 4,
+        "draw.rect": (
+            (Param.INPUT, Type.NUM),
+        ) * 4,
+        "draw.lineRect": (
+            (Param.INPUT, Type.NUM),
+        ) * 4,
+        "draw.poly": (
+            (Param.INPUT, Type.NUM),
+        ) * 5,
+        "draw.linePoly": (
+            (Param.INPUT, Type.NUM),
+        ) * 5,
+        "draw.triangle": (
+            (Param.INPUT, Type.NUM),
+        ) * 5,
+        "draw.image": (
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.ITEM_TYPE),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "print": (
+            (Param.INPUT, Type.ANY),
+        ),
+
+        "drawflush": (
+            (Param.INPUT, Type.BLOCK),
+        ),
+
+        "printflush": (
+            (Param.INPUT, Type.BLOCK),
+        ),
+
+        "getlink": (
+            (Param.OUTPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "control.enabled": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+        "control.shoot": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM)
+        ),
+        "control.shootp": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.UNIT),
+            (Param.INPUT, Type.NUM)
+        ),
+        "control.config": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+        "control.color": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "radar": (
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("distance", "health", "shield", "armor", "maxHealth")),
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM),
+            (Param.OUTPUT, Type.UNIT)
+        )
+    } | \
+              {
+                    f"sensor.{property}": (
+                        (Param.OUTPUT, type_),
+                        (Param.INPUT, Type.BLOCK | Type.UNIT)
+                    ) for property, type_ in constants.SENSOR_READABLE.items()
+    } | \
+              {
+        "wait": (
+            (Param.INPUT, Type.NUM),
+        ),
+
+        "lookup.block": (
+            (Param.OUTPUT, Type.BLOCK_TYPE),
+            (Param.INPUT, Type.NUM)
+        ),
+        "lookup.unit": (
+            (Param.OUTPUT, Type.UNIT_TYPE),
+            (Param.INPUT, Type.NUM)
+        ),
+        "lookup.item": (
+            (Param.OUTPUT, Type.ITEM_TYPE),
+            (Param.INPUT, Type.NUM)
+        ),
+        "lookup.liquid": (
+            (Param.OUTPUT, Type.LIQUID_TYPE),
+            (Param.INPUT, Type.NUM)
+        ),
+
+        "packcolor": (
+            (Param.OUTPUT, Type.NUM),
+        ) + (
+            (Param.INPUT, Type.NUM),
+        ) * 4,
+
+        "ubind": (
+            (Param.INPUT, Type.UNIT_TYPE),
+        ),
+
+        "ucontrol.idle": tuple(),
+        "ucontrol.stop": tuple(),
+        "ucontrol.move": (
+            (Param.INPUT, Type.NUM),
+        ) * 2,
+        "ucontrol.approach": (
+            (Param.INPUT, Type.NUM),
+        ) * 3,
+        "ucontrol.boost": (
+            (Param.INPUT, Type.NUM),
+        ),
+        "ucontrol.target": (
+            (Param.INPUT, Type.NUM),
+        ) * 3,
+        "ucontrol.targetp": (
+            (Param.INPUT, Type.UNIT),
+            (Param.INPUT, Type.NUM),
+        ),
+        "ucontrol.itemDrop": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.NUM),
+        ),
+        "ucontrol.itemTake": (
+            (Param.INPUT, Type.BLOCK),
+            (Param.INPUT, Type.ITEM_TYPE),
+            (Param.INPUT, Type.NUM)
+        ),
+        "ucontrol.payDrop": tuple(),
+        "ucontrol.payTake": (
+            (Param.INPUT, Type.NUM),
+        ),
+        "ucontrol.payEnter": tuple(),
+        "ucontrol.mine": (
+            (Param.INPUT, Type.NUM),
+        ) * 2,
+        "ucontrol.flag": (
+            (Param.INPUT, Type.NUM),
+        ),
+        "ucontrol.build": (
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.BLOCK_TYPE),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM)
+        ),
+        "ucontrol.getBlock": (
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.OUTPUT, Type.BLOCK_TYPE),
+            (Param.OUTPUT, Type.BLOCK),
+        ),
+        "ucontrol.within": (
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM)
+        ),
+        "ucontrol.unbind": tuple(),
+
+        "uradar": (
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground")),
+            (Param.CONFIG, ("distance", "health", "shield", "armor", "maxHealth")),
+            (Param.UNUSED, Type.ANY),
+            (Param.INPUT, Type.NUM),
+            (Param.OUTPUT, Type.UNIT)
+        ),
+
+        "ulocate.ore": (
+            (Param.UNUSED, Type.ANY),
+            (Param.UNUSED, Type.ANY),
+            (Param.INPUT, Type.BLOCK_TYPE),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.UNUSED, Type.ANY)
+        ),
+        "ulocate.building": (
+            (Param.CONFIG, ("core", "storage", "generator", "turret", "factory", "repair", "battery", "reactor")),
+            (Param.INPUT, Type.NUM),
+            (Param.UNUSED, Type.ANY),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.BLOCK)
+        ),
+        "ulocate.spawn": (
+            (Param.UNUSED, Type.ANY),
+            (Param.UNUSED, Type.ANY),
+            (Param.UNUSED, Type.ANY),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.BLOCK)
+        ),
+        "ulocate.damaged": (
+            (Param.UNUSED, Type.ANY),
+            (Param.UNUSED, Type.ANY),
+            (Param.UNUSED, Type.ANY),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.NUM),
+            (Param.OUTPUT, Type.BLOCK)
+        )
+    }
+
+    NATIVES_RETURN_POS = {
+        "read": 0,
+        "getlink": 0,
+        "radar": 6
+    } | \
+                         {
+        f"sensor.{property}": 0 for property in constants.SENSOR_READABLE.keys()
+    } | \
+                         {
+        "lookup.block": 0,
+        "lookup.unit": 0,
+        "lookup.item": 0,
+        "lookup.liquid": 0,
+        "packcolor": 0,
+        "ucontrol.within": 3,
+        "uradar": 6
+    }
+
+    BUILTINS = {
+        "max": 2,
+        "min": 2,
+        "angle": 2,
+        "len": 2,
+        "noise": 2,
+        "abs": 1,
+        "log": 1,
+        "log10": 1,
+        "floor": 1,
+        "ceil": 1,
+        "sqrt": 1,
+        "rand": 1,
+        "sin": 1,
+        "cos": 1,
+        "tan": 1,
+        "asin": 1,
+        "acos": 1,
+        "atan": 1
+    }
+
+    def __init__(self, pos: Position, name: str, params: list[Node | str]):
+        super().__init__(pos)
+
+        self.name = name
+        self.params = params
+
+        self.return_value = NullValue()
+
+    def __str__(self):
+        return f"{self.name}({', '.join(map(str, self.params))})"
+
+    def generate(self) -> Instruction | Instructions:
+        if self.name in NativeCallNode.NATIVES:
+            return self.generate_native()
+        elif self.name in NativeCallNode.BUILTINS:
+            return self.generate_builtin()
+
+        Error.undefined_function(self, self.name)
+
+    def generate_native(self) -> Instruction | Instructions:
+        if (nat := NativeCallNode.NATIVES.get(self.name)) is None:
+            Error.undefined_function(self, self.name)
+
+        if len(self.params) != len(nat):
+            Error.invalid_arg_count(self, len(self.params), len(nat))
+
+        code = Instructions()
+
+        params = []
+
+        for i, param in enumerate(self.params):
+            match nat[i][0]:
+                case Param.CONFIG:
+                    if isinstance(param, str):
+                        params.append(param)
+                case Param.UNUSED:
+                    params.append("_")
+                case Param.INPUT:
+                    param_code, param_value = param.get()
+                    if param_value.type not in nat[i][1]:
+                        Error.incompatible_types(self, param_value.type, nat[i][1])
+                    code += param_code
+                    params.append(param_value)
+                case Param.OUTPUT:
+                    if i == NativeCallNode.NATIVES_RETURN_POS.get(self.name):
+                        value = Gen.temp_var(nat[i][1])
+                        self.return_value = value
+                        params.append(value)
+                    else:
+                        param = Scopes.rename(param, True)
+                        if (var := Scopes.get(param)) is None:
+                            var = VariableValue(nat[i][1], param)
+                            Scopes.add(var)
+                        elif isinstance(var, Function):
+                            Error.already_defined_var(self, param)
+                        elif var.type != nat[i][1]:
+                            Error.incompatible_types(self, var.type, nat[i][1])
+                        params.append(var)
+
+        if "." in self.name:
+            if self.name == "sensor":
+                params.append("@" + self.name.split(".")[1])
+            else:
+                params = [self.name.split(".")[1]] + params
+
+        code += MInstruction(MInstructionType[self.name.split(".")[0].upper()], params)
+
+        return code
+
+    def generate_builtin(self) -> Instruction | Instructions:
+        if (nat := NativeCallNode.BUILTINS.get(self.name)) is None:
+            Error.undefined_function(self, self.name)
+
+        if len(self.params) != nat:
+            Error.invalid_arg_count(self, len(self.params), nat)
+
+        code = Instructions()
+
+        params = []
+
+        for param in self.params:
+            param_code, param_value = param.get()
+            if param_value.type != Type.NUM:
+                Error.incompatible_types(self, param_value.type, Type.NUM)
+
+            code += param_code
+            params.append(param_value)
+
+        out = Gen.temp_var(Type.NUM)
+
+        code += MInstruction(MInstructionType.OP, [
+            self.name,
+            out,
+            *params
+        ] + ["_"] * (2 - len(params)))
+
+        self.return_value = out
+
+        return code
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        return self.generate(), self.return_value
 
 
 class ValueNode(Node):
-    def __init__(self, pos: Position, value: str, is_id: bool):
+    """
+    value node
+    """
+
+    def __init__(self, pos: Position, value):
         super().__init__(pos)
 
         self.value = value
-        self.is_id = is_id
 
-    def get_pos(self) -> Position:
-        return self.pos
+    def __str__(self):
+        return str(self.value)
 
-    def get(self):
-        if Gen.REGEXES["ATTR"].fullmatch(self.value):
-            tmpv = Gen.temp_var()
+
+class StringValueNode(ValueNode):
+    """
+    string value node
+    """
+
+    value: str
+
+    def __init__(self, pos: Position, value: str):
+        super().__init__(pos, value)
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        return Instructions(), StringValue(self.value)
+
+
+class NumberValueNode(ValueNode):
+    """
+    number value node
+    """
+
+    value: int | float
+
+    def __init__(self, pos: Position, value: int | float):
+        super().__init__(pos, value)
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        return Instructions(), NumberValue(self.value)
+
+
+class ContentValueNode(ValueNode):
+    """
+    content value node
+    """
+
+    value: str
+    type: Type
+
+    def __init__(self, pos: Position, value: str, type_: Type):
+        super().__init__(pos, value)
+
+        self.type = type_
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        return Instructions(), VariableValue(self.type, self.value)
+
+
+class BlockValueNode(ValueNode):
+    """
+    linker block value node
+    """
+
+    value: str
+
+    def __init__(self, pos: Position, value: str):
+        super().__init__(pos, value)
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        return Instructions(), BlockValue(self.value)
+
+
+class VariableValueNode(ValueNode):
+    """
+    variable value node
+    """
+
+    value: str
+
+    def __init__(self, pos: Position, value: str):
+        super().__init__(pos, value)
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        if "." in self.value:
             spl = self.value.split(".")
-            return MInstruction(MInstructionType.SENSOR, [tmpv, spl[0], "@" + spl[1]]), tmpv
+            self.value = Scopes.rename(spl[0]) + "." + spl[1]
+        else:
+            self.value = Scopes.rename(self.value)
 
-        return Instructions(), Var(self.value, False)
+        if isinstance(var := Scopes.get(self.value), VariableValue):
+            return Instructions(), var
 
-    def set(self):
-        if Gen.REGEXES["ATTR"].fullmatch(self.value):
-            tmpv = Gen.temp_var()
-            spl = self.value.split(".")
-            return MInstruction(MInstructionType.CONTROL, [spl[1], spl[0], tmpv, "_", "_"]), tmpv
+        if "." in self.value and (spl := self.value.split("."))[1] in constants.SENSOR_READABLE:
+            if isinstance(var := Scopes.get(spl[0]), VariableValue):
+                if var.type not in Type.BLOCK | Type.UNIT:
+                    Error.incompatible_types(self, var.type, Type.BLOCK)
 
-        return Instructions(), Var(self.value, False)
+                out = Gen.temp_var(constants.SENSOR_READABLE[spl[1]])
 
-    def table_rename(self, variables: dict):
-        return ValueNode(self.pos, variables.get(self.value, self.value), self.is_id)
+                return Instructions() + MInstruction(MInstructionType.SENSOR, [out, var, "@" + spl[1]]), out
 
-    def function_rename(self, name: str):
-        if Gen.is_local(self.value):
-            return ValueNode(self.pos, f"__f_lvar_{name}_{self.value}", self.is_id)
-
-        return self
+        Error.undefined_variable(self, self.value)
 
 
-class IndexedValueNode(Node):
-    def __init__(self, pos: Position, value: str, idx: Node):
+class IndexedValueNode(ValueNode):
+    """
+    indexed variable value node
+    """
+
+    value: str
+    index: Node
+
+    def __init__(self, pos: Position, value: str, index: Node):
+        super().__init__(pos, value)
+
+        self.index = index
+
+    def __str__(self):
+        return f"{self.value}[{self.index}]"
+
+    def get(self) -> tuple[Instruction | Instructions, Value]:
+        self.value = Scopes.rename(self.value)
+
+        if not isinstance(var := Scopes.get(self.value), VariableValue):
+            Error.undefined_variable(self, self.value)
+
+        if var.type != Type.BLOCK:
+            Error.incompatible_types(self, var.type, Type.BLOCK)
+
+        index_code, index = self.index.get()
+        out = Gen.temp_var(Type.NUM)
+
+        return index_code + MInstruction(MInstructionType.READ, [out, var, index]), out
+
+
+class ReturnNode(Node):
+    """
+    return from function node
+    """
+
+    func: str
+    value: Node | None
+
+    def __init__(self, pos: Position, func: str, value: Node | None):
         super().__init__(pos)
 
+        self.func = func
         self.value = value
-        self.idx = idx
 
-    def get_pos(self) -> Position:
-        return self.pos + self.idx.get_pos()
+    def generate(self) -> Instruction | Instructions:
+        if self.value is None:
+            return Instructions()
 
-    def get(self):
-        tmpv = Gen.temp_var()
-        ic, iv = self.idx.get()
-        return ic + MInstruction(MInstructionType.READ, [tmpv, self.value, iv]), tmpv
+        value_code, value = self.value.get()
 
-    def set(self):
-        tmpv = Gen.temp_var()
-        ic, iv = self.idx.get()
-        return ic + MInstruction(MInstructionType.WRITE, [tmpv, self.value, iv]), tmpv
+        if not isinstance(fun := Scopes.get(self.func), Function):
+            Error.undefined_function(self, self.name)
 
-    def table_rename(self, variables: dict):
-        return IndexedValueNode(self.pos, variables.get(self.value, self.value), self.idx.table_rename(variables))
+        if value.type != fun.return_type:
+            Error.incompatible_types(self, value.type, fun.return_type)
 
-    def function_rename(self, name: str):
-        if Gen.is_local(self.value):
-            return IndexedValueNode(self.pos, f"__f_lvar_{name}_{self.value}", self.idx.function_rename(name))
+        return value_code + MInstruction(MInstructionType.SET, [
+            VariableValue(value.type, f"__f_{self.func}_retv"),
+            value
+        ])
 
-        return self
+
+class BreakNode(Node):
+    """
+    break loop node
+    """
+
+    loop: str
+
+    def __init__(self, pos: Position, loop: str):
+        super().__init__(pos)
+
+        self.loop = loop
+
+    def generate(self) -> Instruction | Instructions:
+        return Instructions() + MppInstructionJump(f"{self.loop}_e")
+
+
+class ContinueNode(Node):
+    """
+    continue loop node
+    """
+
+    loop: str
+
+    def __init__(self, pos: Position, loop: str):
+        super().__init__(pos)
+
+        self.loop = loop
+
+    def generate(self) -> Instruction | Instructions:
+        return Instructions() + MppInstructionJump(f"{self.loop}_c")
+
+
+class EndNode(Node):
+    """
+    end program node
+    """
+
+    def __init__(self, pos: Position):
+        super().__init__(pos)
+
+    def generate(self) -> Instruction | Instructions:
+        return Instructions() + MppInstructionJump("start")
 
 
 class IfNode(Node):
-    def __init__(self, pos: Position, cond: Node, code: CodeListNode, else_code: CodeListNode):
+    """
+    if conditional node
+    """
+
+    cond: Node
+    code: CodeBlockNode
+    else_code: CodeBlockNode | None
+
+    def __init__(self, pos: Position, cond: Node, code: CodeBlockNode, else_code: CodeBlockNode | None):
         super().__init__(pos)
 
         self.cond = cond
         self.code = code
         self.else_code = else_code
 
-    def get_pos(self) -> Position:
-        return self.pos + self.cond.get_pos()
+    def generate(self) -> Instruction | Instructions:
+        self.code.push_scope()
 
-    def generate(self):
-        condc, condv = self.cond.get()
+        cond_code, cond = self.cond.get()
+
         code = self.code.generate()
-        else_code = self.else_code.generate()
 
-        if else_code:
-            ecl = Gen.temp_lab()
-            el = Gen.temp_lab()
-            return condc + MppInstructionOJump(ecl, condv, "notEqual", "true") + code + MppInstructionJump(el) + \
-                   MppInstructionLabel(ecl) + else_code + MppInstructionLabel(el)
+        self.code.pop_scope()
 
-        else:
-            el = Gen.temp_lab()
-            return condc + MppInstructionOJump(el, condv, "notEqual", "true") + code + MppInstructionLabel(el)
+        if self.else_code is not None:
+            self.else_code.push_scope()
+            else_code = self.else_code.generate()
+            self.else_code.pop_scope()
 
-    def table_rename(self, variables: dict):
-        return IfNode(self.pos, self.cond.table_rename(variables), self.code.table_rename(variables),
-                      self.else_code.table_rename(variables))
+            else_label = Gen.temp_lab()
+            end_label = Gen.temp_lab()
 
-    def function_rename(self, name: str):
-        return IfNode(self.pos, self.cond.function_rename(name), self.code.function_rename(name),
-                      self.else_code.function_rename(name))
+            return cond_code + MppInstructionOJump(else_label, cond, "equal", NumberValue(0)) + \
+                   code + MppInstructionJump(end_label) + MppInstructionLabel(else_label) + \
+                   else_code + MppInstructionLabel(end_label)
+
+        end_label = Gen.temp_lab()
+
+        return cond_code + MppInstructionOJump(end_label, cond, "equal", NumberValue(0)) + code + \
+               MppInstructionLabel(end_label)
 
 
-class WhileNode(Node):
-    def __init__(self, pos: Position, name: str, cond: Node, code: CodeListNode):
+class LoopNode(Node):
+    """
+    loop node
+    """
+
+    def __init__(self, pos: Position):
+        super().__init__(pos)
+
+
+class WhileNode(LoopNode):
+    """
+    while loop node
+    """
+
+    name: str
+    cond: Node
+    code: CodeBlockNode
+
+    def __init__(self, pos: Position, name: str, cond: Node, code: CodeBlockNode):
         super().__init__(pos)
 
         self.name = name
         self.cond = cond
         self.code = code
 
-    def get_pos(self) -> Position:
-        return self.pos + self.cond.get_pos()
+    def generate(self) -> Instruction | Instructions:
+        self.code.push_scope()
 
-    def generate(self):
-        condc, condv = self.cond.get()
+        cond_code, cond = self.cond.get()
+
         code = self.code.generate()
 
-        return MppInstructionLabel(f"{self.name}_s") + condc + \
-               MppInstructionOJump(f"{self.name}_e", condv, "notEqual", "true") + \
+        self.code.pop_scope()
+
+        if cond.type != Type.NUM:
+            Error.incompatible_types(self, cond.type, Type.NUM)
+
+        return MppInstructionLabel(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_c") + cond_code + \
+               MppInstructionOJump(f"{self.name}_e", cond, "equal", NumberValue(0)) + \
                code + MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
 
-    def table_rename(self, variables: dict):
-        return WhileNode(self.pos, self.name, self.cond.table_rename(variables), self.code.table_rename(variables))
 
-    def function_rename(self, name: str):
-        return WhileNode(self.pos, self.name, self.cond.function_rename(name), self.code.function_rename(name))
+class ForNode(LoopNode):
+    """
+    for loop node
+    """
 
+    name: str
+    init: Node
+    cond: Node
+    action: Node
+    code: CodeBlockNode
 
-class ForNode(Node):
-    def __init__(self, pos: Position, name: str, init: Node, cond: Node, action: Node, code: CodeListNode):
+    def __init__(self, pos: Position, name: str, init: Node, cond: Node, action: Node, code: CodeBlockNode):
         super().__init__(pos)
 
         self.name = name
@@ -659,108 +1119,114 @@ class ForNode(Node):
         self.action = action
         self.code = code
 
-    def get_pos(self) -> Position:
-        return self.pos + self.action.get_pos()
+    def generate(self) -> Instruction | Instructions:
+        self.code.push_scope()
 
-    def generate(self):
-        condc, condv = self.cond.get()
         init = self.init.generate()
+        cond_code, cond = self.cond.get()
         action = self.action.generate()
+
         code = self.code.generate()
 
-        return init + MppInstructionLabel(f"{self.name}_s") + condc + \
-               MppInstructionOJump(f"{self.name}_e", condv, "notEqual", "true") + \
-               code + action + MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
+        self.code.pop_scope()
 
-    def table_rename(self, variables: dict):
-        return ForNode(self.pos, self.name, self.init.table_rename(variables), self.cond.table_rename(variables),
-                       self.action.table_rename(variables),
-                       self.code.table_rename(variables))
+        if cond.type != Type.NUM:
+            Error.incompatible_types(self, cond.type, Type.NUM)
 
-    def function_rename(self, name: str):
-        return ForNode(self.pos, self.name, self.init.function_rename(name), self.cond.function_rename(name),
-                       self.action.function_rename(name),
-                       self.code.function_rename(name))
+        return init + MppInstructionLabel(f"{self.name}_s") + cond_code + \
+               MppInstructionOJump(f"{self.name}_e", cond, "equal", NumberValue(0)) + \
+               code + MppInstructionLabel(f"{self.name}_c") + action + MppInstructionJump(f"{self.name}_s") + \
+               MppInstructionLabel(f"{self.name}_e")
 
 
-class RangeNode(Node):
-    def __init__(self, pos: Position, name: str, counter: str, until: Node, code: CodeListNode):
+class RangeNode(LoopNode):
+    """
+    range loop node
+    """
+
+    name: str
+    var: str
+    until: Node
+    code: CodeBlockNode
+
+    def __init__(self, pos: Position, name: str, var: str, until: Node, code: CodeBlockNode):
         super().__init__(pos)
 
         self.name = name
-        self.counter = counter
+        self.var = var
         self.until = until
         self.code = code
 
-    def get_pos(self) -> Position:
-        return self.pos + self.until.pos
+    def generate(self) -> Instruction | Instructions:
+        self.var = Scopes.rename(self.var, True)
 
-    def generate(self):
-        untilc, untilv = self.until.get()
-        code = self.code.generate()
+        if (var := Scopes.get(self.var)) is None:
+            var = VariableValue(Type.NUM, self.var)
+            Scopes.add(var)
+        elif isinstance(var, Function):
+            Error.already_defined_var(self, self.var)
+        elif var.type != Type.NUM:
+            Error.incompatible_types(self, var.type, Type.NUM)
 
-        return MInstruction(MInstructionType.SET, [self.counter, "0"]) + MppInstructionLabel(f"{self.name}_s") + \
-               untilc + MppInstructionOJump(f"{self.name}_e", self.counter, "greaterThanEq", untilv) + \
-               code + MInstruction(MInstructionType.OP, ["add", self.counter, self.counter, "1"]) + \
+        until_code, until = self.until.get()
+
+        if until.type != Type.NUM:
+            Error.incompatible_types(self, until.type, Type.NUM)
+
+        code = MInstruction(MInstructionType.SET, [var, NumberValue(0)]) + MppInstructionLabel(f"{self.name}_s") + \
+               until_code + MppInstructionOJump(f"{self.name}_e", var, "greaterThanEq", until) + \
+               self.code.generate() + MppInstructionLabel(f"{self.name}_c") + \
+               MInstruction(MInstructionType.OP, ["add", var, var, NumberValue(1)]) + \
                MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
-
-    def table_rename(self, variables: dict):
-        return RangeNode(self.pos, self.name, variables.get(self.counter, self.counter),
-                         self.until.table_rename(variables),
-                         self.code.table_rename(variables))
-
-    def function_rename(self, name: str):
-        return RangeNode(self.pos, self.name, f"__f_lvar_{name}_{self.counter}", self.until.function_rename(name),
-                         self.code.function_rename(name))
-
-
-class FunctionNode(Node):
-    def __init__(self, pos: Position, name: str, args: list, code: CodeListNode):
-        super().__init__(pos)
-
-        self.name = name
-        self.args = args
-        self.code = code
-
-    def get_pos(self) -> Position:
-        return self.pos
-
-    def generate(self):
-        args = {arg: f"__f_a{i}_{self.name}" for i, arg in enumerate(self.args)}
-
-        Gen.push_locals()
-
-        for node in self.code.code:
-            if isinstance(node, LocalNode):
-                Gen.add_locals(node.vars)
-
-        end_label = Gen.temp_lab()
-        code = MppInstructionJump(end_label) + MppInstructionLabel(f"__f_{self.name}") + \
-               self.code.table_rename(args).function_rename(self.name).generate() + \
-               MInstruction(MInstructionType.SET, ["@counter", f"__f_{self.name}_ret"]) + \
-               MppInstructionLabel(end_label)
-
-        Gen.pop_locals()
 
         return code
 
 
-class EndNode(Node):
-    def __init__(self, pos: Position):
+class FunctionNode(Node):
+    """
+    function definition node
+    """
+
+    name: str
+    params: list[tuple[str, Type]]
+    return_type: Type
+    code: CodeBlockNode
+
+    def __init__(self, pos: Position, name: str, params: list[tuple[str, Type]], return_type: Type, code: CodeBlockNode):
         super().__init__(pos)
 
-    def get_pos(self) -> Position:
-        return self.pos
+        self.name = name
+        self.params = params
+        self.return_type = return_type
+        self.code = code
 
-    def generate(self):
-        return MInstruction(MInstructionType.JUMP, ["start", "always", "_", "_"])
+    def __str__(self):
+        return f"function {self.name} ({', '.join(map(lambda t: t[1].name + ' ' + t[0], self.params))}) {self.code}"
 
+    def generate(self) -> Instruction | Instructions:
+        Scopes.add(Function(self.name, self.params, self.return_type))
 
-class LocalNode(Node):
-    def __init__(self, pos: Position, variables: list):
-        super().__init__(pos)
+        code = Instructions()
 
-        self.vars = variables
+        code += MppInstructionJump(f"__f_{self.name}_end")
+        code += MppInstructionLabel(f"__f_{self.name}")
 
-    def get_pos(self) -> Position:
-        return self.pos
+        Scopes.push(self.name)
+        for name, type_ in self.params:
+            Scopes.add(VariableValue(type_, Scopes.rename(name, True)))
+
+        self.code.push_scope()
+
+        code += self.code.generate()
+
+        self.code.pop_scope()
+
+        Scopes.pop()
+
+        code += MInstruction(MInstructionType.SET, [
+            VariableValue(Type.NUM, "@counter"),
+            VariableValue(Type.NUM, f"__f_{self.name}_ret")
+        ])
+        code += MppInstructionLabel(f"__f_{self.name}_end")
+
+        return code

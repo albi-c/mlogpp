@@ -1,7 +1,7 @@
-MIN_CRYOFLUID = 10
+num MIN_CRYOFLUID = 10
 
 for (i : @links) {
-    reactor = getlink(i)
+    Block reactor = getlink(i)
 
     reactor.enabled = reactor.cryofluid > MIN_CRYOFLUID
 }

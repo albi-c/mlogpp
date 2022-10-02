@@ -7,30 +7,29 @@ class LexerTestCase(unittest.TestCase):
     SOURCE_CODE = """\
 # testing source code
 
-x = 23
-a = x + 1
+num x = 23
+num a = x + 1
 x += 80
 
 cell1[10] = 2
 cell1[10] += cell1[4]
 
-function func(a, b) {
-    global a, x
+function func(num a, num b) -> num {
     return a + x
 }
 
 ucontrol.move(x, x + 1)
 
-message = "Hello!"
-unit = @zenith
+str message = "Hello!"
+UnitType unit = @zenith
 
 print(message)
 print(unit)
 
 if (unit == @surge-alloy) {
-    s = true
+    num s = true
 } else {
-    s = false
+    num s = false
 }
 
 while (true) {
@@ -40,7 +39,7 @@ while (true) {
     }
 }
 
-for (i = 1; i <= 10; i += 1) {
+for (num i = 1; i <= 10; i += 1) {
     print(i)
     if (i == 5) {
         continue
@@ -51,9 +50,11 @@ ubind(@mega)
 """
 
     TOKENS = (
+        (TokenType.KEYWORD, "num"),
         (TokenType.ID, "x"),
         (TokenType.SET, "="),
         (TokenType.NUMBER, "23"),
+        (TokenType.KEYWORD, "num"),
         (TokenType.ID, "a"),
         (TokenType.SET, "="),
         (TokenType.ID, "x"),
@@ -77,24 +78,24 @@ ubind(@mega)
         (TokenType.LBRACK, "["),
         (TokenType.NUMBER, "4"),
         (TokenType.RBRACK, "]"),
-        (TokenType.ID, "function"),
+        (TokenType.KEYWORD, "function"),
         (TokenType.ID, "func"),
         (TokenType.LPAREN, "("),
+        (TokenType.KEYWORD, "num"),
         (TokenType.ID, "a"),
         (TokenType.COMMA, ","),
+        (TokenType.KEYWORD, "num"),
         (TokenType.ID, "b"),
         (TokenType.RPAREN, ")"),
+        (TokenType.ARROW, "->"),
+        (TokenType.KEYWORD, "num"),
         (TokenType.LBRACE, "{"),
-        (TokenType.ID, "global"),
-        (TokenType.ID, "a"),
-        (TokenType.COMMA, ","),
-        (TokenType.ID, "x"),
-        (TokenType.ID, "return"),
+        (TokenType.KEYWORD, "return"),
         (TokenType.ID, "a"),
         (TokenType.OPERATOR, "+"),
         (TokenType.ID, "x"),
         (TokenType.RBRACE, "}"),
-        (TokenType.ID, "ucontrol.move"),
+        (TokenType.NATIVE, "ucontrol.move"),
         (TokenType.LPAREN, "("),
         (TokenType.ID, "x"),
         (TokenType.COMMA, ","),
@@ -102,38 +103,42 @@ ubind(@mega)
         (TokenType.OPERATOR, "+"),
         (TokenType.NUMBER, "1"),
         (TokenType.RPAREN, ")"),
+        (TokenType.KEYWORD, "str"),
         (TokenType.ID, "message"),
         (TokenType.SET, "="),
         (TokenType.STRING, "\"Hello!\""),
+        (TokenType.KEYWORD, "UnitType"),
         (TokenType.ID, "unit"),
         (TokenType.SET, "="),
         (TokenType.ID, "@zenith"),
-        (TokenType.ID, "print"),
+        (TokenType.NATIVE, "print"),
         (TokenType.LPAREN, "("),
         (TokenType.ID, "message"),
         (TokenType.RPAREN, ")"),
-        (TokenType.ID, "print"),
+        (TokenType.NATIVE, "print"),
         (TokenType.LPAREN, "("),
         (TokenType.ID, "unit"),
         (TokenType.RPAREN, ")"),
-        (TokenType.ID, "if"),
+        (TokenType.KEYWORD, "if"),
         (TokenType.LPAREN, "("),
         (TokenType.ID, "unit"),
         (TokenType.OPERATOR, "=="),
         (TokenType.ID, "@surge-alloy"),
         (TokenType.RPAREN, ")"),
         (TokenType.LBRACE, "{"),
+        (TokenType.KEYWORD, "num"),
         (TokenType.ID, "s"),
         (TokenType.SET, "="),
         (TokenType.ID, "true"),
         (TokenType.RBRACE, "}"),
-        (TokenType.ID, "else"),
+        (TokenType.KEYWORD, "else"),
         (TokenType.LBRACE, "{"),
+        (TokenType.KEYWORD, "num"),
         (TokenType.ID, "s"),
         (TokenType.SET, "="),
         (TokenType.ID, "false"),
         (TokenType.RBRACE, "}"),
-        (TokenType.ID, "while"),
+        (TokenType.KEYWORD, "while"),
         (TokenType.LPAREN, "("),
         (TokenType.ID, "true"),
         (TokenType.RPAREN, ")"),
@@ -141,18 +146,19 @@ ubind(@mega)
         (TokenType.ID, "a"),
         (TokenType.SET, "+="),
         (TokenType.NUMBER, "1"),
-        (TokenType.ID, "if"),
+        (TokenType.KEYWORD, "if"),
         (TokenType.LPAREN, "("),
         (TokenType.ID, "a"),
         (TokenType.OPERATOR, ">"),
         (TokenType.ID, "x"),
         (TokenType.RPAREN, ")"),
         (TokenType.LBRACE, "{"),
-        (TokenType.ID, "break"),
+        (TokenType.KEYWORD, "break"),
         (TokenType.RBRACE, "}"),
         (TokenType.RBRACE, "}"),
-        (TokenType.ID, "for"),
+        (TokenType.KEYWORD, "for"),
         (TokenType.LPAREN, "("),
+        (TokenType.KEYWORD, "num"),
         (TokenType.ID, "i"),
         (TokenType.SET, "="),
         (TokenType.NUMBER, "1"),
@@ -166,24 +172,24 @@ ubind(@mega)
         (TokenType.NUMBER, "1"),
         (TokenType.RPAREN, ")"),
         (TokenType.LBRACE, "{"),
-        (TokenType.ID, "print"),
+        (TokenType.NATIVE, "print"),
         (TokenType.LPAREN, "("),
         (TokenType.ID, "i"),
         (TokenType.RPAREN, ")"),
-        (TokenType.ID, "if"),
+        (TokenType.KEYWORD, "if"),
         (TokenType.LPAREN, "("),
         (TokenType.ID, "i"),
         (TokenType.OPERATOR, "=="),
         (TokenType.NUMBER, "5"),
         (TokenType.RPAREN, ")"),
         (TokenType.LBRACE, "{"),
-        (TokenType.ID, "continue"),
+        (TokenType.KEYWORD, "continue"),
         (TokenType.RBRACE, "}"),
         (TokenType.RBRACE, "}"),
-        (TokenType.ID, "ubind"),
+        (TokenType.NATIVE, "ubind"),
         (TokenType.LPAREN, "("),
         (TokenType.ID, "@mega"),
-        (TokenType.RPAREN, ")"),
+        (TokenType.RPAREN, ")")
     )
 
     def test_lexer(self):

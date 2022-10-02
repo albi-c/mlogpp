@@ -1,7 +1,7 @@
 for (i : @links) {
-    turret = getlink(i)
+    Block turret = getlink(i)
 
-    enemy = radar(enemy, any, any, distance, turret, 1)
+    Unit enemy = radar(enemy, any, any, distance, turret, 1)
 
     if (enemy === null) {
         control.shoot(turret, 0, 0, false)

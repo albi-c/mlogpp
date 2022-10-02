@@ -1,22 +1,22 @@
-DISTANCE = 8
-UNIT = @zenith
-RANGE = 19
-REGEN_HEALTH = 0.5
-REGEN_NEHEALTH = 0.8
-REGEN_FLAG = 73584
+num DISTANCE = 8
+UnitType UNIT = @zenith
+num RANGE = 19
+num REGEN_HEALTH = 0.5
+num REGEN_NEHEALTH = 0.8
+num REGEN_FLAG = 73584
 
 ubind(UNIT)
-player = uradar(player, ally, any, distance, 0, 1)
+Unit player = uradar(player, ally, any, distance, 1)
 
-flag = @unit.flag
-health = @unit.health
-maxHealth = @unit.maxHealth
+num flag = @unit.flag
+num health = @unit.health
+num maxHealth = @unit.maxHealth
 
 if ((flag == REGEN_FLAG) && (health == maxHealth)) {
     ucontrol.flag(0)
 } else {
     if ((health < maxHealth * REGEN_HEALTH) || flag === REGEN_FLAG) {
-        ulocate(building, repair, false, _, x, y, found, building)
+        ulocate.building(repair, false, x, y, found, building)
         if (found) {
             ucontrol.flag(REGEN_FLAG)
             ucontrol.approach(x, y, 2)
@@ -36,20 +36,20 @@ ucontrol.approach(player.x, player.y, DISTANCE)
 ucontrol.boost(player.boosting)
 
 if (player.shooting) {
-    dx = player.shootX - @unit.x
-    dy = player.shootY - @unit.y
-    distance = len(dx, dy)
-    scale = min(RANGE, distance) / distance
-    sx = @unit.x + dx * scale
-    sy = @unit.y + dy * scale
+    num dx = player.shootX - @unit.x
+    num dy = player.shootY - @unit.y
+    num distance = len(dx, dy)
+    num scale = min(RANGE, distance) / distance
+    num sx = @unit.x + dx * scale
+    num sy = @unit.y + dy * scale
 
     ucontrol.target(sx, sy, true)
 } else {
-    enemy = uradar(enemy, any, any, distance, 0, 1)
+    Unit enemy = uradar(enemy, any, any, distance, 1)
 
     if (enemy === null) {
         if (health < maxHealth * REGEN_NEHEALTH) {
-            ulocate(building, repair, false, _, x, y, found, building)
+            ulocate.building(repair, false, x, y, found, building)
             if (found) {
                 ucontrol.flag(REGEN_FLAG)
                 ucontrol.approach(x, y, 2)

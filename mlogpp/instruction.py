@@ -1,5 +1,7 @@
 import enum
 
+from .value import *
+
 
 class Instruction:
     def __add__(self, other):
@@ -60,11 +62,11 @@ class MInstructionType(enum.Enum):
 
 class MInstruction(Instruction):
     type: MInstructionType
-    params: list[str]
+    params: list[str | int | float | Value]
 
     __match_args__ = ("type", "params")
 
-    def __init__(self, type_: MInstructionType, params: list[str]):
+    def __init__(self, type_: MInstructionType, params: list[str | int | float | Value]):
         self.type = type_
         self.params = list(map(str, params))
 
@@ -118,11 +120,11 @@ class MppInstructionJump(Instruction):
 
 class MppInstructionOJump(Instruction):
     label: str
-    op1: str
+    op1: str | Value
     op: str
-    op2: str
+    op2: str | Value
 
-    def __init__(self, label: str, op1: str, op: str, op2: str):
+    def __init__(self, label: str, op1: str | Value, op: str, op2: str | Value):
         self.label = str(label)
         self.op1 = str(op1)
         self.op = str(op)

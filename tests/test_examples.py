@@ -1,11 +1,7 @@
 import unittest
 import os
 
-from mlogpp.lexer import Lexer
-from mlogpp.preprocess import Preprocessor
-from mlogpp.parser_ import Parser
-from mlogpp.optimizer import Optimizer
-from mlogpp.linker import Linker
+from mlogpp.compile import compile_code
 
 
 class ExamplesTestCase(unittest.TestCase):
@@ -17,12 +13,7 @@ class ExamplesTestCase(unittest.TestCase):
                 with open(filename, "r") as f:
                     code = f.read()
 
-                code = Preprocessor.preprocess(code)
-                code = Lexer(directory).lex(code, filename)
-                code = Parser().parse(code)
-                code = code.generate()
-                code = Optimizer.optimize(code)
-                code = Linker.link([code])
+                compile_code(code, filename)
 
 
 if __name__ == '__main__':
