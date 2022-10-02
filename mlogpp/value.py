@@ -50,6 +50,8 @@ class Value:
 class StringValue(Value):
     value: str
 
+    __match_args__ = ("value",)
+
     def __init__(self, value: str):
         super().__init__(Type.STR)
 
@@ -64,6 +66,8 @@ class StringValue(Value):
 
 class NumberValue(Value):
     value: int | float
+
+    __match_args__ = ("value",)
 
     def __init__(self, value: int | float):
         super().__init__(Type.NUM)
@@ -80,6 +84,8 @@ class NumberValue(Value):
 class NullValue(Value):
     value: None
 
+    __match_args__ = tuple()
+
     def __init__(self):
         super().__init__(Type.NULL)
 
@@ -94,6 +100,8 @@ class NullValue(Value):
 
 class BlockValue(Value):
     name: str
+
+    __match_args__ = ("name",)
 
     def __init__(self, name: str):
         super().__init__(Type.BLOCK)
@@ -110,6 +118,8 @@ class BlockValue(Value):
 class VariableValue(Value):
     name: str
     const: bool
+
+    __match_args__ = ("name", "type", "const")
 
     def __init__(self, type_: Type, name: str, const: bool = False):
         super().__init__(type_)

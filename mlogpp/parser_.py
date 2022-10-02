@@ -2,7 +2,7 @@ import genericpath
 
 from .lexer import TokenType, Token
 from .error import Error
-from .node_rewrite import *
+from .node import *
 
 
 class Parser:
@@ -501,6 +501,15 @@ class Parser:
                     index = self.parse_Value()
                     self.next_token(TokenType.RBRACK)
 
+                    for block in constants.BLOCK_LINKS:
+                        if tok.value.startswith(block) and len(tok.value) > len(block):
+                            try:
+                                int(tok.value[len(block):])
+                            except ValueError:
+                                pass
+                            else:
+                                Scopes.add(VariableValue(Type.BLOCK, tok.value, True))
+
                     return IndexedValueNode(tok.pos + index.pos, tok.value, index)
 
                 elif len(tok.value) > 1 and tok.value.startswith("@"):
@@ -515,6 +524,18 @@ class Parser:
                     elif tok.value[1:] in constants.TEAMS:
                         return ContentValueNode(tok.pos, tok.value, Type.TEAM)
 
+                if "." in tok.value:
+                    spl = tok.value.split(".")
+
+                    for block in constants.BLOCK_LINKS:
+                        if spl[0].startswith(block) and len(spl[0]) > len(block):
+                            try:
+                                int(spl[0][len(block):])
+                            except ValueError:
+                                pass
+                            else:
+                                Scopes.add(VariableValue(Type.BLOCK, spl[0], True))
+
                 for block in constants.BLOCK_LINKS:
                     if tok.value.startswith(block) and len(tok.value) > len(block):
                         try:
@@ -522,7 +543,7 @@ class Parser:
                         except ValueError:
                             pass
                         else:
-                            return BlockValueNode(tok.pos, tok.value)
+                            Scopes.add(VariableValue(Type.BLOCK, tok.value, True))
 
                 return VariableValueNode(tok.pos, tok.value)
 

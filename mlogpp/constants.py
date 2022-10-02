@@ -40,15 +40,45 @@ BLOCKS = set("""\
     launchPad, interplanetaryAccelerator
 """.replace(" ", "").replace("\n", "").split(","))
 
-BLOCK_LINKS = set()
-for block in BLOCKS:
-    name = ""
-    for ch in block:
-        if ch.upper() == ch:
-            name += "-" + ch.lower()
-        else:
-            name += ch
+BLOCK_IDS = set("""\
+    graphite-press, multi-press, silicon-smelter, silicon-crucible, kiln, plastanium-compressor, phase-weaver,
+    surge-smelter, cryofluid-mixer, pyratite-mixer, blast-mixer, melter, separator, disassembler, spore-press,
+    pulverizer, coal-centrifuge, incinerator,
+    
+    copper-wall, copper-wall-large, titanium-wall, titanium-wall-large, plastanium-wall, plastanium-wall-large,
+    thorium-wall, thorium-wall-large, phase-wall, phase-wall-large, surge-wall, surge-wall-large, door, door-large,
+    
+    mender, mend-projector, overdrive-projector, overdrive-dome, force-projector,
+    
+    conveyor, titanium-conveyor, plastanium-conveyor, armored-conveyor, junction, bridge-conveyor, phase-conveyor,
+    sorter, inverted-sorter, router, distributor, overflow-gate, underflow-gate, mass-driver,
+    
+    mechanical-pump, rotary-pump, impulse-pump, conduit, pulse-conduit, plated-conduit, liquid-router, liquid-container,
+    liquid-tank, liquid-junction, bridge-conduit, phase-conduit,
+    
+    power-node, power-node-large, surge-tower, diode, battery, large-battery, combustion-generator, thermal-generator,
+    steam-generator, differential-generator, rtg-generator, solar-panel, solar-panel-large, thorium-reactor,
+    impact-reactor,
+    
+    mechanical-drill, pneumatic-drill, laser-drill, airblast-drill, water-extractor, cultivator, oil-extractor,
+    
+    core-shard, core-foundation, core-nucleus, container, vault, unloader,
+    
+    duo, scatter, scorch, hail, wave, lancer, arc, parallax, swarmer, salvo, segment, tsunami, fuse, ripple, cyclone,
+    foreshadow, spectre, meltdown,
+    
+    ground-factory, air-factory, naval-factory, additive-reconstructor, multiplicative-reconstructor,
+    exponential-reconstructor, tetrative-reconstructor, repair-point, repair-turret, payload-conveyor, payload-router,
+    payload-propulsion-tower,
+    
+    illuminator, launch-pad, interplanetary-accelerator,
+    
+    message, switch, micro-processor, logic-processor, hyper-processor, memory-cell, memory-bank, logic-display,
+    logic-display-large
+""".replace(" ", "").replace("\n", "").split(","))
 
+BLOCK_LINKS = set()
+for name in BLOCK_IDS:
     if "-" in name:
         spl = name.split("-")
         if len(spl) >= 2 and spl[-1] == "large":
@@ -121,7 +151,10 @@ SENSOR_READABLE = {
     "controller": Type.BLOCK | Type.UNIT,
     "name": Type.NUM,
     "payloadCount": Type.NUM,
-    "payloadType": Type.NUM
+    "payloadType": Type.NUM,
+    "enabled": Type.NUM,
+    "config": Type.NUM,
+    "color": Type.NUM
 } | {
     item: Type.NUM for item in ITEMS
 } | {

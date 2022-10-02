@@ -53,7 +53,7 @@ class Scope:
 
 
 class Scopes:
-    SCOPES = [Scope(
+    DEFAULT_SCOPE = Scope(
         None,
         {
             VariableValue(Type.BLOCK, "@this", True),
@@ -90,7 +90,13 @@ class Scopes:
         } | {
             VariableValue(Type.TEAM, "@" + team, True) for team in constants.TEAMS
         }
-    )]
+    )
+
+    SCOPES = [DEFAULT_SCOPE, Scope(None)]
+
+    @staticmethod
+    def reset():
+        Scopes.SCOPES = [Scopes.DEFAULT_SCOPE, Scope(None)]
 
     @staticmethod
     def push(name: str | None):

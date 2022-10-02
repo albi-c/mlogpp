@@ -6,7 +6,7 @@ num REGEN_NEHEALTH = 0.8
 num REGEN_FLAG = 73584
 
 ubind(UNIT)
-Unit player = uradar(player, ally, any, distance, 0, 1)
+Unit player = uradar(player, ally, any, distance, 1)
 
 num flag = @unit.flag
 num health = @unit.health
@@ -16,7 +16,7 @@ if ((flag == REGEN_FLAG) && (health == maxHealth)) {
     ucontrol.flag(0)
 } else {
     if ((health < maxHealth * REGEN_HEALTH) || flag === REGEN_FLAG) {
-        ulocate(building, repair, false, _, x, y, found, building)
+        ulocate.building(repair, false, x, y, found, building)
         if (found) {
             ucontrol.flag(REGEN_FLAG)
             ucontrol.approach(x, y, 2)
@@ -45,11 +45,11 @@ if (player.shooting) {
 
     ucontrol.target(sx, sy, true)
 } else {
-    Unit enemy = uradar(enemy, any, any, distance, 0, 1)
+    Unit enemy = uradar(enemy, any, any, distance, 1)
 
     if (enemy === null) {
         if (health < maxHealth * REGEN_NEHEALTH) {
-            ulocate(building, repair, false, _, x, y, found, building)
+            ulocate.building(repair, false, x, y, found, building)
             if (found) {
                 ucontrol.flag(REGEN_FLAG)
                 ucontrol.approach(x, y, 2)

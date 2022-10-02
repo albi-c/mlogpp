@@ -68,7 +68,7 @@ if (cell1[0] == 0) {
 ubind(UNIT)
 if (@unit.flag == DEPOSIT_FLAG) {
     if (VAULT === null) {
-        ulocate(building, core, false, _, cx, cy, cf, core)
+        ulocate.building(core, false, cx, cy, cf, core)
         if (cf) {
             ucontrol.approach(cx, cy, 4)
             if (ucontrol.within(cx, cy, 6)) {

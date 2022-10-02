@@ -4,7 +4,7 @@ function draw_line(num x1, num y1, num x2, num y2) {
     num D = 2 * dy - dx
     num y = y1
 
-    for (x = x1; x < x2; x += 1) {
+    for (num x = x1; x < x2; x += 1) {
         draw.rect(x, y, 1, 1)
 
         if (D > 0) {
@@ -17,9 +17,9 @@ function draw_line(num x1, num y1, num x2, num y2) {
 
 draw.clear(0, 0, 0)
 for (num i = 10; i < 100; i += 1) {
-    num r = abs(op(noise, i, 0))
-    num g = abs(op(noise, i, 1))
-    num b = abs(op(noise, i, 2))
+    num r = abs(noise(i, 0))
+    num g = abs(noise(i, 1))
+    num b = abs(noise(i, 2))
 
     draw.color(r * 255, g * 255, b * 255, 255)
     draw_line(i, 10, 100, 100)

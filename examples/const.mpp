@@ -3,3 +3,5 @@ const VALUE_2 = 12
 
 print(VALUE)
 print(VALUE_2)
+
+printflush(message1)

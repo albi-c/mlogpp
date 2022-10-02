@@ -7,7 +7,7 @@ import pyperclip
 
 from .lexer import Lexer, Lexer
 from .preprocess import Preprocessor
-from .parser_rewrite import Parser
+from .parser_ import Parser
 from .optimizer import Optimizer
 from .linker import Linker
 from .error import MlogError
