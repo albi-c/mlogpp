@@ -1,6 +1,6 @@
 import enum
 
-from .error import MlogError
+from .error import Error
 
 
 class Type(enum.Flag):
@@ -55,7 +55,7 @@ class Value:
         self.type = type_
 
     def __str__(self):
-        raise MlogError(f"Invalid value [{repr(self)}]")
+        raise Error(f"Invalid value [{repr(self)}]")
 
     def __hash__(self):
         return hash(self.type)

@@ -10,7 +10,7 @@ from .preprocess import Preprocessor
 from .parser_ import Parser
 from .optimizer import Optimizer
 from .linker import Linker
-from .error import MlogError
+from .error import Error
 from .compile import compile_code
 from . import __version__
 
@@ -82,7 +82,7 @@ def main() -> None:
 
     try:
         out = compile_code(code, args.file)
-    except MlogError as e:
+    except Error as e:
         e.print()
 
         # print the traceback

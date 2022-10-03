@@ -1,4 +1,5 @@
 import re
+from collections import defaultdict
 
 from .functions import PRECALC, JC_REPLACE
 from .instruction import *
@@ -66,14 +67,22 @@ class Optimizer:
         code = code.copy()
 
         # count uses of variables
-        uses = {}
+        uses = defaultdict(int)
+        input_uses = defaultdict(int)
+        output_uses = defaultdict(int)
         for ins in code.iter():
-            for var in ins.variables():
+            for var in ins.inputs():
                 if var.startswith("@"):
                     continue
 
-                if var not in uses:
-                    uses[var] = 0
+                input_uses[var] += 1
+                uses[var] += 1
+
+            for var in ins.outputs():
+                if var.startswith("@"):
+                    continue
+
+                output_uses[var] += 1
                 uses[var] += 1
 
         found = False
@@ -92,11 +101,12 @@ class Optimizer:
                             if name.startswith("@") or value.startswith("@"):
                                 continue
 
-                            if uses.get(name, 0) == 1:
+                            if input_uses[name] == 0:
+                                print(name, uses[name], input_uses[name], output_uses[name])
                                 code[i] = NoopInstruction()
                                 found = True
 
-                            elif uses.get(name, 0) == 2:
+                            elif uses[name] == 2:
                                 if name in cfi.variables():
                                     code[i] = NoopInstruction()
                                     cfi.param_replace(name, value)
@@ -105,7 +115,8 @@ class Optimizer:
                         # getlink to a variable
                         case MInstruction(MInstructionType.GETLINK, [name, _]):
                             if isinstance(cfi, MInstruction) and cfi.type == MInstructionType.SET and \
-                                    uses.get(name, 0) == 2 and name.startswith("__tmp") and cfi.params[1] == name:
+                                    uses[name] == 2 and name.startswith("__tmp") and cfi.params[1] == name:
+
                                 ins.params[0] = cfi.params[0]
                                 code[fi] = NoopInstruction()
                                 found = True
@@ -113,12 +124,13 @@ class Optimizer:
                         # operation to a variable
                         case MInstruction(MInstructionType.OP, [op, result, op1, op2]):
                             if isinstance(cfi, MInstruction) and cfi.type == MInstructionType.SET and \
-                                    uses.get(result, 0) == 2 and result.startswith("__tmp") and cfi.params[1] == result:
+                                    uses[result] == 2 and result.startswith("__tmp") and cfi.params[1] == result:
+
                                 ins.params[1] = cfi.params[0]
                                 code[fi] = NoopInstruction()
                                 found = True
 
-                            if isinstance(cfi, MppInstructionOJump) and uses.get(result, 0) == 2 and \
+                            if isinstance(cfi, MppInstructionOJump) and uses[result] == 2 and \
                                     result.startswith("__tmp") and cfi.op1 == result and \
                                     cfi.op == "equal" and cfi.op2 in ("0", "false"):
 
@@ -132,7 +144,8 @@ class Optimizer:
                         # sensor to a variable
                         case MInstruction(MInstructionType.SENSOR, [result, _, _]):
                             if isinstance(cfi, MInstruction) and cfi.type == MInstructionType.SET and \
-                                    uses.get(result, 0) == 2 and result.startswith("__tmp") and cfi.params[1] == result:
+                                    uses[result] == 2 and result.startswith("__tmp") and cfi.params[1] == result:
+
                                 ins.params[0] = cfi.params[0]
                                 code[fi] = NoopInstruction()
                                 found = True
@@ -142,7 +155,8 @@ class Optimizer:
                                 MInstruction(MInstructionType.RADAR, [_, _, _, _, _, _, result]):
 
                             if isinstance(cfi, MInstruction) and cfi.type == MInstructionType.SET and \
-                                    uses.get(result, 0) == 2 and result.startswith("__tmp") and cfi.params[1] == result:
+                                    uses[result] == 2 and result.startswith("__tmp") and cfi.params[1] == result:
+
                                 ins.params[6] = cfi.params[0]
                                 code[fi] = NoopInstruction()
                                 found = True
@@ -150,7 +164,8 @@ class Optimizer:
                         # read to a variable
                         case MInstruction(MInstructionType.READ, [result, _, _]):
                             if isinstance(cfi, MInstruction) and cfi.type == MInstructionType.SET and \
-                                    uses.get(result, 0) == 2 and result.startswith("__tmp") and cfi.params[1] == result:
+                                    uses[result] == 2 and result.startswith("__tmp") and cfi.params[1] == result:
+
                                 ins.params[0] = cfi.params[0]
                                 code[fi] = NoopInstruction()
                                 found = True

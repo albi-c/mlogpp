@@ -1,6 +1,8 @@
 import enum
 
 from .value import *
+from .error import InternalError
+from .functions import Natives, Param
 
 
 class Instruction:
@@ -46,13 +48,37 @@ class Instruction:
     def copy(self):
         return self
 
-    def variables(self) -> tuple:
+    def variables(self) -> list[str]:
         """
         Returns:
             All variables used by the instruction.
         """
 
-        return tuple()
+        return self.inputs() + self.outputs()
+
+    def inputs(self) -> list[str]:
+        """
+        Returns:
+            All inputs of the instruction.
+        """
+
+        return []
+
+    def outputs(self) -> list[str]:
+        """
+        Returns:
+            All outputs of the instruction.
+        """
+
+        return []
+
+    def is_branching(self) -> bool:
+        """
+        Returns:
+            True if the instruction is a branch, False otherwise.
+        """
+
+        return False
 
     def param_replace(self, from_: str, to: str) -> None:
         """
@@ -74,7 +100,7 @@ class NoopInstruction(Instruction):
     pass
 
 
-class MInstructionType(enum.Enum):
+class MInstructionType(enum.Flag):
     """
     Type of Mindustry instruction.
     """
@@ -108,14 +134,28 @@ class MInstruction(Instruction):
     """
 
     type: MInstructionType
-    params: list[str | int | float | Value]
+    params: list[str]
+
+    _native_name: str
 
     __match_args__ = ("type", "params")
 
     def __init__(self, type_: MInstructionType, params: list[str | int | float | Value]):
         self.type = type_
+
         # convert all parameters to strings
         self.params = list(map(str, params))
+
+        if (native_name := self._get_native_name()).split(".")[0] not in Natives.NATIVES_PARAM_COUNT or \
+                native_name not in Natives.ALL_NATIVES:
+
+            InternalError.undefined_function(native_name)
+
+        # check parameter count
+        while len(self.params) < Natives.NATIVES_PARAM_COUNT[native_name.split(".")[0]]:
+            self.params.append("_")
+
+        self._native_name = native_name
 
     def __str__(self):
         return f"{self.type.name.lower()} {' '.join(map(str, self.params))}"
@@ -126,8 +166,39 @@ class MInstruction(Instruction):
     def copy(self):
         return MInstruction(self.type, self.params.copy())
 
-    def variables(self) -> tuple:
-        return tuple(self.params)
+    def _params_no_subcommand(self):
+        """
+        Returns:
+            This instruction's parameters without the subcommand configuration.
+        """
+
+        if "." in self._native_name:
+            if self.type == MInstructionType.SENSOR:
+                return self.params[:-1]
+
+            return self.params[1:]
+
+        return self.params
+
+    def inputs(self) -> list[str]:
+        return [self._params_no_subcommand()[i] for i, param in enumerate(Natives.ALL_NATIVES[self._native_name])
+                if param[0] == Param.INPUT]
+
+    def outputs(self) -> list[str]:
+        return [self._params_no_subcommand()[i] for i, param in enumerate(Natives.ALL_NATIVES[self._native_name])
+                if param[0] == Param.OUTPUT]
+
+    def _get_native_name(self) -> str:
+        if self.type in MInstructionType.DRAW | MInstructionType.CONTROL | MInstructionType.LOOKUP | \
+                MInstructionType.SENSOR | MInstructionType.UCONTROL | MInstructionType.ULOCATE:
+
+            return self.type.name.lower() + "." + (self.params[-1][1:] if self.type == MInstructionType.SENSOR
+                                                     else self.params[0])
+
+        return self.type.name.lower()
+
+    def is_branching(self) -> bool:
+        return self.type in MInstructionType.END | MInstructionType.JUMP
 
     def param_replace(self, from_: str, to: str):
         self.params = [param.replace(from_, to) for param in self.params]
@@ -179,9 +250,9 @@ class MppInstructionOJump(Instruction):
     """
 
     label: str
-    op1: str | Value
+    op1: str
     op: str
-    op2: str | Value
+    op2: str
 
     def __init__(self, label: str, op1: str | Value, op: str, op2: str | Value):
         self.label = str(label)
@@ -198,8 +269,8 @@ class MppInstructionOJump(Instruction):
     def copy(self):
         return MppInstructionOJump(self.label, self.op1, self.op, self.op2)
 
-    def variables(self) -> tuple:
-        return self.op1, self.op2
+    def inputs(self) -> list[str]:
+        return [self.op1, self.op2]
 
     def param_replace(self, from_: str, to: str):
         self.op1 = self.op1.replace(from_, to)
