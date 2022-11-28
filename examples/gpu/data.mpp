@@ -1,0 +1,106 @@
+Block DATA = bank1
+
+num size = 10
+
+num z1 = 0.5
+num z2 = 1
+
+DATA[0] = -size
+DATA[1] = -size
+DATA[2] = z1
+
+DATA[4] = size
+DATA[5] = -size
+DATA[6] = z1
+
+DATA[8] = size
+DATA[9] = -size
+DATA[10] = z1
+
+DATA[12] = size
+DATA[13] = size
+DATA[14] = z1
+
+DATA[16] = size
+DATA[17] = size
+DATA[18] = z1
+
+DATA[20] = -size
+DATA[21] = size
+DATA[22] = z1
+
+DATA[24] = -size
+DATA[25] = size
+DATA[26] = z1
+
+DATA[28] = -size
+DATA[29] = -size
+DATA[30] = z1
+
+#
+
+DATA[32] = -size
+DATA[33] = -size
+DATA[34] = z2
+
+DATA[36] = size
+DATA[37] = -size
+DATA[38] = z2
+
+DATA[40] = size
+DATA[41] = -size
+DATA[42] = z2
+
+DATA[44] = size
+DATA[45] = size
+DATA[46] = z2
+
+DATA[48] = size
+DATA[49] = size
+DATA[50] = z2
+
+DATA[52] = -size
+DATA[53] = size
+DATA[54] = z2
+
+DATA[56] = -size
+DATA[57] = size
+DATA[58] = z2
+
+DATA[60] = -size
+DATA[61] = -size
+DATA[62] = z2
+
+#
+
+DATA[64] = -size
+DATA[65] = -size
+DATA[66] = z1
+
+DATA[68] = -size
+DATA[69] = -size
+DATA[70] = z2
+
+DATA[72] = size
+DATA[73] = -size
+DATA[74] = z1
+
+DATA[76] = size
+DATA[77] = -size
+DATA[78] = z2
+
+DATA[80] = size
+DATA[81] = size
+DATA[82] = z1
+
+DATA[84] = size
+DATA[85] = size
+DATA[86] = z2
+
+DATA[88] = -size
+DATA[89] = size
+DATA[90] = z1
+
+DATA[92] = -size
+DATA[93] = size
+DATA[94] = z2

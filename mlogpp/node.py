@@ -392,13 +392,13 @@ class UnaryOpNode(Node):
 
         match self.op:
             case "-":
-                code += MInstruction(MInstructionType.OP, ["sub", tmpv, NumberValue(0), tmpv])
+                code += MInstruction(MInstructionType.OP, ["sub", tmpv, NumberValue(0), value])
             case "!":
-                code += MInstruction(MInstructionType.OP, ["equal", tmpv, tmpv, NumberValue(0)])
+                code += MInstruction(MInstructionType.OP, ["equal", tmpv, value, NumberValue(0)])
             case "~":
-                code += MInstruction(MInstructionType.OP, ["not", tmpv, tmpv, "_"])
+                code += MInstruction(MInstructionType.OP, ["not", tmpv, value, "_"])
 
-        return code, value
+        return code, tmpv
 
 
 class CallNode(Node):

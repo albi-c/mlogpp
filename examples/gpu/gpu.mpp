@@ -1,0 +1,95 @@
+Block DATA = bank1
+
+Block CONFIG = cell1
+# 0 .. 8
+const CONFIG_TRANSLATION = 0
+
+Block DISPLAY = display1
+
+num DISPLAY_SIZE = 176
+num DISPLAY_HSIZE = DISPLAY_SIZE / 2
+
+num FOV = 20
+
+
+num TRANSLATION_11 = CONFIG[CONFIG_TRANSLATION + 0]
+num TRANSLATION_21 = CONFIG[CONFIG_TRANSLATION + 1]
+num TRANSLATION_31 = CONFIG[CONFIG_TRANSLATION + 2]
+num TRANSLATION_12 = CONFIG[CONFIG_TRANSLATION + 3]
+num TRANSLATION_22 = CONFIG[CONFIG_TRANSLATION + 4]
+num TRANSLATION_32 = CONFIG[CONFIG_TRANSLATION + 5]
+num TRANSLATION_13 = CONFIG[CONFIG_TRANSLATION + 6]
+num TRANSLATION_23 = CONFIG[CONFIG_TRANSLATION + 7]
+num TRANSLATION_33 = CONFIG[CONFIG_TRANSLATION + 8]
+
+
+draw.clear(0, 0, 0)
+
+for (num vertex_i = 0; vertex_i < 64; vertex_i += 1) {
+    num i1 = vertex_i * 8
+    num i2 = i1 + 4
+
+    num z1 = DATA[i1 + 2]
+    num z2 = DATA[i2 + 2]
+
+    if (z1 == 0 || z2 == 0) {
+        break
+    }
+
+    num x1 = DATA[i1]
+    num y1 = DATA[i1 + 1]
+
+    num x2 = DATA[i2]
+    num y2 = DATA[i2 + 1]
+
+    x1 = x1 * TRANSLATION_11 + y1 * TRANSLATION_21 + z1 * TRANSLATION_31
+    y1 = x1 * TRANSLATION_12 + y1 * TRANSLATION_22 + z1 * TRANSLATION_32
+    z1 = x1 * TRANSLATION_13 + y1 * TRANSLATION_23 + z1 * TRANSLATION_33
+
+    x2 = x2 * TRANSLATION_11 + y2 * TRANSLATION_21 + z2 * TRANSLATION_31
+    y2 = x2 * TRANSLATION_12 + y2 * TRANSLATION_22 + z2 * TRANSLATION_32
+    z2 = x2 * TRANSLATION_13 + y2 * TRANSLATION_23 + z2 * TRANSLATION_33
+
+    x1 /= FOV
+    y1 /= FOV
+
+    x2 /= FOV
+    y2 /= FOV
+
+    if (x1 < -1 || y1 < -1 || z1 < -1 || z1 > 1 || y1 > 1 || z1 > 1 || x2 < -1 || y2 < -1 || z2 < -1 || z2 > 1 || y2 > 1 || z2 > 1) {
+        continue
+    }
+
+    x1 /= z1 / FOV
+    y1 /= z1 / FOV
+
+    x2 /= z2 / FOV
+    y2 /= z2 / FOV
+
+    x1 += DISPLAY_HSIZE
+    y1 += DISPLAY_HSIZE
+
+    x2 += DISPLAY_HSIZE
+    y2 += DISPLAY_HSIZE
+
+    draw.color(255, 255, 255, 255)
+    draw.line(x1, y1, x2, y2)
+
+    print(x1)
+    print(", ")
+    print(y1)
+    print(", ")
+    print(z1)
+    print(" | ")
+    print(x2)
+    print(", ")
+    print(y2)
+    print(", ")
+    print(z2)
+    print("\n\n")
+}
+
+drawflush(DISPLAY)
+
+print("END")
+printflush(message1)
