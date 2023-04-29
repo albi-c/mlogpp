@@ -130,6 +130,9 @@ class MInstructionType(enum.Flag):
     ULOCATE = enum.auto()
 
 
+MInstructionType.INSTRUCTION_NAMES = [str(i).split(".")[1].lower() for i in MInstructionType]
+
+
 class MInstruction(Instruction):
     """
     Mindustry instruction.
@@ -151,7 +154,8 @@ class MInstruction(Instruction):
         if (native_name := self._get_native_name()).split(".")[0] not in Natives.NATIVES_PARAM_COUNT or \
                 native_name not in Natives.ALL_NATIVES:
 
-            InternalError.undefined_function(native_name)
+            if "." in native_name:
+                InternalError.undefined_function(native_name)
 
         # check parameter count
         while len(self.params) < Natives.NATIVES_PARAM_COUNT[native_name.split(".")[0]]:

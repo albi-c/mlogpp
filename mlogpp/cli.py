@@ -11,7 +11,7 @@ from .parser_ import Parser
 from .optimizer import Optimizer
 from .linker import Linker
 from .error import Error
-from .compile import compile_code
+from .compile import compile_code, compile_asm
 from . import __version__
 
 
@@ -42,6 +42,8 @@ def main() -> None:
     parser.add_argument("-l", "--lines", help="print line numbers when output to stdout is selected", action="store_true")
 
     parser.add_argument("--print-exceptions", help="print all exceptions from the compilation (development only)", action="store_true")
+
+    parser.add_argument("-a", "--assembly", help="compile assembly", action="store_true")
 
     parser.add_argument("-V", "--version", action="version", version=f"mlog++ {__version__}")
 
@@ -81,7 +83,10 @@ def main() -> None:
             code = f.read()
 
     try:
-        out = compile_code(code, args.file)
+        if args.assembly:
+            out = compile_asm(code, args.file)
+        else:
+            out = compile_code(code, args.file)
     except Error as e:
         e.print()
 

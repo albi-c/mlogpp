@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import enum
 
 from .error import Error
@@ -59,6 +61,14 @@ class Value:
 
     def __hash__(self):
         return hash(self.type)
+
+    @staticmethod
+    def from_(val) -> Value:
+        if isinstance(val, str):
+            return StringValue(f"\"{val}\"")
+        elif isinstance(val, int | float):
+            return NumberValue(val)
+        return NullValue()
 
 
 class StringValue(Value):

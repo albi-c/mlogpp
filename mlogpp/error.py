@@ -80,6 +80,10 @@ class Error(Exception):
     def write_to_const(node: 'Node', var: str):
         raise Error(f"Trying to write into a constant [{var}]", node.get_pos())
 
+    @staticmethod
+    def custom(pos: Position, message: str):
+        raise Error(message, pos)
+
 
 class InternalError(Exception):
     """

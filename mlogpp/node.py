@@ -1,5 +1,3 @@
-import types
-
 from .util import Position
 from .instruction import *
 from .value import *
