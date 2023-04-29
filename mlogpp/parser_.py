@@ -547,6 +547,8 @@ class Parser:
         pos = left.pos
         if len(right) > 0:
             pos += right[-1][1].pos
+        else:
+            return left
 
         return BinaryOpNode(left.pos, left, right)
 

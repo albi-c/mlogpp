@@ -93,3 +93,7 @@ class InternalError(Exception):
     @staticmethod
     def undefined_function(name: str):
         raise InternalError(f"Undefined function [{name}]")
+
+    @staticmethod
+    def label_not_found(name: str):
+        raise InternalError(f"Label not found [{name}]")

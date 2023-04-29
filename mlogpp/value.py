@@ -74,6 +74,9 @@ class StringValue(Value):
     def __str__(self):
         return self.value
 
+    def __repr__(self):
+        return f"StringValue(\"{self.value}\")"
+
     def __hash__(self):
         return hash((self.type, self.value))
 
@@ -90,6 +93,9 @@ class NumberValue(Value):
 
     def __str__(self):
         return str(self.value)
+
+    def __repr__(self):
+        return f"NumberValue({self.value})"
 
     def __hash__(self):
         return hash((self.type, self.value))
@@ -108,6 +114,9 @@ class NullValue(Value):
     def __str__(self):
         return "null"
 
+    def __repr__(self):
+        return f"NullValue()"
+
     def __hash__(self):
         return hash((self.type, self.value))
 
@@ -125,6 +134,9 @@ class BlockValue(Value):
     def __str__(self):
         return self.name
 
+    def __repr__(self):
+        return f"BlockValue({self.value})"
+
     def __hash__(self):
         return hash((self.type, self.name))
 
@@ -132,17 +144,22 @@ class BlockValue(Value):
 class VariableValue(Value):
     name: str
     const: bool
+    const_val: Value
 
     __match_args__ = ("name", "type", "const")
 
-    def __init__(self, type_: Type, name: str, const: bool = False):
+    def __init__(self, type_: Type, name: str, const: bool = False, const_val: Value = None):
         super().__init__(type_)
 
         self.name = name
         self.const = const
+        self.const_val = const_val
 
     def __str__(self):
         return self.name
+
+    def __repr__(self):
+        return f"VariableValue({self.name}{' | const' if self.const else ''})"
 
     def __hash__(self):
         return hash((self.type, self.name, self.const))

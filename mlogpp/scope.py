@@ -111,9 +111,9 @@ class Scopes:
             VariableValue(Type.NUM, "@mapw", True),
             VariableValue(Type.NUM, "@maph", True),
 
-            VariableValue(Type.NUM, "true", True),
-            VariableValue(Type.NUM, "false", True),
-            VariableValue(Type.NULL, "null", True),
+            VariableValue(Type.NUM, "true", True, NumberValue(1)),
+            VariableValue(Type.NUM, "false", True, NumberValue(0)),
+            VariableValue(Type.NULL, "null", True, NullValue()),
 
             VariableValue(Type.CONTROLLER, "@ctrlProcessor", True),
             VariableValue(Type.CONTROLLER, "@ctrlPlayer", True),

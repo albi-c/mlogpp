@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import enum
 
 from .value import *
@@ -26,7 +28,7 @@ class Instruction:
         elif isinstance(other, Instructions):
             return Instructions([self] + other.ins)
 
-    def iter(self) -> list['Instruction']:
+    def iter(self) -> list[Instruction]:
         """
         Create a lists of all instructions.
 
@@ -301,7 +303,7 @@ class Instructions:
         elif isinstance(other, Instructions):
             return Instructions(self.ins + other.ins)
 
-    def __iadd__(self, other) -> 'Instructions':
+    def __iadd__(self, other) -> Instructions:
         """
         Append an instruction or instructions to this list.
 

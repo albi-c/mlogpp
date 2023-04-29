@@ -6,7 +6,7 @@ from .value import *
 from .generator import Gen
 from .scope import Scope, Scopes
 from .function import Function
-from .functions import Natives, Param
+from .functions import Natives, Param, PRECALC
 from .error import Error
 from . import constants
 
@@ -48,6 +48,7 @@ class Node:
         Returns:
             The generated code.
         """
+
         return Instructions()
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
@@ -59,6 +60,16 @@ class Node:
         """
 
         return Instructions(), NullValue()
+
+    def precalc(self) -> Value | None:
+        """
+        Attempt to precalculate the node's value.
+
+        Returns:
+            The value if succeeded, else None.
+        """
+
+        return None
 
 
 class CodeBlockNode(Node):
@@ -334,6 +345,9 @@ class BinaryOpNode(Node):
         return string
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        if (val := self.precalc()) is not None:
+            return Instructions(), val
+
         code, value = self.left.get()
 
         # check if the value is a number for arithmetic operations
@@ -363,6 +377,21 @@ class BinaryOpNode(Node):
 
         return code, value
 
+    def precalc(self) -> Value | None:
+        if (left := self.left.precalc()) is None or left.type not in Type.NUM:
+            return None
+
+        for op, right in self.right:
+            if (op := PRECALC.get(BinaryOpNode.OPERATORS.get(op))) is None or op in BinaryOpNode.EQUALITY:
+                return None
+
+            if (right := right.precalc()) is None or right.type not in Type.NUM:
+                return None
+
+            left = NumberValue(op(left.value, right.value))
+
+        return left
+
 
 class UnaryOpNode(Node):
     """
@@ -382,6 +411,9 @@ class UnaryOpNode(Node):
         return f"{self.op}{str(self.value)}"
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        if (val := self.precalc()) is not None:
+            return Instructions(), val
+
         code, value = self.value.get()
 
         # check if the value is a number
@@ -399,6 +431,21 @@ class UnaryOpNode(Node):
                 code += MInstruction(MInstructionType.OP, ["not", tmpv, value, "_"])
 
         return code, tmpv
+
+    def precalc(self) -> Value | None:
+        if (val := self.value.precalc()) is None:
+            return None
+
+        if val.type not in Type.NUM:
+            return None
+
+        match self.op:
+            case "-":
+                return NumberValue(-val.value)
+            case "!":
+                return NumberValue(int(not val.value))
+
+        return None
 
 
 class CallNode(Node):
@@ -459,6 +506,9 @@ class CallNode(Node):
         return code
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        if (val := self.precalc()) is not None:
+            return Instructions(), val
+
         return self.generate(), self.return_value
 
 
@@ -608,6 +658,9 @@ class NativeCallNode(Node):
         return code
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        if (val := self.precalc()) is not None:
+            return Instructions(), val
+
         return self.generate(), self.return_value
 
 
@@ -636,7 +689,13 @@ class StringValueNode(ValueNode):
         super().__init__(pos, value)
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        if (val := self.precalc()) is not None:
+            return Instructions(), val
+
         return Instructions(), StringValue(self.value)
+
+    def precalc(self) -> Value | None:
+        return StringValue(self.value)
 
 
 class NumberValueNode(ValueNode):
@@ -650,7 +709,13 @@ class NumberValueNode(ValueNode):
         super().__init__(pos, value)
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        if (val := self.precalc()) is not None:
+            return Instructions(), val
+
         return Instructions(), NumberValue(self.value)
+
+    def precalc(self) -> Value | None:
+        return NumberValue(self.value)
 
 
 class ContentValueNode(ValueNode):
@@ -667,7 +732,13 @@ class ContentValueNode(ValueNode):
         self.type = type_
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        if (val := self.precalc()) is not None:
+            return Instructions(), val
+
         return Instructions(), VariableValue(self.type, self.value)
+
+    def precalc(self) -> Value | None:
+        return VariableValue(self.type, self.value)
 
 
 class BlockValueNode(ValueNode):
@@ -681,7 +752,13 @@ class BlockValueNode(ValueNode):
         super().__init__(pos, value)
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        if (val := self.precalc()) is not None:
+            return Instructions(), val
+
         return Instructions(), BlockValue(self.value)
+
+    def precalc(self) -> Value | None:
+        return BlockValue(self.value)
 
 
 class VariableValueNode(ValueNode):
@@ -695,6 +772,9 @@ class VariableValueNode(ValueNode):
         super().__init__(pos, value)
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        if (val := self.precalc()) is not None:
+            return Instructions(), val
+
         # rename only the first part of the variable if it contains a "."
         if "." in self.value:
             spl = self.value.split(".")
@@ -719,6 +799,12 @@ class VariableValueNode(ValueNode):
 
         Error.undefined_variable(self, self.value)
 
+    def precalc(self) -> Value | None:
+        if (var := Scopes.DEFAULT_SCOPE.get(self.value)) is not None:
+            return var.const_val
+
+        return None
+
 
 class IndexedValueNode(ValueNode):
     """
@@ -737,6 +823,9 @@ class IndexedValueNode(ValueNode):
         return f"{self.value}[{self.index}]"
 
     def get(self) -> tuple[Instruction | Instructions, Value]:
+        if (val := self.precalc()) is not None:
+            return Instructions(), val
+
         self.value = Scopes.rename(self.value)
 
         # check if the variable exists
@@ -862,6 +951,14 @@ class IfNode(Node):
     def generate(self) -> Instruction | Instructions:
         self.code.push_scope()
 
+        if (cond := self.cond.precalc()) is not None and cond.type in Type.NUM:
+            if cond.value:
+                return self.code.generate()
+            elif self.else_code is not None:
+                return self.else_code.generate()
+            else:
+                return Instructions()
+
         cond_code, cond = self.cond.get()
 
         code = self.code.generate()
@@ -913,6 +1010,14 @@ class WhileNode(LoopNode):
 
     def generate(self) -> Instruction | Instructions:
         self.code.push_scope()
+
+        if (cond := self.cond.precalc()) is not None and cond.type in Type.NUM:
+            if cond.value:
+                return MppInstructionLabel(f"{self.name}_l") + MppInstructionLabel(f"{self.name}_c") + \
+                       self.code.generate() + MppInstructionJump(f"{self.name}_l") + \
+                       MppInstructionLabel(f"{self.name}_e")
+            else:
+                return Instructions()
 
         cond_code, cond = self.cond.get()
 

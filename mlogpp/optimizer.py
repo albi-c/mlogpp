@@ -28,13 +28,19 @@ class Optimizer:
             # look ahead 10 lines
             for i in range(1, 10):
                 # optimize single use variables
-                while (cf := Optimizer._single_use(code, i))[1]:
+                while (cf := Optimizer._single_use_optimize(code, i))[1]:
                     code = cf[0]
 
                 # precalculate values
                 while (cf := Optimizer._precalculate_optimize(code))[1]:
                     code = cf[0]
 
+                # reduce jumps
+                while (cf := Optimizer._jump_optimize(code))[1]:
+                    code = cf[0]
+
+        code = Optimizer._remove_noops(code)
+        code = Optimizer._dead_code_optimize(code)
         return code
 
     @staticmethod
@@ -52,7 +58,7 @@ class Optimizer:
         return Instructions([ins for ins in code.iter() if not isinstance(ins, NoopInstruction)])
 
     @staticmethod
-    def _single_use(code: Instructions, forward: int = 1) -> tuple[Instructions, bool]:
+    def _single_use_optimize(code: Instructions, forward: int = 1) -> tuple[Instructions, bool]:
         """
         Optimize single use temporary variables.
 
@@ -102,7 +108,6 @@ class Optimizer:
                                 continue
 
                             if input_uses[name] == 0:
-                                print(name, uses[name], input_uses[name], output_uses[name])
                                 code[i] = NoopInstruction()
                                 found = True
 
@@ -116,7 +121,6 @@ class Optimizer:
                         case MInstruction(MInstructionType.GETLINK, [name, _]):
                             if isinstance(cfi, MInstruction) and cfi.type == MInstructionType.SET and \
                                     uses[name] == 2 and name.startswith("__tmp") and cfi.params[1] == name:
-
                                 ins.params[0] = cfi.params[0]
                                 code[fi] = NoopInstruction()
                                 found = True
@@ -125,7 +129,6 @@ class Optimizer:
                         case MInstruction(MInstructionType.OP, [op, result, op1, op2]):
                             if isinstance(cfi, MInstruction) and cfi.type == MInstructionType.SET and \
                                     uses[result] == 2 and result.startswith("__tmp") and cfi.params[1] == result:
-
                                 ins.params[1] = cfi.params[0]
                                 code[fi] = NoopInstruction()
                                 found = True
@@ -145,18 +148,16 @@ class Optimizer:
                         case MInstruction(MInstructionType.SENSOR, [result, _, _]):
                             if isinstance(cfi, MInstruction) and cfi.type == MInstructionType.SET and \
                                     uses[result] == 2 and result.startswith("__tmp") and cfi.params[1] == result:
-
                                 ins.params[0] = cfi.params[0]
                                 code[fi] = NoopInstruction()
                                 found = True
 
                         # radar / uradar to a variable
                         case MInstruction(MInstructionType.URADAR, [_, _, _, _, _, _, result]) | \
-                                MInstruction(MInstructionType.RADAR, [_, _, _, _, _, _, result]):
+                             MInstruction(MInstructionType.RADAR, [_, _, _, _, _, _, result]):
 
                             if isinstance(cfi, MInstruction) and cfi.type == MInstructionType.SET and \
                                     uses[result] == 2 and result.startswith("__tmp") and cfi.params[1] == result:
-
                                 ins.params[6] = cfi.params[0]
                                 code[fi] = NoopInstruction()
                                 found = True
@@ -165,7 +166,6 @@ class Optimizer:
                         case MInstruction(MInstructionType.READ, [result, _, _]):
                             if isinstance(cfi, MInstruction) and cfi.type == MInstructionType.SET and \
                                     uses[result] == 2 and result.startswith("__tmp") and cfi.params[1] == result:
-
                                 ins.params[0] = cfi.params[0]
                                 code[fi] = NoopInstruction()
                                 found = True
@@ -188,31 +188,15 @@ class Optimizer:
 
         found = False
         for i, ins in enumerate(code.iter()):
-            # check only operations that can be precalculated
-            if isinstance(ins, MInstruction) and ins.type == MInstructionType.OP and ins.params[0] in PRECALC:
-
-                try:
-                    # check if the parameters can be converted to numbers, convert them to integers if whole
-                    a = float(ins.params[2])
-                    if a.is_integer():
-                        a = int(a)
-                    b = float(ins.params[3])
-                    if b.is_integer():
-                        b = int(b)
-                except ValueError:
-                    continue
-                else:
-                    try:
-                        # try to precalculate
-                        code[i] = MInstruction(MInstructionType.SET, [ins.params[1], Optimizer._precalc(ins.params[0], a, b)])
-                        found = True
-                    except ArithmeticError:
-                        continue
+            if isinstance(ins, MInstruction) and ins.type == MInstructionType.OP:
+                if (val := Optimizer._precalc(ins.params[0], ins.params[2], ins.params[3])) is not None:
+                    code[i] = MInstruction(MInstructionType.SET, [ins.params[1], val])
+                    found = True
 
         return code, found
 
     @staticmethod
-    def _precalc(op: str, a: int | float, b: int | float) -> int | float:
+    def _precalc(op: str, a: str, b: str) -> int | float | None:
         """
         Precalculate a value.
 
@@ -225,10 +209,90 @@ class Optimizer:
             The precalculated value.
         """
 
-        val = float(PRECALC[op](a, b))
+        if op not in PRECALC:
+            return None
 
-        # convert the value to an integer if whole
-        if val.is_integer():
-            val = int(val)
+        try:
+            # check if the parameters can be converted to numbers, convert to integers if whole
+            a = float(a)
+            if a.is_integer():
+                a = int(a)
+            b = float(b)
+            if b.is_integer():
+                b = int(b)
+        except ValueError:
+            return None
+        else:
+            try:
+                val = float(PRECALC[op](a, b))
+                if val.is_integer():
+                    val = int(val)
 
-        return val
+                return val
+            except ArithmeticError:
+                return None
+
+    @staticmethod
+    def _jump_optimize(code: Instructions) -> tuple[Instructions, bool]:
+        found = False
+
+        labels = {}
+        prev = None
+        for ins in enumerate(code.iter()):
+            if isinstance(prev, MppInstructionLabel):
+                labels[prev.name] = ins
+            prev = ins
+
+        for i, ins in enumerate(code.iter()):
+            if isinstance(ins, MppInstructionJump | MppInstructionOJump):
+                if (target := labels.get(ins.label)) is None:
+                    continue
+
+                if isinstance(target, MppInstructionJump):
+                    ins.label = target.label
+                    found = True
+
+                elif isinstance(target, MppInstructionOJump) and target.op in PRECALC:
+                    if (val := Optimizer._precalc(target.op, target.op1, target.op2)) is not None and val:
+                        ins.label = target.label
+                        found = True
+
+        return code, found
+
+    @staticmethod
+    def _dead_code_optimize(code: Instructions) -> Instructions:
+        labels = {ins.name: i for i, ins in enumerate(code.iter()) if isinstance(ins, MppInstructionLabel)}
+        labels["start"] = 0
+        live = set()
+        Optimizer._find_live_code(code, live, 0, labels)
+
+        return Instructions([ins for i, ins in enumerate(code.iter()) if i in live])
+
+    @staticmethod
+    def _find_live_code(code: Instructions, live: set[int], i: int, labels: dict[str, int]):
+        if i in live or i >= len(code.iter()):
+            return
+
+        for ins in code.iter()[i:]:
+            live.add(i)
+            if isinstance(ins, MppInstructionJump):
+                target = labels.get(ins.label)
+                if target is None:
+                    InternalError.label_not_found(ins.label)
+                Optimizer._find_live_code(code, live, target, labels)
+
+                if i >= 1:
+                    n = code.iter()[i - 1]
+                    if isinstance(n, MInstruction) and n.type == MInstructionType.OP and n.params[0] == "add" and \
+                            n.params[1].endswith("_ret") and n.params[2] == "@counter":
+
+                        i += 1
+                        continue
+
+                return
+            elif isinstance(ins, MppInstructionOJump):
+                target = labels.get(ins.label)
+                if target is None:
+                    InternalError.label_not_found(ins.label)
+                Optimizer._find_live_code(code, live, target, labels)
+            i += 1
