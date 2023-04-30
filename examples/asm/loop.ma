@@ -6,7 +6,9 @@ a:
     cell1[i] = i
     i = cell1[i]
     {x = 5}
-    print({"X" * x})
+    print({x})
+    print({"\"" + "X" * x + "\""})
+    {"print("}{x / 2}{")"}
     :a (i < {x * 2})
 
 printflush(message1)

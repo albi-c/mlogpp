@@ -65,7 +65,7 @@ class Value:
     @staticmethod
     def from_(val) -> Value:
         if isinstance(val, str):
-            return StringValue(f"\"{val}\"")
+            return StringValue(val)
         elif isinstance(val, int | float):
             return NumberValue(val)
         return NullValue()

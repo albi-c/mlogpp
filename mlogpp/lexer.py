@@ -33,6 +33,7 @@ class Lexer:
     current_code: str
     current_code_lines: list[str]
     i: int
+    i_line: int
     line: int
     char: int
 
@@ -44,6 +45,7 @@ class Lexer:
         self.current_code = ""
         self.current_code_lines = []
         self.i = -1
+        self.i_line = 0
         self.line = 0
         self.char = 0
 
@@ -75,6 +77,7 @@ class Lexer:
         self.char += 1
         if ch == "\n":
             self.char = 0
+            self.i_line += 1
             self.line += 1
 
         return ch
@@ -120,7 +123,8 @@ class Lexer:
             self.char -= 1
             # step back to the previous line
             if self.char < 0:
-                self.char = len(self.current_code_lines[self.line - 1])
+                self.char = len(self.current_code_lines[self.i_line - 1])
+                self.i_line -= 1
                 self.line -= 1
 
     def make_position(self, length: int) -> Position:
@@ -134,7 +138,7 @@ class Lexer:
             The created position.
         """
 
-        return Position(self.line, self.char - length, self.char, self.current_code_lines[self.line],
+        return Position(self.line, self.char - length, self.char, self.current_code_lines[self.i_line],
                         self.current_input_file)
 
     def make_token(self, type_: TokenType, value: str) -> Token:
@@ -151,13 +155,14 @@ class Lexer:
 
         return Token(type_, value, self.make_position(len(value)))
 
-    def lex(self, code: str, input_file: str) -> list[Token]:
+    def lex(self, code: str, input_file: str, start_pos: Position = None) -> list[Token]:
         """
         Split code into tokens.
 
         Args:
             code: Input code.
             input_file: File of the input code, used for imports and errors.
+            start_pos: Position to be used at the start of lexing.
 
         Returns:
             A list of tokens from the code.
@@ -172,10 +177,17 @@ class Lexer:
         self.current_input_file = input_file
         old_i = self.i
         self.i = -1
+        old_i_line = self.i_line
+        self.i_line = 0
         old_line = self.line
         self.line = 0
         old_char = self.char
         self.char = 0
+
+        if start_pos is not None:
+            self.current_input_file = start_pos.file
+            self.line = start_pos.line
+            self.char = start_pos.start
 
         # list of lexed tokens
         tokens = []
@@ -296,6 +308,7 @@ class Lexer:
         self.current_code_lines = old_current_code_lines
         self.current_input_file = old_current_input_file
         self.i = old_i
+        self.i_line = old_i_line
         self.line = old_line
         self.char = old_char
 
@@ -357,12 +370,14 @@ class Lexer:
         self.next_char()
 
         token = ""
+        prev = ""
         while (ch := self.next_char()) in Lexer.STRING_CHARS:
             # end the string when encountering a second quote
-            if ch == '"':
+            if ch == '"' and prev != "\\":
                 return f"\"{token}\""
 
             token += ch
+            prev = ch
 
         return f"\"{token}\""
 

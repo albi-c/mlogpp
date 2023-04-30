@@ -109,7 +109,7 @@ def main() -> None:
             # print line numbers
 
             lines = out.splitlines()
-            max_line = len(str(len(lines)))
+            max_line = len(str(len(lines) - 1))
             for i, ln in enumerate(lines):
                 print(f"{str(i).zfill(max_line)}: {ln}")
         else:

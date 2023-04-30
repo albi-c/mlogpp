@@ -15,64 +15,13 @@ class AsmParser(GenericParser):
     Parse mlog++ assembly code.
     """
 
-    VARIABLES = {}
-
-    OPERATORS: dict[type] = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
-                             ast.Div: operator.truediv, ast.FloorDiv: operator.floordiv, ast.Pow: operator.pow,
-                             ast.USub: operator.neg, ast.Not: operator.not_, ast.Mod: operator.mod,
-                             ast.BitXor: operator.xor, ast.And: operator.and_, ast.Or: operator.or_,
-                             ast.BitAnd: operator.and_, ast.BitOr: operator.or_, ast.Eq: operator.eq,
-                             ast.Gt: operator.gt, ast.GtE: operator.ge, ast.Lt: operator.lt, ast.LtE: operator.le,
-                             ast.NotEq: operator.ne, ast.LShift: operator.lshift, ast.RShift: operator.rshift}
-
-    @staticmethod
-    def op_eval(node):
-        """
-        Evaluate constant expression.
-
-        Args:
-            node: AST node
-
-        Returns:
-            Result of the expression
-        """
-
-        if isinstance(node, list):
-            for n in node:
-                return AsmParser.op_eval(n)
-
-            raise RuntimeError(f"Eval error {node}")
-
-        if isinstance(node, ast.Num):
-            return node.n
-        elif isinstance(node, ast.Str):
-            return node.s
-        elif isinstance(node, ast.BinOp):
-            if (op := AsmParser.OPERATORS.get(type(node.op))) is None:
-                raise RuntimeError("Eval error {node}")
-            return op(AsmParser.op_eval(node.left), AsmParser.op_eval(node.right))
-        elif isinstance(node, ast.UnaryOp):
-            if (op := AsmParser.OPERATORS.get(type(node.op))) is None:
-                raise RuntimeError("Eval error {node}")
-            return op(AsmParser.op_eval(node.operand))
-        elif isinstance(node, ast.Assign):
-            value = AsmParser.op_eval(node.value)
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    AsmParser.VARIABLES[target.id] = value
-                else:
-                    raise RuntimeError(f"Eval error {node}")
-            return value
-        elif isinstance(node, ast.Name):
-            return AsmParser.VARIABLES[node.id]
-        else:
-            raise RuntimeError(f"Eval error {node}")
-
     def _init(self):
         # convert keyword and builtin tokens into id tokens
         for tok in self.tokens:
             if tok.type in (TokenType.KEYWORD, TokenType.NATIVE):
                 tok.type = TokenType.ID
+
+        self.const_expressions = True
 
     def parse_CodeBlock(self, name: str | None, end_at_rbrace: bool = True) -> CodeBlockNode:
         """
@@ -145,15 +94,13 @@ class AsmParser(GenericParser):
                 else:
                     return JumpNode(n.pos + label.pos, label.value, ("always", NullValue(), NullValue()))
 
-        elif n.type == TokenType.LBRACE:
-            self.prev_token(1)
-            self.parse_ConstValue()
+        elif n.type in (TokenType.NUMBER, TokenType.STRING) and self.lookahead_line() != n.pos.line:
             return None
 
         Error.unexpected_token(n)
 
     def parse_Value(self) -> Value:
-        n = self.next_token(TokenType.ID | TokenType.NUMBER | TokenType.STRING | TokenType.LBRACE)
+        n = self.next_token(TokenType.ID | TokenType.NUMBER | TokenType.STRING)
         if n.type == TokenType.ID:
             return VariableValue(Type.ANY, n.value)
         elif n.type == TokenType.NUMBER:
@@ -163,54 +110,8 @@ class AsmParser(GenericParser):
                 return NumberValue(float(n.value))
         elif n.type == TokenType.STRING:
             return StringValue(n.value)
-        elif n.type == TokenType.LBRACE:
-            self.prev_token(1)
-            return Value.from_(self.parse_ConstValue())
 
         raise RuntimeError("Internal error")
-
-    def parse_ConstValue(self, default: int | float | None = None) -> int | float:
-        if default is not None and not self.lookahead_token(TokenType.LBRACE):
-            return default
-
-        start = self.next_token(TokenType.LBRACE)
-
-        expr = ""
-        mode = "eval"
-        while self.has_token() and not self.lookahead_token(TokenType.RBRACE):
-            tok = self.next_token(TokenType.NUMBER | TokenType.OPERATOR | TokenType.LPAREN | TokenType.RPAREN |
-                                  TokenType.SET | TokenType.ID | TokenType.STRING)
-
-            if tok.type == TokenType.SET:
-                if tok.value != "=":
-                    Error.unexpected_token(tok)
-
-                mode = "exec"
-
-            if tok.value in ("===", "!==="):
-                expr += tok.value[:-1]
-            else:
-                expr += tok.value
-
-        if expr.strip():
-            try:
-                val = AsmParser.op_eval(ast.parse(expr, mode=mode).body)
-            except ArithmeticError:
-                Error.custom(start.pos, f"Arithmetic error in const expression [{expr}]")
-                return 0
-            except (NameError, KeyError):
-                Error.custom(start.pos, f"Variable not found in const expression [{expr}]")
-                return 0
-            except (RuntimeError, TypeError, Exception):
-                Error.custom(start.pos, f"Invalid const expression [{expr}]")
-                return 0
-
-        else:
-            val = 0
-
-        self.next_token(TokenType.RBRACE)
-
-        return val
 
     def parse_Operation(self) -> Node:
         var = self.next_token(TokenType.ID)
