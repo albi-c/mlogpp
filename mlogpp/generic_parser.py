@@ -52,6 +52,7 @@ class GenericParser:
 
     @staticmethod
     def _lex_const_val(pos: Position, val: str) -> list[Token]:
+        print(pos, val)
         pos.start += 2
         pos.end += 2
         tokens = Lexer("").lex(val, pos.file, pos)
