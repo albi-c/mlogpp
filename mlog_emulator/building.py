@@ -2,9 +2,8 @@ from enum import Enum
 
 
 class BuildingType(Enum):
-    CELL      = "cell"
-    MESSAGE   = "message"
-    PROCESSOR = "processor"
+    CELL = "cell"
+    MESSAGE = "message"
 
 
 class Building:
@@ -18,5 +17,3 @@ class Building:
             self.state["memory"] = [0 for _ in range(params["size"])]
         elif type_ == BuildingType.MESSAGE:
             self.state["text"] = ""
-        elif type_ == BuildingType.PROCESSOR:
-            self.state[""]

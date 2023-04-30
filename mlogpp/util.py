@@ -81,16 +81,14 @@ class Position:
         Create a range of two positions.
         """
 
-        if self.line == other.line:
-            self.start = min(self.start, other.start)
-            self.end = max(self.end, other.end)
-        elif self.line < other.line:
-            self.end = len(self.code)
-        else:
-            self.line = other.line
-            self.start = other.start
-            self.end = len(other.code)
-            self.code = other.code
+        new = self + other
+        self.line = new.line
+        self.start = new.start
+        self.end = new.end
+        self.code = new.code
+        self.file = new.file
+
+        return self
     
     def __repr__(self) -> str:
         return f"Position({self.line}, {self.start}, {self.end}, \"{sanitize(self.code)}\", \"{sanitize(self.file)}\")"

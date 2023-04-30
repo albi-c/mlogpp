@@ -8,7 +8,6 @@ exclude_lines =
 
     def __repr__
     def __str__
-    def rrename
     def generate
 
     def parse_

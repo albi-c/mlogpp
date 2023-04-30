@@ -107,7 +107,7 @@ class GenericParser:
                             Error.unexpected_token(tok)
                         j += 1
 
-                    tok.pos = tok.pos + end.pos
+                    tok.pos += end.pos
 
                     for _ in range(len(expr) + 2):
                         self.tokens.pop(i)

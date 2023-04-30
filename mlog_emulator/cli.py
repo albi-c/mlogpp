@@ -27,4 +27,4 @@ def main():
         with open(fn, "r") as f:
             code = f.read()
 
-    vm = VM(Parser.parse(code))
+    VM(*Parser.parse(code))
