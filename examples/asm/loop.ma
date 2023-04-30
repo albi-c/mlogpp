@@ -10,5 +10,6 @@ a:
     print({"\"" + "X" * x + "\""})
     {"print("}{x / 2}{")"}
     :a (i < {x * 2})
+    {"cell" + x}[0] = y
 
 printflush(message1)

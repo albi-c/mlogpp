@@ -337,7 +337,7 @@ class Lexer:
         """
 
         token = ""
-        while (ch := self.lookahead_char()) in Lexer.ID_CHARS:
+        while (ch := self.lookahead_char()) in Lexer.ID_CHARS and ch:
             self.next_char()
 
             if ch == ".":
@@ -349,7 +349,7 @@ class Lexer:
                     token += ch
 
                     # check if "." is at the end of the token
-                    if (ch := self.lookahead_char()) not in Lexer.ID_CHARS:
+                    if not (ch := self.lookahead_char()) in Lexer.ID_CHARS and ch:
                         Error.unexpected_character(self.make_position(1), ch)
 
                     continue

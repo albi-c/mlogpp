@@ -16,6 +16,7 @@ statically typed high level mindustry logic language
 * `-o:c`, `--output-clip` - output to clipboard (default)
 * `-v`, `--verbose` - output more information
 * `-l`, `--lines` - print line numbers when output is stdout
+* `-a`, `--assembly` - compile as mlog++ assembly
 * `-V`, `--version` - print version and exit
 
 ## Examples:
@@ -96,12 +97,29 @@ printflush(message1)
 ```
 Prints `0 10`
 
+### Assembly:
+```javascript
+{LOOP_LENGTH = 2 + 3}
+
+i = 0
+loop_start:
+    i += 1
+    
+    print(i)
+    print("\n")
+    
+    :loop_start (i < {LOOP_LENGTH})
+
+printflush(message1)
+```
+Prints `1 2 3 4 5`
+
 ### Longer examples can be found in `examples/`
 
 ## Features:
 * variables \
   `num x = 1`
-* types \
+* types 
   * `num`, `str`
   * `Block`, `Unit`,
   * `BlockType`, `UnitType`, `ItemType`, `LiquidType`,
@@ -127,6 +145,10 @@ Prints `0 10`
   `ubind(@mega)`
 * constants \
   `const VALUE = 30`
+* inline python subset in assembly \
+  `{x = 7 ^ 2}`   
+  `print({y = x // 2})`
+  `{"cell" + x}[0] = y`
 
 ## Native functions:
 * read `result`, `cell`, `position`
@@ -163,7 +185,7 @@ Prints `0 10`
         * config `block`, `configuration`
         * color `block`, `red`, `green`, `blue`
 * radar `filter0` ... `filter2`, `sort`, `block`, `order`, `result`
-    * Find an unit near `block` and store it in `result`
+    * Find a unit near `block` and store it in `result`
     * Filters:
         * any
         * enemy
