@@ -128,6 +128,7 @@ class MInstructionType(enum.Flag):
     UCONTROL = enum.auto()
     URADAR = enum.auto()
     ULOCATE = enum.auto()
+    NOOP = enum.auto()
 
 
 MInstructionType.INSTRUCTION_NAMES = [str(i).split(".")[1].lower() for i in MInstructionType]

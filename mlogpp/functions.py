@@ -342,7 +342,8 @@ class Natives:
         "ubind": 1,
         "ucontrol": 6,
         "uradar": 7,
-        "ulocate": 8
+        "ulocate": 8,
+        "noop": 0
     }
 
 
