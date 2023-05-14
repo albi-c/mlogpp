@@ -166,6 +166,9 @@ class Natives:
                   "ucontrol.approach": (
                                            (Param.INPUT, Type.NUM),
                                        ) * 3,
+                  "ucontrol.pathfind": (
+                                           (Param.INPUT, Type.NUM),
+                                       ) * 2,
                   "ucontrol.boost": (
                       (Param.INPUT, Type.NUM),
                   ),
@@ -271,11 +274,9 @@ class Natives:
                              "read": 0,
                              "getlink": 0,
                              "radar": 6
-                         } | \
-                         {
+                         } | {
                              f"sensor.{property}": 0 for property in constants.SENSOR_READABLE.keys()
-                         } | \
-                         {
+                         } | {
                              "lookup.block": 0,
                              "lookup.unit": 0,
                              "lookup.item": 0,
