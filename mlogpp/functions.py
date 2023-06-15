@@ -18,7 +18,7 @@ class Param(enum.Enum):
 
 class Natives:
     # native functions
-    NATIVES = {
+    NATIVES: dict[str, tuple[tuple[Param, Type], ...]] = {
                   "read": (
                       (Param.OUTPUT, Type.NUM),
                       (Param.INPUT, Type.BLOCK),
@@ -263,7 +263,182 @@ class Natives:
                       (Param.OUTPUT, Type.NUM),
                       (Param.OUTPUT, Type.NUM),
                       (Param.OUTPUT, Type.BLOCK)
+                  ),
+
+                  "getblock.floor": (
+                      (Param.OUTPUT, Type.BLOCK),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM)
+                  ),
+                  "getblock.ore": (
+                      (Param.OUTPUT, Type.BLOCK),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM)
+                  ),
+                  "getblock.block": (
+                      (Param.OUTPUT, Type.BLOCK),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM)
+                  ),
+                  "getblock.building": (
+                      (Param.OUTPUT, Type.BLOCK),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM)
+                  ),
+
+                  "setblock.floor": (
+                      (Param.INPUT, Type.BLOCK),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY)
+                  ),
+                  "setblock.ore": (
+                      (Param.INPUT, Type.BLOCK),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY)
+                  ),
+                  "setblock.block": (
+                      (Param.INPUT, Type.BLOCK),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.TEAM),
+                      (Param.INPUT, Type.NUM)
+                  ),
+
+                  "spawn": (
+                      (Param.INPUT, Type.UNIT_TYPE),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.TEAM),
+                      (Param.OUTPUT, Type.UNIT)
+                  ),
+
+                  "status": (
+                      (Param.INPUT, Type.NUM),  # TODO: better apply/clear switch
+                      (Param.INPUT, Type.ANY),  # TODO: status effect type
+                      (Param.INPUT, Type.UNIT),
+                      (Param.INPUT, Type.NUM)
+                  ),
+
+                  "spawnwave": (
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM)
                   )
+              } | {
+                  f"setrule.{rule}": (
+                      (Param.INPUT, Type.NUM),
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY)
+                  ) for rule in constants.RULES
+              } | {
+                  f"setrule.{rule}": (
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.TEAM),
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY)
+                  ) for rule in constants.RULES_TEAM
+              } | {
+                  "setrule.mapArea": (
+                      (Param.UNUSED, Type.ANY),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM)
+                  ),
+
+                  "message.notify": (
+                      (Param.UNUSED, Type.ANY),
+                  ),
+                  "message.announce": (
+                      (Param.INPUT, Type.NUM),
+                  ),
+                  "message.toast": (
+                      (Param.INPUT, Type.NUM),
+                  ),
+                  "message.mission": (
+                      (Param.UNUSED, Type.ANY),
+                  ),
+
+                  "cutscene.pan": (
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM)
+                  ),
+                  "cutscene.zoom": (
+                      (Param.INPUT, Type.NUM),
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY)
+                  ),
+                  "cutscene.stop": (
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY)
+                  ),
+
+                  "explosion": (
+                      (Param.INPUT, Type.TEAM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.NUM)
+                  ),
+
+                  "setrate": (
+                      (Param.INPUT, Type.NUM)
+                  )
+              } | {
+                  f"fetch.{prop}": (
+                      (Param.OUTPUT, type_),
+                      (Param.INPUT, Type.TEAM),
+                      (Param.INPUT, Type.NUM),
+                      (Param.UNUSED, Type.ANY)
+                  ) for prop, type_ in constants.FETCH_PROPERTIES.items()
+              } | {
+                  f"fetch.{prop}Count": (
+                      (Param.OUTPUT, type_),
+                      (Param.INPUT, Type.TEAM),
+                      (Param.UNUSED, Type.ANY),
+                      (Param.UNUSED, Type.ANY)
+                  ) for prop, type_ in constants.FETCH_PROPERTIES.items()
+              } | {
+                  "fetch.build": (
+                     (Param.OUTPUT, Type.BLOCK),
+                     (Param.INPUT, Type.TEAM),
+                     (Param.INPUT, Type.NUM),
+                     (Param.INPUT, Type.BLOCK_TYPE)
+                  ),
+                  "fetch.buildCount": (
+                     (Param.OUTPUT, Type.BLOCK),
+                     (Param.INPUT, Type.TEAM),
+                     (Param.UNUSED, Type.ANY),
+                     (Param.INPUT, Type.BLOCK_TYPE)
+                  ),
+
+                  "getflag": (
+                      (Param.OUTPUT, Type.NUM),
+                      (Param.INPUT, Type.STR)
+                  ),
+
+                  "setflag": (
+                      (Param.INPUT, Type.STR),
+                      (Param.INPUT, Type.NUM)
+                  )
+              } | {
+                  f"setprop.{property}": (
+                      (Param.INPUT, type_),
+                      (Param.INPUT, Type.BLOCK | Type.UNIT)
+                  ) for property, type_ in constants.SETPROP_SETTABLE.items()
               }
 
     # return position of native functions
@@ -282,7 +457,15 @@ class Natives:
                              "lookup.liquid": 0,
                              "packcolor": 0,
                              "ucontrol.within": 3,
-                             "uradar": 6
+                             "uradar": 6,
+
+                             "getblock.floor": 1,
+                             "getblock.ore": 1,
+                             "getblock.block": 1,
+                             "getblock.building": 1,
+                             "spawn": 5,
+                             "fetch": 1,
+                             "getflag": 0
                          }
 
     # builtin functions
@@ -316,8 +499,8 @@ class Natives:
         "op": (
             (Param.CONFIG, Type.ANY),
             (Param.OUTPUT, Type.NUM),
-            (Param.INPUT, Type.ANY),
-            (Param.INPUT, Type.ANY)
+            (Param.INPUT, Type.NUM),
+            (Param.INPUT, Type.NUM)
         )
     }
 
@@ -343,7 +526,22 @@ class Natives:
         "ucontrol": 6,
         "uradar": 7,
         "ulocate": 8,
-        "noop": 0
+        "noop": 0,
+
+        "getblock": 4,
+        "setblock": 6,
+        "spawn": 6,
+        "status": 4,
+        "spawnwave": 3,
+        "setrule": 6,
+        "message": 2,
+        "cutscene": 5,
+        "explosion": 8,
+        "setrate": 1,
+        "fetch": 5,
+        "getflag": 2,
+        "setflag": 2,
+        "setprop": 3
     }
 
 

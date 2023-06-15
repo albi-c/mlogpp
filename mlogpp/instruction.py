@@ -130,6 +130,21 @@ class MInstructionType(enum.Flag):
     ULOCATE = enum.auto()
     NOOP = enum.auto()
 
+    GETBLOCK = enum.auto()
+    SETBLOCK = enum.auto()
+    SPAWN = enum.auto()
+    STATUS = enum.auto()
+    SPAWNWAVE = enum.auto()
+    SETRULE = enum.auto()
+    MESSAGE = enum.auto()
+    CUTSCENE = enum.auto()
+    EXPLOSION = enum.auto()
+    SETRATE = enum.auto()
+    FETCH = enum.auto()
+    GETFLAG = enum.auto()
+    SETFLAG = enum.auto()
+    SETPROP = enum.auto()
+
 
 MInstructionType.INSTRUCTION_NAMES = [str(i).split(".")[1].lower() for i in MInstructionType]
 

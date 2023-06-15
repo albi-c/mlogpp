@@ -169,7 +169,40 @@ SENSOR_READABLE = {
     liquid: Type.NUM for liquid in LIQUIDS
 }
 
+SETPROP_SETTABLE = {
+    "x": Type.NUM,
+    "y": Type.NUM,
+    "rotation": Type.NUM,
+    "team": Type.TEAM,
+    "flag": Type.NUM,
+    "health": Type.NUM,
+    "totalPower": Type.NUM,
+    "payloadType": Type.NUM
+} | {
+    item: Type.NUM for item in ITEMS
+} | {
+    liquid: Type.NUM for liquid in LIQUIDS
+}
+
 # values writable by "." access
 CONTROLLABLE = {
     "enabled", "config", "color"
+}
+
+# "mapArea" is special
+RULES = {
+    "currentWaveTimer", "waveTimer", "waves", "wave", "waveSpacing", "waveSending",
+    "attackMode", "enemyCoreBuildRadius", "dropZoneRadius", "unitCap", "lighting",
+    "ambientLight", "solarMultiplier"
+}
+# rules that need a team parameter
+RULES_TEAM = {
+    "buildSpeed", "unitHealth", "unitBuildSpeed", "unitCost", "unitDamage",
+    "blockHealth", "blockDamage", "rtsMinWeight", "rtsMinSquad"
+}
+
+FETCH_PROPERTIES = {
+    "unit": Type.UNIT,
+    "player": Type.UNIT,
+    "core": Type.BLOCK
 }
