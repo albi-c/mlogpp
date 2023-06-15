@@ -244,11 +244,11 @@ class UnaryOpNode(Node):
     def generate(self) -> Instruction | Instructions:
         match self.op:
             case "-":
-                return MInstruction(MInstructionType.OP, ["sub", result, NumberValue(0), self.value])
+                return MInstruction(MInstructionType.OP, ["sub", self.result, NumberValue(0), self.value])
             case "!":
-                return MInstruction(MInstructionType.OP, ["equal", result, self.value, NumberValue(0)])
+                return MInstruction(MInstructionType.OP, ["equal", self.result, self.value, NumberValue(0)])
             case "~":
-                return MInstruction(MInstructionType.OP, ["not", result, self.value, "_"])
+                return MInstruction(MInstructionType.OP, ["not", self.result, self.value, "_"])
 
 
 class LabelNode(Node):

@@ -67,7 +67,8 @@ class GenericParser:
             elif not val.startswith("\"") and not val.endswith("\""):
                 return GenericParser._lex_const_val(pos, val), 0
             else:
-                return tok, -1
+                # return [Token(TokenType.ID, val, pos)], 0
+                raise RuntimeError("Not implemented")
 
         elif isinstance(val, int | float):
             return [Token(TokenType.NUMBER, str(val), pos)], 0
