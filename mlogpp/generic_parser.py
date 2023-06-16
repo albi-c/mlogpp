@@ -45,7 +45,7 @@ class GenericParser:
 
         self._preprocess_tokens()
 
-        return self.parse_CodeBlock(None, False)
+        return self.parse_CodeBlock(False)
 
     def _init(self):
         pass

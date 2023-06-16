@@ -1,5 +1,3 @@
-import genericpath
-
 from .tokens import TokenType, Token
 from .error import Error
 from .node import *

@@ -23,12 +23,11 @@ class AsmParser(GenericParser):
 
         self.const_expressions = True
 
-    def parse_CodeBlock(self, name: str | None, end_at_rbrace: bool = True) -> CodeBlockNode:
+    def parse_CodeBlock(self, end_at_rbrace: bool) -> CodeBlockNode:
         """
         Parse a block of code.
 
         Args:
-            name: Name of the code block.
             end_at_rbrace: Break at a right bracket.
 
         Returns:
@@ -45,7 +44,7 @@ class AsmParser(GenericParser):
             if s is not None:
                 code.append(s)
 
-        return CodeBlockNode(code, name)
+        return CodeBlockNode(code)
 
     def parse_Statement(self) -> Node | None:
         n = self.next_token()

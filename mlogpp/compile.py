@@ -5,7 +5,7 @@ from .generator import Gen
 
 from .preprocess import Preprocessor
 from .lexer import Lexer
-from .parser_ import Parser
+from .parser_rewrite import Parser
 from .optimizer import Optimizer
 from .linker import Linker
 

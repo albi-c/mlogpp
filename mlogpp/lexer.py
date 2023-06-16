@@ -4,7 +4,6 @@ import string
 from .preprocess import Preprocessor
 from .error import Error
 from .util import Position, sanitize
-from .node import NativeCallNode
 from .tokens import *
 
 
@@ -15,14 +14,14 @@ class Lexer:
 
     # identifier characters
     ID_CHARS_START = string.ascii_letters + "_@"
-    ID_CHARS = ID_CHARS_START + "-." + string.digits
+    ID_CHARS = ID_CHARS_START + string.digits
 
     STRING_CHARS = string.printable
 
     NUMBER_CHARS_START = string.digits
-    NUMBER_CHARS = NUMBER_CHARS_START + "."
+    NUMBER_CHARS = NUMBER_CHARS_START
 
-    OPERATOR_CHARS_START = "+-*/%=<>!&|^~"
+    OPERATOR_CHARS_START = "+-*/%=<>!&|^~."
 
     SET_CHARS_START = "=+-*/%&|^<>"
 
@@ -240,10 +239,6 @@ class Lexer:
                 if token in Token.KEYWORDS:
                     tokens.append(self.make_token(TokenType.KEYWORD, token))
 
-                # check if the identifier is a native or builtin function
-                elif token in NativeCallNode.NATIVES or token in NativeCallNode.BUILTINS:
-                    tokens.append(self.make_token(TokenType.NATIVE, token))
-
                 else:
                     tokens.append(self.make_token(TokenType.ID, token))
 
@@ -336,24 +331,13 @@ class Lexer:
             The lexed token.
         """
 
+        first = self.lookahead_char()
+
+        chars = Lexer.ID_CHARS + ("-" if first == "@" else "")
+
         token = ""
-        while (ch := self.lookahead_char()) in Lexer.ID_CHARS and ch:
+        while (ch := self.lookahead_char()) in chars and ch:
             self.next_char()
-
-            if ch == ".":
-                # check if "." is already used
-                if "." in token:
-                    Error.unexpected_character(self.make_position(1), ch)
-
-                else:
-                    token += ch
-
-                    # check if "." is at the end of the token
-                    if not (ch := self.lookahead_char()) in Lexer.ID_CHARS and ch:
-                        Error.unexpected_character(self.make_position(1), ch)
-
-                    continue
-
             token += ch
 
         return token
@@ -426,8 +410,8 @@ class Lexer:
         """
 
         match ch := self.next_char():
-            # + - ~ ^ %
-            case "+" | "-" | "~" | "^" | "%":
+            # . + - ~ ^ %
+            case "." | "+" | "-" | "~" | "^" | "%":
                 return ch
             # & && | ||
             case "&" | "|":

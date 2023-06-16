@@ -5,49 +5,56 @@ import enum
 from .error import Error
 
 
-class Type(enum.Flag):
+class Type:
     """
     Type of value.
     """
 
-    STR = enum.auto()
-    NUM = enum.auto()
-    NULL = enum.auto()
-
-    BLOCK = enum.auto()
-    UNIT = enum.auto()
-    TEAM = enum.auto()
-
-    UNIT_TYPE = enum.auto()
-    ITEM_TYPE = enum.auto()
-    BLOCK_TYPE = enum.auto()
-    LIQUID_TYPE = enum.auto()
-
-    CONTROLLER = enum.auto()
-
-    ANY = NUM | STR | NULL | BLOCK | UNIT | TEAM | UNIT_TYPE | ITEM_TYPE | BLOCK_TYPE | LIQUID_TYPE | CONTROLLER
+    names: set[str]
 
     @staticmethod
-    def from_code(var: str) -> 'Type':
-        """
-        Create a type from an in-code name without "_"
+    def new(name: str):
+        return Type({name})
 
-        Args:
-            var: The in-code name.
+    def __init__(self, names: set[str]):
+        self.names = names
 
-        Returns:
-            The created type.
-        """
+    def __contains__(self, item):
+        if isinstance(item, Type):
+            return self.names & item.names == item.names
 
-        tok = ""
-        last = ""
-        for ch in var:
-            if ch.upper() == ch and last:
-                tok += "_"
-            tok += ch
-            last = ch
+        raise TypeError
 
-        return Type[tok.upper()]
+    def __or__(self, other):
+        if isinstance(other, Type):
+            return Type(self.names | other.names)
+
+        raise TypeError
+
+    def __and__(self, other):
+        if isinstance(other, Type):
+            return Type(self.names & other.names)
+
+        raise TypeError
+
+
+Type.STR = Type.new("str")
+Type.NUM = Type.new("num")
+Type.NULL = Type.new("null")
+
+Type.BLOCK = Type.new("Block")
+Type.UNIT = Type.new("Unit")
+Type.TEAM = Type.new("Team")
+
+Type.UNIT_TYPE = Type.new("UnitType")
+Type.ITEM_TYPE = Type.new("ItemType")
+Type.BLOCK_TYPE = Type.new("BlockType")
+Type.LIQUID_TYPE = Type.new("LiquidType")
+
+Type.CONTROLLER = Type.new("Controller")
+
+Type.ANY = Type.NUM | Type.STR | Type.NULL | Type.BLOCK | Type.UNIT | Type.TEAM | Type.UNIT_TYPE | \
+           Type.ITEM_TYPE | Type.BLOCK_TYPE | Type.LIQUID_TYPE | Type.CONTROLLER
 
 
 class Value:

@@ -51,13 +51,11 @@ class CodeBlockNode(Node):
     """
 
     code: list[Node]
-    name: str | None
 
-    def __init__(self, code: list[Node], name: str | None):
+    def __init__(self, code: list[Node]):
         super().__init__(Position(0, 0, 0, "", ""))
 
         self.code = code
-        self.name = name
 
     def __str__(self):
         string = "{\n"
