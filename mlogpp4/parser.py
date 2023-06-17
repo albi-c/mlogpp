@@ -1,6 +1,6 @@
 from .tokens import TokenType, Token
 from .error import Error
-from .node_rewrite import *
+from .node import *
 from .generic_parser import GenericParser
 
 

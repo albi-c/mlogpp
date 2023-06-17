@@ -115,7 +115,7 @@ class Parser(GenericParser):
         self.next_token(TokenType.LPAREN)
 
         # check if the function is native
-        if (nat := NativeCallNode.NATIVES.get(name.value)) is not None:
+        if (nat := NativeCallNode.NATIVES.gen(name.value)) is not None:
             # how much to subtract when checking if at the end of the function call
             length_check_sub = 1 + (name.value in NativeCallNode.NATIVES_RETURN_POS)
 
@@ -133,7 +133,7 @@ class Parser(GenericParser):
                         params.append(self.next_token(TokenType.ID).value)
 
                     case Param.OUTPUT:
-                        if NativeCallNode.NATIVES_RETURN_POS.get(name.value) == i:
+                        if NativeCallNode.NATIVES_RETURN_POS.gen(name.value) == i:
                             params.append("_")
                             continue
 
@@ -148,7 +148,7 @@ class Parser(GenericParser):
             return NativeCallNode(name.pos, name.value, params)
 
         # check if the function is builtin
-        elif (nat := NativeCallNode.BUILTINS.get(name.value)) is not None:
+        elif (nat := NativeCallNode.BUILTINS.gen(name.value)) is not None:
             params = []
             for i in range(nat):
                 params.append(self.parse_Value())

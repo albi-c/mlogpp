@@ -380,7 +380,7 @@ class BinaryOpNode(Node):
             return None
 
         for op, right in self.right:
-            if (op := PRECALC.get(BinaryOpNode.OPERATORS.get(op))) is None or op in BinaryOpNode.EQUALITY:
+            if (op := PRECALC.gen(BinaryOpNode.OPERATORS.get(op))) is None or op in BinaryOpNode.EQUALITY:
                 return None
 
             if (right := right.precalc()) is None or right.type not in Type.NUM:
@@ -581,7 +581,7 @@ class NativeCallNode(Node):
 
                 # an output parameter
                 case Param.OUTPUT:
-                    if i == NativeCallNode.NATIVES_RETURN_POS.get(self.name):
+                    if i == NativeCallNode.NATIVES_RETURN_POS.gen(self.name):
                         # the returned value
                         value = Gen.temp_var(nat[i][1])
                         self.return_value = value
@@ -621,7 +621,7 @@ class NativeCallNode(Node):
 
     def generate_builtin(self) -> Instruction | Instructions:
         # check if the function is builtin
-        if (nat := NativeCallNode.BUILTINS.get(self.name)) is None:
+        if (nat := NativeCallNode.BUILTINS.gen(self.name)) is None:
             Error.undefined_function(self, self.name)
 
         # check the parameter count
@@ -798,7 +798,7 @@ class VariableValueNode(ValueNode):
         Error.undefined_variable(self, self.value)
 
     def precalc(self) -> Value | None:
-        if (var := Scopes.DEFAULT_SCOPE.get(self.value)) is not None:
+        if (var := Scopes.DEFAULT_SCOPE.gen(self.value)) is not None:
             return var.const_val
 
         return None
