@@ -2,22 +2,25 @@ from .values import Type, Value, CallableValue, VariableValue, NullValue
 from .instruction import *
 from .generator import Gen
 from .error import Error
+from .enums import *
 
 
-class BuiltinFunctionValue(CallableValue):
+class NativeFunctionValue(CallableValue):
     ins: type[Instruction]
     params: list[Type]
     ret: int
+    implicit_first_param: str
 
-    def __init__(self, ins: type[Instruction], params: list[Type], ret: int = -1):
+    def __init__(self, ins: type[Instruction], params: list[Type], ret: int = -1, *, implicit_first_param: str = ""):
         super().__init__(Type.function(params, params[ret] if ret >= 0 else Type.NULL))
 
         self.ins = ins
         self.params = params
         self.ret = ret
+        self.implicit_first_param = implicit_first_param
 
     def __eq__(self, other):
-        if isinstance(other, BuiltinFunctionValue):
+        if isinstance(other, NativeFunctionValue):
             return self.ins == other.ins and self.params == other.params and self.ret == other.ret
 
     def get(self) -> str:
@@ -28,7 +31,10 @@ class BuiltinFunctionValue(CallableValue):
             ret = Gen.tmp()
             par = []
             for i, param in enumerate(self.params):
-                if i == self.ret:
+                if self.implicit_first_param and i == 0:
+                    par.append(self.implicit_first_param)
+
+                elif i == self.ret:
                     par.append(ret)
 
                 else:
@@ -37,8 +43,10 @@ class BuiltinFunctionValue(CallableValue):
 
                     par.append(params[i].get())
 
+            par += [0] * (self.ins.num_params() - len(par))
+
             Gen.emit(self.ins(*par))
-            return VariableValue(ret, self.type())
+            return VariableValue(ret, self.params[self.ret])
 
         else:
             par = []
@@ -48,8 +56,37 @@ class BuiltinFunctionValue(CallableValue):
 
                 par.append(params[i].get())
 
+            par += [0] * (self.ins.num_params() - len(par))
+
             Gen.emit(self.ins(*par))
             return NullValue()
+
+
+class NativeMultiFunctionValue(Value):
+    functions: dict[str, NativeFunctionValue]
+
+    def __init__(self, ins: type[Instruction], functions: dict[str, list[Type] | tuple[list[Type], int]]):
+        super().__init__(Type.OBJECT)
+
+        self.functions = {}
+        for name, func in functions.items():
+            if isinstance(func, list):
+                self.functions[name] = NativeFunctionValue(ins, func, implicit_first_param=name)
+
+            else:
+                self.functions[name] = NativeFunctionValue(ins, func[0], func[1], implicit_first_param=name)
+
+    def __eq__(self, other):
+        if isinstance(other, NativeMultiFunctionValue):
+            return self.ins == other.ins and self.functions == other.functions
+
+        return False
+
+    def get(self) -> str:
+        return str(self.type())
+
+    def getattr(self, name: str) -> Value | None:
+        return self.functions.get(name)
 
 
 BUILTIN_VARIABLES = {
@@ -83,9 +120,92 @@ BUILTIN_CONSTANTS = {
 }
 
 BUILTIN_FUNCTIONS = {
-    "print": BuiltinFunctionValue(InstructionPrint, [Type.ANY]),
-    "printflush": BuiltinFunctionValue(InstructionPrintFlush, [Type.BLOCK]),
-    "getlink": BuiltinFunctionValue(InstructionGetLink, [Type.NUM, Type.BLOCK], 1)
+    "read": NativeFunctionValue(InstructionRead, [Type.NUM, Type.BLOCK, Type.NUM], 0),
+    "write": NativeFunctionValue(InstructionWrite, [Type.NUM, Type.BLOCK, Type.NUM]),
+    "draw": NativeMultiFunctionValue(
+        InstructionDraw,
+        {
+            "clear": [Type.NUM] * 3,
+            "color": [Type.NUM] * 4,
+            "col": [Type.NUM],
+            "stroke": [Type.NUM],
+            "line": [Type.NUM] * 4,
+            "rect": [Type.NUM] * 4,
+            "lineRect": [Type.NUM] * 4,
+            "poly": [Type.NUM] * 5,
+            "linePoly": [Type.NUM] * 5,
+            "triangle": [Type.NUM] * 6,
+            "image": [Type.NUM, Type.NUM, Type.CONTENT, Type.NUM, Type.BLOCK],
+        }
+    ),
+    "print": NativeFunctionValue(InstructionPrint, [Type.ANY]),
+
+    "drawflush": NativeFunctionValue(InstructionDrawFlush, [Type.BLOCK]),
+    "printflush": NativeFunctionValue(InstructionPrintFlush, [Type.BLOCK]),
+    "getlink": NativeFunctionValue(InstructionGetLink, [Type.BLOCK, Type.NUM], 0),
+    "control": NativeMultiFunctionValue(
+        InstructionControl,
+        {
+            "enabled": [Type.BLOCK, Type.NUM],
+            "shoot": [Type.BLOCK, Type.NUM, Type.NUM, Type.NUM],
+            "shootp": [Type.BLOCK, Type.UNIT, Type.NUM],
+            "config": [Type.BLOCK, Type.CONTENT],
+            "color": [Type.BLOCK, Type.NUM]
+        }
+    ),
+    "radar": NativeFunctionValue(InstructionRadar, [EnumRadarFilter.type] * 3 + [EnumRadarSort.type, Type.BLOCK,
+                                                                                 Type.NUM, Type.UNIT], 6),
+    "sensor": NativeFunctionValue(InstructionSensor, [EnumSensable.type, Type.NUM, Type.BLOCK | Type.UNIT]),
+
+    "lookup": NativeMultiFunctionValue(
+        InstructionLookup,
+        {
+            "block": ([Type.BLOCK_TYPE, Type.NUM], 0),
+            "unit": ([Type.UNIT_TYPE, Type.NUM], 0),
+            "item": ([Type.ITEM_TYPE, Type.NUM], 0),
+            "liquid": ([Type.LIQUID_TYPE, Type.NUM], 0)
+        }
+    ),
+    "packcolor": NativeFunctionValue(InstructionPackColor, [Type.NUM] * 5, 0),
+
+    "wait": NativeFunctionValue(InstructionWait, [Type.NUM]),
+    "stop": NativeFunctionValue(InstructionStop, []),
+    "end": NativeFunctionValue(InstructionEnd, []),
+
+    "ubind": NativeFunctionValue(InstructionUBind, [Type.UNIT_TYPE]),
+    "ucontrol": NativeMultiFunctionValue(
+        InstructionUControl,
+        {
+            "idle": [],
+            "stop": [],
+            "move": [Type.NUM] * 2,
+            "approach": [Type.NUM] * 3,
+            "pathfind": [Type.NUM] * 2,
+            "boost": [Type.NUM],
+            "target": [Type.NUM] * 3,
+            "targetp": [Type.UNIT, Type.NUM],
+            "itemDrop": [Type.BLOCK, Type.NUM],
+            "itemTake": [Type.BLOCK, Type.ITEM_TYPE, Type.NUM],
+            "payDrop": [],
+            "payTake": [Type.NUM],
+            "payEnter": [],
+            "mine": [Type.NUM] * 2,
+            "flag": [Type.NUM],
+            "build": [Type.NUM, Type.NUM, Type.BLOCK_TYPE, Type.NUM, Type.CONTENT | Type.BLOCK],
+            # TODO: getBlock
+            "within": ([Type.NUM] * 4, 3),
+            "unbind": []
+        }
+    )
+    # TODO: uradar, ulocate
 }
 
-BUILTINS = BUILTIN_VARIABLES | BUILTIN_CONSTANTS | BUILTIN_FUNCTIONS
+# TODO: `op` instruction function-like operations (abs, log, ...)
+
+BUILTIN_ENUMS = {
+    "Sensable": EnumSensable,
+    "RadarFilter": EnumRadarFilter,
+    "RadarSort": EnumRadarSort
+}
+
+BUILTINS = BUILTIN_VARIABLES | BUILTIN_CONSTANTS | BUILTIN_FUNCTIONS | BUILTIN_ENUMS

@@ -71,9 +71,6 @@ class Parser(GenericParser):
                 case "continue":
                     return ContinueNode(tok.pos)
 
-                case "end":
-                    return EndNode(tok.pos)
-
             raise RuntimeError("invalid keyword")
 
         return self.parse_Value()

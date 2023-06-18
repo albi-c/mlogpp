@@ -17,6 +17,26 @@ class Type:
     typenames = {}
     any_type = None
 
+    # builtin types
+    NUM = None
+    STR = None
+    NULL = None
+    BLOCK = None
+    UNIT = None
+    TEAM = None
+    UNIT_TYPE = None
+    ITEM_TYPE = None
+    BLOCK_TYPE = None
+    LIQUID_TYPE = None
+    CONTROLLER = None
+
+    # private types
+    OBJECT = None
+
+    # compound types
+    CONTENT = None
+    ANY = None
+
     @classmethod
     def simple(cls, name: str) -> Type:
         if name in cls.typenames:
@@ -25,6 +45,10 @@ class Type:
         type_ = cls({name}, False)
         cls.typenames[name] = type_
         return type_
+
+    @classmethod
+    def private(cls, name: str) -> Type:
+        return cls.simple(f"${name}")
 
     @classmethod
     def function(cls, params: list[Type], ret: Type) -> Type:
@@ -93,6 +117,7 @@ class Type:
         raise RuntimeError
 
 
+# builtin types
 Type.NUM = Type.simple("num")
 Type.STR = Type.simple("str")
 Type.NULL = Type.simple("null")
@@ -108,6 +133,11 @@ Type.LIQUID_TYPE = Type.simple("LiquidType")
 
 Type.CONTROLLER = Type.simple("Controller")
 
+# private types
+Type.OBJECT = Type.private("object")
+
+# compound types
+Type.CONTENT = Type.UNIT_TYPE | Type.ITEM_TYPE | Type.BLOCK_TYPE | Type.LIQUID_TYPE
 Type.ANY = Type.any()
 
 
@@ -136,6 +166,9 @@ class Value:
 
     def const(self) -> bool:
         return True
+
+    def getattr(self, name: str) -> Value | None:
+        return None
 
 
 class SettableValue(Value, ABC):

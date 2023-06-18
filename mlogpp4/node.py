@@ -315,21 +315,6 @@ class ContinueNode(Node):
         return NullValue()
 
 
-class EndNode(Node):
-    def __init__(self, pos: Position):
-        super().__init__(pos)
-
-    def __str__(self):
-        return "end"
-
-    def gen(self) -> Value:
-        Gen.emit(
-            InstructionEnd()
-        )
-
-        return NullValue()
-
-
 class IfNode(Node):
     condition: Node
     code: Node
