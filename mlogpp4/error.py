@@ -72,6 +72,10 @@ class Error(Exception):
         raise Error(f"Invalid operation [{a} {op} {b}]", node.get_pos())
 
     @staticmethod
+    def not_callable(node: 'Node', val: 'Value'):
+        raise Error(f"Not callable [{val}]", node.get_pos())
+
+    @staticmethod
     def already_defined_var(node: 'Node', name: str):
         raise Error(f"Variable [{name}] is already defined", node.get_pos())
 

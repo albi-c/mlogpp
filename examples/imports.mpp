@@ -1,4 +1,6 @@
 %imports_library.mpp
 
+Block message1
+
 test_func(5, 6)
 printflush(message1)

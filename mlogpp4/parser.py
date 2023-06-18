@@ -32,15 +32,19 @@ class Parser(GenericParser):
         return BlockNode(pos, code)
 
     def parse_Statement(self) -> Node:
-        if self.lookahead_token(TokenType.ID) and self.lookahead_token(
-                TokenType.ID, None, 2) and self.lookahead_token(TokenType.SET, "=", 3):
+        if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.ID, None, 2):
 
             type_ = self.next_token()
             name = self.next_token()
-            self.next_token()
-            value = self.parse_Value()
 
-            return DeclarationNode(type_.pos + value.get_pos(), type_.value, name.value, value)
+            if self.lookahead_token(TokenType.SET, "="):
+                self.next_token()
+                value = self.parse_Value()
+
+                return DeclarationNode(type_.pos + value.get_pos(), type_.value, name.value, value)
+
+            else:
+                return DeclarationNode(type_.pos + name.pos, type_.value, name.value, None)
 
         elif self.lookahead_token(TokenType.KEYWORD):
             tok = self.next_token()
@@ -102,7 +106,7 @@ class Parser(GenericParser):
                     inner_node.else_code = IfNode(tok.pos + end_pos, condition, code, None)
                     inner_node = inner_node.else_code
 
-                if self.lookahead_token(TokenType.KEYWORD, "if"):
+                if self.lookahead_token(TokenType.KEYWORD, "else"):
                     self.next_token()
 
                     self.next_token(TokenType.LBRACE)
@@ -210,6 +214,15 @@ class Parser(GenericParser):
         return node
 
     def parse_Value(self) -> Node:
+        if self.lookahead_token(TokenType.KEYWORD):
+            tok = self.next_token()
+
+            if tok.value in Token.BLOCK_STATEMENTS:
+                self.prev_token()
+                return self.parse_BlockStatement()
+
+            Error.unexpected_token(tok)
+
         return self.parse_Assignment()
 
     def parse_Assignment(self) -> Node:
