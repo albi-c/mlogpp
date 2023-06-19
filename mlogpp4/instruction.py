@@ -69,9 +69,22 @@ InstructionUControl = Instruction.create("ucontrol", 6)
 InstructionURadar = Instruction.create("uradar", 7)
 InstructionULocate = Instruction.create("ulocate", 8)
 
-InstructionNoop = Instruction.create("noop", 0)
+InstructionGetBlock = Instruction.create("getblock", 4)
+InstructionSetBlock = Instruction.create("setblock", 6)
+InstructionSpawn = Instruction.create("spawn", 6)
+InstructionStatus = Instruction.create("status", 4)
+InstructionSpawnWave = Instruction.create("spawnwave", 3)
+InstructionSetRule = Instruction.create("setrule", 6)
+InstructionMessage = Instruction.create("message", 2)
+InstructionCutscene = Instruction.create("cutscene", 4)
+InstructionExplosion = Instruction.create("explosion", 8)
+InstructionSetRate = Instruction.create("setrate", 1)
+InstructionFetch = Instruction.create("fetch", 5)
+InstructionGetFlag = Instruction.create("getflag", 2)
+InstructionSetFlag = Instruction.create("setflag", 2)
+InstructionSetProp = Instruction.create("setprop", 3)
 
-# TODO: world instructions
+InstructionNoop = Instruction.create("noop", 0)
 
 
 class Label(Instruction):

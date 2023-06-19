@@ -205,6 +205,9 @@ class CallableValue(Value, ABC):
     def get_params(self) -> list[Type]:
         raise NotImplementedError
 
+    def outputs(self) -> list[int]:
+        return []
+
 
 class SensorValue(Value):
     value: str

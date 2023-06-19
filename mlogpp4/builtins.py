@@ -75,6 +75,9 @@ class NativeFunctionValue(CallableValue):
     def get_params(self) -> list[Type]:
         return [param[1] for param in self.params if param[0] in (Param.INPUT, Param.OUTPUT)]
 
+    def outputs(self) -> list[int]:
+        return [i for i, [param, _] in enumerate(self.params) if param == Param.OUTPUT]
+
     @staticmethod
     def _add_param(node: 'Node', params: list[str], outputs: list[tuple[VariableValue, SettableValue]],
                    param: Value, type_: Type, output: bool):
