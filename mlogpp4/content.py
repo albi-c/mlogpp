@@ -76,3 +76,6 @@ class Content:
         "burning", "freezing", "unmoving", "slow", "wet", "melting", "sapped", "electrified", "overdrive", "overclock",
         "shielded", "guardian", "shocked", "blasted", "corroded", "disarmed"
     }
+
+    SENSABLE: dict[str, 'Type'] = {}
+    CONTROLLABLE: dict[str, 'Type'] = {}

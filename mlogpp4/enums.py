@@ -54,11 +54,19 @@ class Enum(Value):
 SENSABLE: dict[str, Type] = {
     # TODO: fill in
 } | {
-    item: Type.ITEM_TYPE for item in Content.ITEMS
+    item: Type.NUM for item in Content.ITEMS
 } | {
-    liquid: Type.LIQUID_TYPE for liquid in Content.LIQUIDS
+    liquid: Type.NUM for liquid in Content.LIQUIDS
 }
-# TODO: sensable as attribute in block
+
+CONTROLLABLE: dict[str, Type] = {
+    "enabled": Type.NUM,
+    "config": Type.CONTENT,
+    "color": Type.NUM
+}
+
+Content.SENSABLE = SENSABLE
+Content.CONTROLLABLE = CONTROLLABLE
 
 EnumBlock = Enum("BlockType", Type.BLOCK_TYPE, Content.BLOCKS)
 EnumItem = Enum("ItemType", Type.ITEM_TYPE, Content.ITEMS)

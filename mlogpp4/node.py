@@ -1,4 +1,4 @@
-import typed_ast.ast3
+from __future__ import annotations
 
 from .util import Position
 from .error import Error
@@ -18,8 +18,12 @@ class Node:
 
     pos: Position
 
+    current: Node = None
+
     def __init__(self, pos: Position):
         self.pos = pos
+
+        Error.node_class = Node
 
     def __str__(self):
         """
@@ -42,6 +46,8 @@ class Node:
         return self.pos
 
     def gen(self) -> Value:
+        Node.current = self
+        
         return NullValue()
 
     def check_types(self, a: Type, b: Type):
@@ -126,6 +132,8 @@ class BlockNode(Node):
         return "{}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         for node in self.code[:-1]:
             node.gen()
 
@@ -151,6 +159,8 @@ class DeclarationNode(Node):
         return f"{self.type} {self.name} = {self.value}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         type_ = self.parse_type(self.type)
 
         if self.value is None:
@@ -192,6 +202,8 @@ class UnaryOpNode(Node):
         return f"{self.op}{self.value}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         return self.do_operation(self.value.gen(), self.op)
 
 
@@ -211,6 +223,8 @@ class BinaryOpNode(Node):
         return f"{self.left} {self.op} {self.right}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         return self.do_operation(self.left.gen(), self.op, self.right.gen())
 
 
@@ -228,6 +242,8 @@ class AttributeNode(Node):
         return f"{self.value}.{self.attr}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         value = self.value.gen()
 
         attr = value.getattr(self.attr)
@@ -253,6 +269,8 @@ class IndexNode(Node):
         return f"{self.cell}[{self.index}]"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         cell = self.cell.gen()
         index = self.index.gen()
 
@@ -273,6 +291,8 @@ class CallNode(Node):
         return f"{self.value}({','.join(map(str, self.params))})"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         func = self.value.gen()
 
         if isinstance(func, CallableValue):
@@ -309,6 +329,8 @@ class ReturnNode(Node):
         return f"return {self.value if self.value is not None else ''}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         if (func := self.scope_function()) is None:
             Error.custom(self.get_pos(), "Return outside of a function")
 
@@ -337,6 +359,8 @@ class BreakNode(Node):
         return "break"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         if (loop := self.scope_loop()) is None:
             Error.custom(self.get_pos(), "Break outside of a loop")
 
@@ -355,6 +379,8 @@ class ContinueNode(Node):
         return "continue"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         if (loop := self.scope_loop()) is None:
             Error.custom(self.get_pos(), "Continue outside of a loop")
 
@@ -381,6 +407,8 @@ class IfNode(Node):
         return f"if ({self.condition}) {self.code}" + (f"else {self.else_code}" if self.else_code is not None else "")
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         self.scope_push(Gen.tmp())
 
         condition = self.condition.gen().get()
@@ -433,6 +461,8 @@ class WhileNode(Node):
         return f"while ({self.condition}) {self.code}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         name = ABI.loop_name(Gen.tmp())
 
         break_ = ABI.loop_break(name)
@@ -476,6 +506,8 @@ class ForNode(Node):
         return f"for ({self.init}; {self.condition}; {self.action}) {self.code}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         name = ABI.loop_name(Gen.tmp())
 
         start = Gen.tmp()
@@ -523,6 +555,8 @@ class RangeNode(Node):
         return f"for ({self.name} : {self.until}) {self.code}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         name = ABI.loop_name(Gen.tmp())
 
         start = Gen.tmp()
@@ -532,7 +566,7 @@ class RangeNode(Node):
         self.scope_push(name)
 
         counter = VariableValue(self.name, Type.NUM)
-        self.scope_declare(self.name, counter)
+        counter.name = self.scope_declare(self.name, counter)
 
         Gen.emit(
             InstructionSet(counter, 0),
@@ -573,6 +607,8 @@ class FunctionNode(Node):
         return f"function {self.name}({', '.join(map(str, self.params))}) {self.code}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         name = ABI.function_name(self.name)
 
         end = Gen.tmp()
@@ -626,6 +662,8 @@ class VariableValueNode(ValueNode):
         super().__init__(pos, value)
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         return self.scope_get(self.value)
 
 
@@ -639,6 +677,8 @@ class NumberValueNode(ValueNode):
             self.value = int(self.value)
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         return NumberValue(self.value)
 
 
@@ -649,4 +689,6 @@ class StringValueNode(ValueNode):
         super().__init__(pos, value)
 
     def gen(self) -> Value:
+        Node.gen(self)
+        
         return StringValue(self.value)

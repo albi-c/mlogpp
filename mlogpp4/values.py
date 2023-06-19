@@ -6,8 +6,9 @@ import typing
 
 from .error import Error
 from .generator import Gen
-from .instruction import InstructionSet, InstructionRead, InstructionWrite, InstructionJump, InstructionOp
+from .instruction import *
 from .abi import ABI
+from .content import Content
 
 
 @dataclass(init=True, repr=True, eq=False, order=False, unsafe_hash=False, frozen=True)
@@ -37,6 +38,10 @@ class Type:
     # compound types
     CONTENT = None
     ANY = None
+
+    @classmethod
+    def register(cls, name: str, type_: Type):
+        cls.typenames[name] = type_
 
     @classmethod
     def simple(cls, name: str) -> Type:
@@ -147,6 +152,8 @@ Type.OBJECT = Type.private("object")
 
 # compound types
 Type.CONTENT = Type.UNIT_TYPE | Type.ITEM_TYPE | Type.BLOCK_TYPE | Type.LIQUID_TYPE
+Type.register("Content", Type.CONTENT)
+
 Type.ANY = Type.any()
 
 
@@ -177,6 +184,12 @@ class Value:
         return True
 
     def getattr(self, name: str) -> Value | None:
+        if self.type() in Type.BLOCK and name in Content.CONTROLLABLE:
+            return ControlValue(self, name)
+
+        elif self.type() in Type.BLOCK | Type.UNIT and name in Content.SENSABLE:
+            return SensorValue(self, name)
+
         return None
 
 
@@ -191,6 +204,61 @@ class CallableValue(Value, ABC):
 
     def get_params(self) -> list[Type]:
         raise NotImplementedError
+
+
+class SensorValue(Value):
+    value: str
+    prop: str
+
+    def __init__(self, value: Value, prop: str):
+        super().__init__(Content.SENSABLE[prop])
+
+        self.value = value.get()
+        self.prop = prop
+
+    def __eq__(self, other):
+        if isinstance(other, SensorValue):
+            return self.value == other.value and self.prop == other.prop
+
+        return False
+
+    def get(self) -> str:
+        result = Gen.tmp()
+        Gen.emit(
+            InstructionSensor(self.prop, result, self.value)
+        )
+        return result
+
+
+class ControlValue(SettableValue):
+    value: str
+    prop: str
+
+    def __init__(self, value: Value, prop: str):
+        super().__init__(Type.OBJECT)
+
+        self.value = value.get()
+        self.prop = prop
+
+    def __eq__(self, other):
+        if isinstance(other, ControlValue):
+            return self.value == other.value and self.prop == other.prop
+
+        return False
+
+    def get(self) -> str:
+        return "null"
+
+    def set(self, value: Value):
+        if value.type() not in Content.CONTROLLABLE[self.prop]:
+            Error.incompatible_types(Error.node_class.current, value.type(), CONTROLLABLE[self.prop])
+
+        Gen.emit(
+            InstructionControl(self.prop, self.value, value.get(), 0, 0, 0)
+        )
+
+    def const(self) -> bool:
+        return False
 
 
 class NumberValue(Value):

@@ -12,6 +12,8 @@ class Error(Exception):
     msg: str
     pos: Position | None
 
+    node_class: type['Node'] = None
+
     def __init__(self, msg: str, pos: Position | None = None):
         """
         Args:

@@ -321,8 +321,8 @@ class Natives:
                   ),
 
                   "status": (
-                      (Param.INPUT, Type.NUM),  # TODO: better apply/clear switch
-                      (Param.INPUT, Type.ANY),  # TODO: status effect type
+                      (Param.INPUT, Type.NUM),
+                      (Param.INPUT, Type.ANY),
                       (Param.INPUT, Type.UNIT),
                       (Param.INPUT, Type.NUM)
                   ),

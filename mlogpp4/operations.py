@@ -35,6 +35,13 @@ class Operations:
             )
             return VariableValue(result, Type.NUM)
 
+        elif op == ">":
+            result = Gen.tmp()
+            Gen.emit(
+                InstructionOp("greaterThan", result, a.get(), b.get())
+            )
+            return VariableValue(result, Type.NUM)
+
         # TODO: all operators, [!, ~, ...], [/, -, ...], [/=, -=, ...]
 
         return None
