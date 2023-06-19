@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass
+import typing
 
 from .error import Error
 from .generator import Gen
@@ -51,8 +52,12 @@ class Type:
         return cls.simple(f"${name}")
 
     @classmethod
-    def function(cls, params: list[Type], ret: Type) -> Type:
-        return cls.simple(f"({','.join(map(str, params))} -> {ret})")
+    def function(cls, params: list[Type], ret: Type | list[Type]) -> Type:
+        if isinstance(ret, list):
+            return cls.simple(f"({','.join(map(str, params))} -> {','.join(map(str, ret))})")
+
+        else:
+            return cls.simple(f"({','.join(map(str, params))} -> {ret})")
 
     @classmethod
     def any(cls):
@@ -67,6 +72,10 @@ class Type:
             return cls.typenames[name]
 
         Error.undefined_type(node, name)
+
+    def list_types(self) -> typing.Iterable[Type]:
+        for name in self.types:
+            yield Type({name}, False)
 
     def __class_getitem__(cls, name: str) -> Type:
         return cls.typenames[name]
@@ -180,6 +189,9 @@ class CallableValue(Value, ABC):
     def call(self, node: 'Node', params: list[Value]) -> Value:
         raise NotImplementedError
 
+    def get_params(self) -> list[Type]:
+        raise NotImplementedError
+
 
 class NumberValue(Value):
     value: int | float
@@ -217,7 +229,7 @@ class StringValue(Value):
         return self.value
 
 
-class VariableValue(Value):
+class VariableValue(SettableValue):
     name: str
     _const: bool
 
@@ -238,6 +250,11 @@ class VariableValue(Value):
 
     def const(self) -> bool:
         return self._const
+
+    def set(self, value: Value):
+        Gen.emit(
+            InstructionSet(self.name, value.get())
+        )
 
 
 class NullValue(Value):
@@ -318,3 +335,6 @@ class FunctionValue(CallableValue):
         )
 
         return VariableValue(ABI.function_return(self.name), self.ret)
+
+    def get_params(self) -> list[Type]:
+        return [param[0] for param in self.params]

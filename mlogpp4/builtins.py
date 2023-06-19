@@ -1,23 +1,27 @@
-from .values import Type, Value, CallableValue, VariableValue, NullValue
+from __future__ import annotations
+
+from .values import Type, Value, CallableValue, VariableValue, NullValue, SettableValue
 from .instruction import *
 from .generator import Gen
 from .error import Error
 from .enums import *
+from .scope import Scope
 
 
 class NativeFunctionValue(CallableValue):
     ins: type[Instruction]
     params: list[Type]
     ret: int
-    implicit_first_param: str
+    constants: dict[int, str]
 
-    def __init__(self, ins: type[Instruction], params: list[Type], ret: int = -1, *, implicit_first_param: str = ""):
+    def __init__(self, ins: type[Instruction], params: list[Type], ret: int = -1, *, constants: dict[int, str] = None):
+
         super().__init__(Type.function(params, params[ret] if ret >= 0 else Type.NULL))
 
         self.ins = ins
         self.params = params
         self.ret = ret
-        self.implicit_first_param = implicit_first_param
+        self.constants = constants if constants is not None else {}
 
     def __eq__(self, other):
         if isinstance(other, NativeFunctionValue):
@@ -30,14 +34,19 @@ class NativeFunctionValue(CallableValue):
         if self.ret >= 0:
             ret = Gen.tmp()
             par = []
+            diff = 0
             for i, param in enumerate(self.params):
-                if self.implicit_first_param and i == 0:
-                    par.append(self.implicit_first_param)
+                if i in self.constants:
+                    par.append(self.constants[i])
+                    diff += 1
 
                 elif i == self.ret:
                     par.append(ret)
+                    diff += 1
 
                 else:
+                    i -= diff
+
                     if params[i].type() not in param:
                         Error.incompatible_types(node, params[i].type(), param)
 
@@ -50,35 +59,178 @@ class NativeFunctionValue(CallableValue):
 
         else:
             par = []
+            diff = 0
             for i, param in enumerate(self.params):
-                if params[i].type() not in param:
-                    Error.incompatible_types(node, params[i].type(), param)
+                if i in self.constants:
+                    par.append(self.constants[i])
+                    diff += 1
 
-                par.append(params[i].get())
+                else:
+                    i -= diff
+
+                    if params[i].type() not in param:
+                        Error.incompatible_types(node, params[i].type(), param)
+
+                    par.append(params[i].get())
 
             par += [0] * (self.ins.num_params() - len(par))
 
             Gen.emit(self.ins(*par))
             return NullValue()
 
+    def get_params(self) -> list[Type]:
+        return [param for i, param in enumerate(self.params) if i != self.ret and i not in self.constants]
+
+
+class NativeMultiReturnFunctionValue(CallableValue):
+    ins: type[Instruction]
+    params: list[Type]
+    ret: list[int]
+    primary_ret: int
+    constants: dict[int, str]
+
+    def __init__(self, ins: type[Instruction], params: list[Type], ret: list[int], primary_ret: int = -1, *,
+                 constants: dict[int, str] = None):
+
+        super().__init__(Type.function(params, [params[i] for i in ret]))
+
+        self.ins = ins
+        self.params = params
+        self.ret = ret
+        self.primary_ret = primary_ret
+        self.constants = constants if constants is not None else {}
+
+    def __eq__(self, other):
+        if isinstance(other, NativeFunctionValue):
+            return self.ins == other.ins and self.params == other.params and self.ret == other.ret
+
+    def get(self) -> str:
+        return str(self.type())
+
+    def call(self, node: 'Node', params: list[Value]) -> Value:
+        par: list[str] = []
+        out: list[tuple[str, SettableValue, Type]] = []
+        result = None
+        diff = 0
+        for i, param in self.params:
+            if i in self.constants:
+                par.append(self.constants[i])
+                diff += 1
+
+            elif i == self.primary_ret:
+                result = Gen.tmp()
+                par.append(result)
+                diff += 1
+
+            elif i in self.ret:
+                i -= diff
+
+                p = params[i]
+
+                if param not in p.type():
+                    Error.incompatible_types(node, param, p.type())
+
+                if isinstance(p, SettableValue) and not p.const():
+                    res = Gen.tmp()
+                    par.append(res)
+                    out.append((res, p, param))
+
+                else:
+                    Error.write_to_const(node, str(p))
+
+            else:
+                i -= diff
+
+                if params[i].type() not in param:
+                    Error.incompatible_types(node, params[i].type(), param)
+
+                par.append(params[i].get())
+
+        Gen.emit(self.ins(*par))
+
+        for res, param, type_ in out:
+            param.set(VariableValue(res, type_))
+
+        if self.primary_ret >= 0:
+            assert result is not None
+            return VariableValue(result, self.params[self.primary_ret])
+
+        return NullValue()
+
+    def get_params(self) -> list[Type]:
+        return [param for i, param in enumerate(self.params) if i != self.primary_ret and i not in self.constants]
+
 
 class NativeMultiFunctionValue(Value):
-    functions: dict[str, NativeFunctionValue]
+    functions: dict[str, NativeFunctionValue | NativeMultiReturnFunctionValue]
 
-    def __init__(self, ins: type[Instruction], functions: dict[str, list[Type] | tuple[list[Type], int]]):
+    def __init__(self, ins: type[Instruction],
+                 functions: dict[str, list[Type] | tuple[list[Type], int] | NativeMultiReturnFunctionValue]):
+
         super().__init__(Type.OBJECT)
 
         self.functions = {}
         for name, func in functions.items():
-            if isinstance(func, list):
-                self.functions[name] = NativeFunctionValue(ins, func, implicit_first_param=name)
+            if isinstance(func, NativeMultiReturnFunctionValue):
+                self.functions[name] = func
+
+            elif isinstance(func, list):
+                self.functions[name] = NativeFunctionValue(ins, [Type.ANY] + func, constants={0: name})
+
+            elif isinstance(func, tuple):
+                self.functions[name] = NativeFunctionValue(ins, [Type.ANY] + func[0], func[1], constants={0: name})
 
             else:
-                self.functions[name] = NativeFunctionValue(ins, func[0], func[1], implicit_first_param=name)
+                raise ValueError("Invalid function")
 
     def __eq__(self, other):
         if isinstance(other, NativeMultiFunctionValue):
-            return self.ins == other.ins and self.functions == other.functions
+            return self.functions == other.functions
+
+        return False
+
+    def get(self) -> str:
+        return str(self.type())
+
+    def getattr(self, name: str) -> Value | None:
+        return self.functions.get(name)
+
+
+class NativeMultiReturnMultiFunctionValue(Value):
+    functions: dict[str, NativeMultiReturnFunctionValue]
+
+    def __init__(self, ins: type[Instruction],
+                 functions: dict[str, tuple[list[Type], list[int]] | tuple[list[Type], list[int], int] |
+                                 tuple[list[Type], list[int], int, list[int]]]):
+
+        super().__init__(Type.OBJECT)
+
+        self.functions = {}
+        for name, func in functions.items():
+            if len(func) == 2:
+                self.functions[name] = NativeMultiReturnFunctionValue(ins, [Type.ANY] + func[0], func[1],
+                                                                      constants={0: name})
+
+            elif len(func) == 3:
+                primary_ret = func[2]
+                assert isinstance(primary_ret, int)
+                self.functions[name] = NativeMultiReturnFunctionValue(ins, [Type.ANY] + func[0], func[1], primary_ret,
+                                                                      constants={0: name})
+
+            elif len(func) == 4:
+                primary_ret = func[2]
+                skipped = func[3]
+                assert isinstance(primary_ret, int)
+                assert isinstance(skipped, list)
+                self.functions[name] = NativeMultiReturnFunctionValue(ins, [Type.ANY] + func[0], func[1], primary_ret,
+                                                                      constants={0: name} | {i: "0" for i in skipped})
+
+            else:
+                raise ValueError("Invalid function")
+
+    def __eq__(self, other):
+        if isinstance(other, NativeMultiReturnMultiFunctionValue):
+            return self.functions == other.functions
 
         return False
 
@@ -155,7 +307,10 @@ BUILTIN_FUNCTIONS = {
     ),
     "radar": NativeFunctionValue(InstructionRadar, [EnumRadarFilter.type] * 3 + [EnumRadarSort.type, Type.BLOCK,
                                                                                  Type.NUM, Type.UNIT], 6),
-    "sensor": NativeFunctionValue(InstructionSensor, [EnumSensable.type, Type.NUM, Type.BLOCK | Type.UNIT]),
+    "sensor": NativeMultiFunctionValue(
+        InstructionSensor,
+        {name: ([type_, Type.BLOCK | Type.UNIT], 0) for name, type_ in SENSABLE.items()}
+    ),
 
     "lookup": NativeMultiFunctionValue(
         InstructionLookup,
@@ -192,20 +347,36 @@ BUILTIN_FUNCTIONS = {
             "mine": [Type.NUM] * 2,
             "flag": [Type.NUM],
             "build": [Type.NUM, Type.NUM, Type.BLOCK_TYPE, Type.NUM, Type.CONTENT | Type.BLOCK],
-            # TODO: getBlock
+            "getBlock": NativeMultiReturnFunctionValue(
+                InstructionUControl,
+                [Type.NUM, Type.NUM, Type.BLOCK_TYPE, Type.BLOCK, Type.NUM],
+                [2], 3
+            ),
             "within": ([Type.NUM] * 4, 3),
             "unbind": []
         }
+    ),
+    "uradar": NativeFunctionValue(InstructionRadar, [EnumRadarFilter.type] * 3 + [EnumRadarSort.type, Type.BLOCK,
+                                                                                  Type.ANY, Type.NUM, Type.UNIT], 7,
+                                  constants={5: "0"}),
+    "ulocate": NativeMultiReturnMultiFunctionValue(
+        InstructionULocate,
+        {
+            "ore": ([Type.ANY, Type.ANY, Type.BLOCK_TYPE, Type.NUM, Type.NUM, Type.NUM, Type.NUM], [4, 5], 3, [0, 1]),
+            "building": ([EnumLocateType.type, Type.NUM, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK],
+                         [4, 5, 6], 3, [2]),
+            "spawn": ([Type.ANY, Type.ANY, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], [4, 5, 6], 3, [0, 1, 2]),
+            "damaged": ([Type.ANY, Type.ANY, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], [4, 5, 6], 3, [0, 1, 2])
+        }
     )
-    # TODO: uradar, ulocate
+
+    # TODO: world processor functions
 }
 
 # TODO: `op` instruction function-like operations (abs, log, ...)
 
 BUILTIN_ENUMS = {
-    "Sensable": EnumSensable,
-    "RadarFilter": EnumRadarFilter,
-    "RadarSort": EnumRadarSort
+    enum.name: enum for enum in ENUMS
 }
 
 BUILTINS = BUILTIN_VARIABLES | BUILTIN_CONSTANTS | BUILTIN_FUNCTIONS | BUILTIN_ENUMS

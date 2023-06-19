@@ -6,6 +6,7 @@ from .lexer import Lexer
 from .parser import Parser
 from .linker import Linker
 from .scope import Scope
+from .builtins import BUILTINS
 
 
 def compile_code(code: str, filename: str) -> str:
@@ -21,7 +22,7 @@ def compile_code(code: str, filename: str) -> str:
     """
 
     Gen.reset()
-    Scope.reset()
+    Scope.reset(BUILTINS)
 
     code = Preprocessor.preprocess(code)
     code = Lexer(os.path.dirname(os.path.abspath(filename))).lex(code, filename)

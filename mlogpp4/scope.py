@@ -1,13 +1,12 @@
 from .error import Error
 from .values import Type, Value
 from .generator import Gen
-from .builtins import BUILTINS
 from .abi import ABI
 
 
 class Scope:
-    scopes: list[dict[str, Value]] = [BUILTINS, {}]
-    names: list[str] = ["<builtins>", "<main>"]
+    scopes: list[dict[str, Value]] = []
+    names: list[str] = []
     functions: list[str] = []
     loops: list[str] = []
 
@@ -34,9 +33,13 @@ class Scope:
             cls.loops.pop(-1)
 
     @classmethod
-    def reset(cls):
-        cls.scopes = [BUILTINS, {}]
-        cls.names = ["<builtins>", "<main>"]
+    def enum(cls, data: dict[str, Value] | None = None):
+        cls.scopes[0] = data if data is not None else {}
+
+    @classmethod
+    def reset(cls, builtins: dict[str, Value]):
+        cls.scopes = [{}, builtins, {}]
+        cls.names = ["<enum>", "<builtins>", "<main>"]
         cls.functions = []
         cls.loops = []
 

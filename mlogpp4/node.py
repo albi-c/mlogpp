@@ -8,6 +8,7 @@ from .instruction import *
 from .scope import Scope
 from .abi import ABI
 from .operations import Operations
+from .enums import ENUM_TYPES
 
 
 class Node:
@@ -87,17 +88,27 @@ class Node:
     def do_operation(self, a: Value, op: str, b: Value | None = None) -> Value:
         if b is None:
             result = Operations.unary(op, a)
+
             if result is None:
                 Error.invalid_operation(self, a.type(), op)
 
-            return result
+            elif isinstance(result, Value):
+                return result
+
+            else:
+                result(self)
 
         else:
             result = Operations.binary(a, op, b)
+
             if result is None:
                 Error.invalid_operation(self, a.type(), op, b.type())
 
-            return result
+            elif isinstance(result, Value):
+                return result
+
+            else:
+                result(self)
 
 
 class BlockNode(Node):
@@ -157,15 +168,31 @@ class DeclarationNode(Node):
 
         self.check_types(value.type(), type_)
 
-        if value != NullValue():
-            Gen.emit(
-                InstructionSet(self.name, value)
-            )
+        val = VariableValue(self.name, type_)
+        val.name = self.scope_declare(self.name, val)
 
-        value = VariableValue(self.name, type_)
-        value.name = self.scope_declare(self.name, value)
+        if value != NullValue():
+            val.set(value)
 
         return NullValue()
+
+
+class UnaryOpNode(Node):
+    op: str
+    value: Node
+
+    def __init__(self, pos: Position, op: str, value: Node):
+        super().__init__(pos)
+
+        self.left = left
+        self.op = op
+        self.value = value
+
+    def __str__(self):
+        return f"{self.op}{self.value}"
+
+    def gen(self) -> Value:
+        return self.do_operation(self.value.gen(), self.op)
 
 
 class BinaryOpNode(Node):
@@ -187,22 +214,29 @@ class BinaryOpNode(Node):
         return self.do_operation(self.left.gen(), self.op, self.right.gen())
 
 
-class UnaryOpNode(Node):
-    op: str
+class AttributeNode(Node):
     value: Node
+    attr: str
 
-    def __init__(self, pos: Position, op: str, value: Node):
+    def __init__(self, pos: Position, value: Node, attr: str):
         super().__init__(pos)
 
-        self.left = left
-        self.op = op
         self.value = value
+        self.attr = attr
 
     def __str__(self):
-        return f"{self.op}{self.value}"
+        return f"{self.value}.{self.attr}"
 
     def gen(self) -> Value:
-        return self.do_operation(self.value.gen(), self.op)
+        value = self.value.gen()
+
+        attr = value.getattr(self.attr)
+
+        if attr is None:
+            Error.undefined_attribute(self, self.attr, value)
+
+        else:
+            return attr
 
 
 class IndexNode(Node):
@@ -242,7 +276,23 @@ class CallNode(Node):
         func = self.value.gen()
 
         if isinstance(func, CallableValue):
-            return func.call(self, [param.gen() for param in self.params])
+            if len(self.params) != len(func.get_params()):
+                Error.invalid_arg_count(self, len(self.params), len(func.get_params()))
+
+            params = []
+            for param, type_ in zip(self.params, func.get_params()):
+                enum = {}
+                for t in type_.list_types():
+                    e = ENUM_TYPES.get(t)
+                    if e is not None:
+                        enum |= e.values
+                Scope.enum(enum)
+
+                params.append(param.gen())
+
+                Scope.enum()
+
+            return func.call(self, params)
 
         Error.not_callable(self, func)
 

@@ -84,6 +84,10 @@ class Error(Exception):
         raise Error(f"Undefined variable [{name}]", node.get_pos())
 
     @staticmethod
+    def undefined_attribute(node: 'Node', name: str, val: 'Value'):
+        raise Error(f"Undefined attribute [{name}] in [{val}]", node.get_pos())
+
+    @staticmethod
     def invalid_arg_count(node: 'Node', count: int, expected: int):
         raise Error(f"Invalid number of arguments to function ({count}, expected {expected})", node.get_pos())
 

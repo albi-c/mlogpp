@@ -176,20 +176,44 @@ class Parser(GenericParser):
         raise RuntimeError("invalid keyword")
 
     def parse_binaryOp(self, operators: tuple[str, ...], lower_func: callable,
-                       token_type: TokenType = TokenType.OPERATOR) -> Node:
+                       token_type: TokenType = TokenType.OPERATOR, invert: bool = False) -> Node:
 
-        node = lower_func()
+        if invert:
+            node = lower_func()
 
-        while self.has_token():
-            if self.lookahead_token(token_type, operators):
-                op = self.next_token()
-                right = lower_func()
-                node = BinaryOpNode(node.pos + right.get_pos(), node, op.value, right)
+            operations = []
+            while self.has_token():
+                if self.lookahead_token(token_type, operators):
+                    op = self.next_token()
+                    right = lower_func()
+                    operations.append((op, right))
 
-            else:
-                break
+                else:
+                    break
 
-        return node
+            for i, [op, right] in enumerate(reversed(operations)):
+                if i >= 1:
+                    left = operations[i + 1][1]
+                    node = BinaryOpNode(left.get_pos() + right.get_pos(), left, op.value, right)
+
+                else:
+                    node = BinaryOpNode(node.get_pos() + right.get_pos(), node, op.value, right)
+
+            return node
+
+        else:
+            node = lower_func()
+
+            while self.has_token():
+                if self.lookahead_token(token_type, operators):
+                    op = self.next_token()
+                    right = lower_func()
+                    node = BinaryOpNode(node.get_pos() + right.get_pos(), node, op.value, right)
+
+                else:
+                    break
+
+            return node
 
     def parse_unaryOp(self, operators: tuple[str, ...], lower_func: callable,
                       token_type: TokenType = TokenType.OPERATOR) -> Node:
@@ -226,7 +250,8 @@ class Parser(GenericParser):
         return self.parse_binaryOp(
             ("=",),
             self.parse_OrTest,
-            TokenType.SET
+            TokenType.SET,
+            True
         )
 
     def parse_OrTest(self) -> Node:
@@ -298,17 +323,23 @@ class Parser(GenericParser):
     def parse_Power(self) -> Node:
         return self.parse_binaryOp(
             ("**",),
-            self.parse_Attr
+            self.parse_Call
         )
 
-    def parse_Attr(self) -> Node:
-        return self.parse_binaryOp(
-            (".",),
-            self.parse_Index
-        )
+    def parse_Call(self) -> Node:
+        node = self.parse_Index()
+
+        while self.lookahead_token(TokenType.LPAREN):
+            self.next_token()
+            params = self.parse_funcParamsValues()
+            end = self.next_token(TokenType.RPAREN)
+
+            node = CallNode(node.get_pos() + end.pos, node, params)
+
+        return node
 
     def parse_Index(self) -> Node:
-        node = self.parse_Call()
+        node = self.parse_Attr()
 
         while self.lookahead_token(TokenType.LBRACK):
             self.next_token()
@@ -319,15 +350,17 @@ class Parser(GenericParser):
 
         return node
 
-    def parse_Call(self) -> Node:
+    def parse_Attr(self) -> Node:
         node = self.parse_Atom()
 
-        while self.lookahead_token(TokenType.LPAREN):
-            self.next_token()
-            params = self.parse_funcParamsValues()
-            end = self.next_token(TokenType.RPAREN)
+        while self.has_token():
+            if self.lookahead_token(TokenType.OPERATOR, "."):
+                self.next_token()
+                attr = self.next_token(TokenType.ID)
+                node = AttributeNode(node.get_pos() + attr.pos, node, attr.value)
 
-            node = CallNode(node.get_pos() + end.pos, node, params)
+            else:
+                break
 
         return node
 

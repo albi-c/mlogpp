@@ -1,4 +1,5 @@
 from .values import Type, Value
+from .content import Content
 
 
 class EnumValue(Value):
@@ -22,14 +23,17 @@ class EnumValue(Value):
 class Enum(Value):
     name: str
     type: Type
-    values: set[str]
+    values: dict[str, EnumValue]
 
     def __init__(self, name: str, type_: Type, values: set[str]):
-        super().__init__(type_)
+        super().__init__(Type.OBJECT)
 
         self.name = name
         self.type = type_
-        self.values = values
+
+        self.values = {}
+        for value in values:
+            self.values[value] = EnumValue(value, self.type)
 
     def __eq__(self, other):
         if isinstance(other, Enum):
@@ -37,22 +41,31 @@ class Enum(Value):
 
         return False
 
+    def __hash__(self):
+        return hash((self.name, self.type))
+
     def get(self) -> str:
         return self.name
 
     def getattr(self, name: str) -> Value | None:
-        if name in self.values:
-            return EnumValue(name, self.type)
-
-        return None
+        return self.values.get(name)
 
 
-# TODO: content enums
-
-EnumSensable = Enum("Sensable", Type.private("Sensable"), {
-    "$placeholder"
+SENSABLE: dict[str, Type] = {
     # TODO: fill in
-})
+} | {
+    item: Type.ITEM_TYPE for item in Content.ITEMS
+} | {
+    liquid: Type.LIQUID_TYPE for liquid in Content.LIQUIDS
+}
+# TODO: sensable as attribute in block
+
+EnumBlock = Enum("BlockType", Type.BLOCK_TYPE, Content.BLOCKS)
+EnumItem = Enum("ItemType", Type.ITEM_TYPE, Content.ITEMS)
+EnumLiquid = Enum("LiquidType", Type.LIQUID_TYPE, Content.LIQUIDS)
+EnumUnit = Enum("UnitType", Type.UNIT_TYPE, Content.UNITS)
+
+EnumEffect = Enum("Effect", Type.private("Effect"), Content.EFFECTS)
 
 EnumRadarFilter = Enum("RadarFilter", Type.private("RadarFilter"), {
     "any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground"
@@ -60,3 +73,19 @@ EnumRadarFilter = Enum("RadarFilter", Type.private("RadarFilter"), {
 EnumRadarSort = Enum("RadarSort", Type.private("RadarSort"), {
     "distance", "health", "shield", "armor", "maxHealth"
 })
+
+EnumLocateType = Enum("LocateType", Type.private("LocateType"), {
+    "core", "storage", "generator", "turret", "factory", "repair", "battery", "reactor"
+})
+
+
+ENUMS: list[Enum] = [
+    EnumBlock, EnumItem, EnumLiquid, EnumUnit,
+    EnumEffect,
+    EnumRadarFilter, EnumRadarSort,
+    EnumLocateType
+]
+
+ENUM_TYPES: dict[Type, Enum] = {
+    enum.type: enum for enum in ENUMS
+}
