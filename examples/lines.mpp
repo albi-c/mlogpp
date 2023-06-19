@@ -1,3 +1,5 @@
+Block display1
+
 function draw_line(num x1, num y1, num x2, num y2) {
     num dx = x2 - x1
     num dy = y2 - y1

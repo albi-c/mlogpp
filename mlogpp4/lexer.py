@@ -19,7 +19,7 @@ class Lexer:
     STRING_CHARS = string.printable
 
     NUMBER_CHARS_START = string.digits
-    NUMBER_CHARS = NUMBER_CHARS_START
+    NUMBER_CHARS = NUMBER_CHARS_START + "."
 
     OPERATOR_CHARS_START = "+-*/%=<>!&|^~."
 

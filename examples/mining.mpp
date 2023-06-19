@@ -8,7 +8,9 @@
 # - message [message1] #
 ########################
 
-UnitType UNIT = @mono
+Block vault1, hail1, cell1, message1, switch1
+
+UnitType UNIT = UnitType.mono
 Block VAULT = vault1
 num DEPOSIT_FLAG = floor(@thisx + @thisy * @mapw)
 
@@ -68,8 +70,9 @@ if (cell1[0] == 0) {
 ubind(UNIT)
 if (@unit.flag == DEPOSIT_FLAG) {
     if (VAULT === null) {
-        ulocate.building(core, false, cx, cy, cf, core)
-        if (cf) {
+        num cx, cy
+        Block core
+        if (ulocate.building(LocateType.core, false, cx, cy, core)) {
             ucontrol.approach(cx, cy, 4)
             if (ucontrol.within(cx, cy, 6)) {
                 ucontrol.itemDrop(core, @unit.itemCapacity)

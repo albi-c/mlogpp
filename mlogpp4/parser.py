@@ -44,7 +44,14 @@ class Parser(GenericParser):
                 return DeclarationNode(type_.pos + value.get_pos(), type_.value, name.value, value)
 
             else:
-                return DeclarationNode(type_.pos + name.pos, type_.value, name.value, None)
+                names = [name.value]
+                pos = type_.pos + name.pos
+                while self.lookahead_token(TokenType.COMMA):
+                    self.next_token()
+                    name = self.next_token(TokenType.ID)
+                    names.append(name.value)
+                    pos += name.pos
+                return MultiDeclarationNode(pos, type_.value, names)
 
         elif self.lookahead_token(TokenType.KEYWORD):
             tok = self.next_token()
@@ -248,7 +255,7 @@ class Parser(GenericParser):
 
     def parse_Assignment(self) -> Node:
         return self.parse_binaryOp(
-            ("=",),
+            ("=", "+=", "-=", "%=", "&=", "|=", "^=", "*=", "/=", "**=", "//=", "<<=", ">>="),
             self.parse_OrTest,
             TokenType.SET,
             True

@@ -114,7 +114,7 @@ class Type:
             if other.any_:
                 return self.any_
 
-            return other.types & self.types == other.types
+            return other.types & self.types == other.types or other.types == {"null"}
 
         return False
 
@@ -352,6 +352,9 @@ class IndexedValue(SettableValue):
 
         return False
 
+    def __str__(self):
+        return f"{self.cell}[{self.index}]"
+
     def get(self) -> str:
         var = Gen.tmp()
         Gen.emit(
@@ -365,6 +368,9 @@ class IndexedValue(SettableValue):
         Gen.emit(
             InstructionWrite(val, self.cell, self.index)
         )
+
+    def const(self) -> bool:
+        return False
 
 
 class FunctionValue(CallableValue):

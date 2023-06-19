@@ -1,13 +1,14 @@
 num DISTANCE = 8
-UnitType UNIT = @flare
+UnitType UNIT = UnitType.flare
 num RANGE = 13
 num REGEN_HEALTH = 0.5
 num REGEN_NEHEALTH = 0.8
 num REGEN_FLAG = 73584
 
 function go_heal() {
-    ulocate.building(repair, false, x, y, found, building)
-    if (found) {
+    num x, y
+    Block building
+    if (ulocate.building(repair, false, x, y, building)) {
         ucontrol.flag(REGEN_FLAG)
         ucontrol.approach(x, y, 2)
     } else {

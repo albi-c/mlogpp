@@ -187,6 +187,32 @@ class DeclarationNode(Node):
         return NullValue()
 
 
+class MultiDeclarationNode(Node):
+    type: str
+    names: list[str]
+
+    def __init__(self, pos: Position, type_: str, names: list[str]):
+        super().__init__(pos)
+
+        self.type = type_
+        self.names = names
+
+    def __str__(self):
+        return f"{self.type} {', '.join(self.names)}"
+
+    def gen(self) -> Value:
+        type_ = self.parse_type(self.type)
+
+        for name in self.names:
+            val = VariableValue(name, type_)
+            if self.type == "Block":
+                self.scope_declare(name, val)
+            else:
+                val.name = self.scope_declare(name, val)
+
+        return NullValue()
+
+
 class UnaryOpNode(Node):
     op: str
     value: Node
@@ -194,7 +220,6 @@ class UnaryOpNode(Node):
     def __init__(self, pos: Position, op: str, value: Node):
         super().__init__(pos)
 
-        self.left = left
         self.op = op
         self.value = value
 

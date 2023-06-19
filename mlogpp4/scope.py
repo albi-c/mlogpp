@@ -82,14 +82,12 @@ class Scope:
 
     @classmethod
     def declare(cls, node: 'Node', name: str, value: Value) -> str:
-        scope = cls._find(node, name, False)
-
-        if scope is None:
-            cls.scopes[-1][name] = value
-            return f"{name}@{cls.names[-1]}"
+        if name in cls.scopes[-1]:
+            Error.already_defined_var(node, name)
 
         else:
-            Error.already_defined_var(node, name)
+            cls.scopes[-1][name] = value
+            return f"{name}@{cls.names[-1]}"
 
     @classmethod
     def _find(cls, node: 'Node', name: str, error: bool) -> dict[str, Value] | None:

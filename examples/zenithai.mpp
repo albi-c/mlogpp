@@ -1,5 +1,5 @@
 num DISTANCE = 8
-UnitType UNIT = @zenith
+UnitType UNIT = UnitType.zenith
 num RANGE = 19
 num REGEN_HEALTH = 0.5
 num REGEN_NEHEALTH = 0.8
@@ -16,8 +16,9 @@ if ((flag == REGEN_FLAG) && (health == maxHealth)) {
     ucontrol.flag(0)
 } else {
     if ((health < maxHealth * REGEN_HEALTH) || flag === REGEN_FLAG) {
-        ulocate.building(repair, false, x, y, found, building)
-        if (found) {
+        num x, y
+        Block building
+        if (ulocate.building(repair, false, x, y, building)) {
             ucontrol.flag(REGEN_FLAG)
             ucontrol.approach(x, y, 2)
         } else {
@@ -45,12 +46,13 @@ if (player.shooting) {
 
     ucontrol.target(sx, sy, true)
 } else {
-    Unit enemy = uradar(enemy, any, any, distance, 1)
+    Unit enemy = uradar(enemy, any, any, RadarSort.distance, 1)
 
     if (enemy === null) {
         if (health < maxHealth * REGEN_NEHEALTH) {
-            ulocate.building(repair, false, x, y, found, building)
-            if (found) {
+            num x, y
+            Block building
+            if (ulocate.building(repair, false, x, y, building)) {
                 ucontrol.flag(REGEN_FLAG)
                 ucontrol.approach(x, y, 2)
             } else {

@@ -1,3 +1,6 @@
+Block message1
+Block display1
+
 const PM = 22
 const DS = 176
 num dsize = DS / PM

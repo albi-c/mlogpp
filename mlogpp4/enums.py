@@ -53,6 +53,18 @@ class Enum(Value):
 
 SENSABLE: dict[str, Type] = {
     # TODO: fill in
+
+    "flag": Type.NUM,
+    "health": Type.NUM,
+    "maxHealth": Type.NUM,
+    "x": Type.NUM,
+    "y": Type.NUM,
+    "shooting": Type.NUM,
+    "shootX": Type.NUM,
+    "shootY": Type.NUM,
+    "totalItems": Type.NUM,
+    "itemCapacity": Type.NUM,
+    "boosting": Type.NUM
 } | {
     item: Type.NUM for item in Content.ITEMS
 } | {
