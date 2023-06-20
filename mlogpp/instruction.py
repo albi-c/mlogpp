@@ -1,376 +1,146 @@
 from __future__ import annotations
 
-import enum
-
-from .value import *
 from .error import InternalError
-from .functions import Natives, Param
 
 
-class Instruction:
-    """
-    An instruction that will be directly converted to Mindustry logic.
-    """
+class BaseInstruction:
+    name: str
+    params: tuple
 
-    def __add__(self, other):
-        """
-        Joins the instruction with another instruction or instruction list.
-
-        Args:
-            other (Instruction | Instructions): The instruction or instruction list to be joined.
-
-        Returns:
-            The joined instructions.
-        """
-
-        if isinstance(other, Instruction):
-            return Instructions([self, other])
-        elif isinstance(other, Instructions):
-            return Instructions([self] + other.ins)
-
-    def iter(self) -> list[Instruction]:
-        """
-        Create a lists of all instructions.
-
-        Returns:
-            A list with the one element being `self`
-        """
-
-        return [self]
-
-    def __len__(self) -> int:
-        return 1
+    def __init__(self, name: str, params: tuple):
+        self.name = name
+        self.params = params
 
     def __str__(self):
-        return ""
+        return f"{self.name} {' '.join(map(str, self.params))}"
 
-    def __repr__(self):
-        return "Instruction()"
+    @classmethod
+    def create(cls, name: str, n_params: int) -> type:
+        def __init__(self, *params):
+            BaseInstruction.__init__(self, name, params)
 
-    def copy(self):
-        return self
+            if len(params) != n_params:
+                InternalError.invalid_arg_count(self.name, len(params), n_params)
 
-    def variables(self) -> list[str]:
-        """
-        Returns:
-            All variables used by the instruction.
-        """
+        def num_params() -> int:
+            return n_params
 
-        return self.inputs() + self.outputs()
-
-    def inputs(self) -> list[str]:
-        """
-        Returns:
-            All inputs of the instruction.
-        """
-
-        return []
-
-    def outputs(self) -> list[str]:
-        """
-        Returns:
-            All outputs of the instruction.
-        """
-
-        return []
-
-    def is_branching(self) -> bool:
-        """
-        Returns:
-            True if the instruction is a branch, False otherwise.
-        """
-
-        return False
-
-    def param_replace(self, from_: str, to: str) -> None:
-        """
-        Replaces parameter names.
-
-        Args:
-            from_: Which names to replace.
-            to: What to replace them with.
-        """
-
-        pass
+        return type(f"Instruction{name[0].upper()}{name[1:]}", (BaseInstruction,), {
+            "__init__": __init__,
+            "num_params": num_params,
+        })
 
 
-class NoopInstruction(Instruction):
-    """
-    No operation instruction.
-    """
+class Instruction(BaseInstruction):
+    def __init__(self, *_):
+        super().__init__("", ())
 
-    pass
+        raise RuntimeError("placeholder function")
 
-
-class MInstructionType(enum.Flag):
-    """
-    Type of Mindustry instruction.
-    """
-
-    READ = enum.auto()
-    WRITE = enum.auto()
-    DRAW = enum.auto()
-    PRINT = enum.auto()
-    DRAWFLUSH = enum.auto()
-    PRINTFLUSH = enum.auto()
-    GETLINK = enum.auto()
-    CONTROL = enum.auto()
-    RADAR = enum.auto()
-    SENSOR = enum.auto()
-    SET = enum.auto()
-    OP = enum.auto()
-    WAIT = enum.auto()
-    LOOKUP = enum.auto()
-    PACKCOLOR = enum.auto()
-    END = enum.auto()
-    JUMP = enum.auto()
-    UBIND = enum.auto()
-    UCONTROL = enum.auto()
-    URADAR = enum.auto()
-    ULOCATE = enum.auto()
-    NOOP = enum.auto()
-
-    GETBLOCK = enum.auto()
-    SETBLOCK = enum.auto()
-    SPAWN = enum.auto()
-    STATUS = enum.auto()
-    SPAWNWAVE = enum.auto()
-    SETRULE = enum.auto()
-    MESSAGE = enum.auto()
-    CUTSCENE = enum.auto()
-    EXPLOSION = enum.auto()
-    SETRATE = enum.auto()
-    FETCH = enum.auto()
-    GETFLAG = enum.auto()
-    SETFLAG = enum.auto()
-    SETPROP = enum.auto()
+    @staticmethod
+    def num_params() -> int:
+        raise RuntimeError("placeholder function")
 
 
-MInstructionType.INSTRUCTION_NAMES = [str(i).split(".")[1].lower() for i in MInstructionType]
+InstructionRead = Instruction.create("read", 3)
+InstructionWrite = Instruction.create("write", 3)
+InstructionDraw = Instruction.create("draw", 7)
+InstructionPrint = Instruction.create("print", 1)
+
+InstructionDrawFlush = Instruction.create("drawflush", 1)
+InstructionPrintFlush = Instruction.create("printflush", 1)
+InstructionGetLink = Instruction.create("getlink", 2)
+InstructionControl = Instruction.create("control", 6)
+InstructionRadar = Instruction.create("radar", 7)
+InstructionSensor = Instruction.create("sensor", 3)
+
+InstructionSet = Instruction.create("set", 2)
+InstructionOp = Instruction.create("op", 4)
+InstructionLookup = Instruction.create("lookup", 3)
+InstructionPackColor = Instruction.create("packcolor", 5)
+
+InstructionWait = Instruction.create("wait", 1)
+InstructionStop = Instruction.create("stop", 0)
+InstructionEnd = Instruction.create("end", 0)
+InstructionJump = Instruction.create("jump", 4)
+
+InstructionUBind = Instruction.create("ubind", 1)
+InstructionUControl = Instruction.create("ucontrol", 6)
+InstructionURadar = Instruction.create("uradar", 7)
+InstructionULocate = Instruction.create("ulocate", 8)
+
+InstructionGetBlock = Instruction.create("getblock", 4)
+InstructionSetBlock = Instruction.create("setblock", 6)
+InstructionSpawn = Instruction.create("spawn", 6)
+InstructionStatus = Instruction.create("status", 4)
+InstructionSpawnWave = Instruction.create("spawnwave", 3)
+InstructionSetRule = Instruction.create("setrule", 6)
+InstructionMessage = Instruction.create("message", 2)
+InstructionCutscene = Instruction.create("cutscene", 4)
+InstructionExplosion = Instruction.create("explosion", 8)
+InstructionSetRate = Instruction.create("setrate", 1)
+InstructionFetch = Instruction.create("fetch", 5)
+InstructionGetFlag = Instruction.create("getflag", 2)
+InstructionSetFlag = Instruction.create("setflag", 2)
+InstructionSetProp = Instruction.create("setprop", 3)
+
+InstructionNoop = Instruction.create("noop", 0)
 
 
-class MInstruction(Instruction):
-    """
-    Mindustry instruction.
-    """
-
-    type: MInstructionType
-    params: list[str]
-
-    _native_name: str
-
-    __match_args__ = ("type", "params")
-
-    def __init__(self, type_: MInstructionType, params: list[str | int | float | Value]):
-        self.type = type_
-
-        # convert all parameters to strings
-        self.params = list(map(str, params))
-
-        if (native_name := self._get_native_name()).split(".")[0] not in Natives.NATIVES_PARAM_COUNT or \
-                native_name not in Natives.ALL_NATIVES:
-
-            if "." in native_name:
-                InternalError.undefined_function(native_name)
-
-        # check parameter count
-        while len(self.params) < Natives.NATIVES_PARAM_COUNT[native_name.split(".")[0]]:
-            self.params.append("_")
-
-        self._native_name = native_name
-
-    def __str__(self):
-        return f"{self.type.name.lower()} {' '.join(map(str, self.params))}"
-
-    def __repr__(self):
-        return f"MInstruction({self.type}, {self.params})"
-
-    def copy(self):
-        return MInstruction(self.type, self.params.copy())
-
-    def _params_no_subcommand(self):
-        """
-        Returns:
-            This instruction's parameters without the subcommand configuration.
-        """
-
-        if "." in self._native_name:
-            if self.type == MInstructionType.SENSOR:
-                return self.params[:-1]
-
-            return self.params[1:]
-
-        return self.params
-
-    def inputs(self) -> list[str]:
-        return [self._params_no_subcommand()[i] for i, param in enumerate(Natives.ALL_NATIVES[self._native_name])
-                if param[0] == Param.INPUT]
-
-    def outputs(self) -> list[str]:
-        return [self._params_no_subcommand()[i] for i, param in enumerate(Natives.ALL_NATIVES[self._native_name])
-                if param[0] == Param.OUTPUT]
-
-    def _get_native_name(self) -> str:
-        if self.type in MInstructionType.DRAW | MInstructionType.CONTROL | MInstructionType.LOOKUP | \
-                MInstructionType.SENSOR | MInstructionType.UCONTROL | MInstructionType.ULOCATE:
-
-            return self.type.name.lower() + "." + (self.params[-1][1:] if self.type == MInstructionType.SENSOR
-                                                     else self.params[0])
-
-        return self.type.name.lower()
-
-    def is_branching(self) -> bool:
-        return self.type in MInstructionType.END | MInstructionType.JUMP
-
-    def param_replace(self, from_: str, to: str):
-        self.params = [param.replace(from_, to) for param in self.params]
-
-
-class MppInstructionLabel(Instruction):
-    """
-    Label instruction.
-    """
-
+class Label(Instruction):
     name: str
 
     def __init__(self, name: str):
-        self.name = str(name)
+        BaseInstruction.__init__(self, "label", (name,))
+
+        self.name = name
 
     def __str__(self):
         return f"{self.name}:"
 
-    def __repr__(self):
-        return f"MppInstructionLabel('{self.name}')"
 
-    def copy(self):
-        return MppInstructionLabel(self.name)
+INSTRUCTIONS: dict[str, type[Instruction]] = {
+    "read": InstructionRead,
+    "write": InstructionWrite,
+    "draw": InstructionDraw,
+    "print": InstructionPrint,
 
+    "drawflush": InstructionDrawFlush,
+    "printflush": InstructionPrintFlush,
+    "getlink": InstructionGetLink,
+    "control": InstructionControl,
+    "radar": InstructionRadar,
+    "sensor": InstructionSensor,
 
-class MppInstructionJump(Instruction):
-    """
-    Jump instruction.
-    """
+    "set": InstructionSet,
+    "op": InstructionOp,
+    "lookup": InstructionLookup,
+    "packcolor": InstructionPackColor,
 
-    label: str
+    "wait": InstructionWait,
+    "stop": InstructionStop,
+    "end": InstructionEnd,
+    "jump": InstructionJump,
 
-    def __init__(self, label: str):
-        self.label = str(label)
+    "ubind": InstructionUBind,
+    "ucontrol": InstructionUControl,
+    "uradar": InstructionURadar,
+    "ulocate": InstructionULocate,
 
-    def __str__(self):
-        return f"jump {self.label} always _ _"
+    "getblock": InstructionGetBlock,
+    "setblock": InstructionSetBlock,
+    "spawn": InstructionSpawn,
+    "status": InstructionStatus,
+    "spawnwave": InstructionSpawnWave,
+    "setrule": InstructionSetRule,
+    "message": InstructionMessage,
+    "cutscene": InstructionCutscene,
+    "explosion": InstructionExplosion,
+    "setrate": InstructionSetRate,
+    "fetch": InstructionFetch,
+    "getflag": InstructionGetFlag,
+    "setflag": InstructionSetFlag,
+    "setprop": InstructionSetProp,
 
-    def __repr__(self):
-        return f"MppInstructionJump('{self.label}')"
-
-    def copy(self):
-        return MppInstructionJump(self.label)
-
-
-class MppInstructionOJump(Instruction):
-    """
-    Conditional jump instruction.
-    """
-
-    label: str
-    op1: str
-    op: str
-    op2: str
-
-    def __init__(self, label: str, op1: str | Value, op: str, op2: str | Value):
-        self.label = str(label)
-        self.op1 = str(op1)
-        self.op = str(op)
-        self.op2 = str(op2)
-
-    def __str__(self):
-        return f"jump {self.label} {self.op} {self.op1} {self.op2}"
-
-    def __repr__(self):
-        return f"MppInstructionOJump('{self.label}', '{self.op1}', '{self.op}', '{self.op2}')"
-
-    def copy(self):
-        return MppInstructionOJump(self.label, self.op1, self.op, self.op2)
-
-    def inputs(self) -> list[str]:
-        return [self.op1, self.op2]
-
-    def param_replace(self, from_: str, to: str):
-        self.op1 = self.op1.replace(from_, to)
-        self.op2 = self.op2.replace(from_, to)
-
-
-class Instructions:
-    """
-    A list of instructions.
-    """
-
-    def __init__(self, ins: list[Instruction] | None = None):
-        self.ins = [] if ins is None else ins
-
-    def __add__(self, other):
-        """
-        Join this list with an instruction or instructions.
-
-        Args:
-            other (Instruction | Instructions): The instruction or instructions to join.
-
-        Returns:
-            The joined instructions.
-        """
-
-        if isinstance(other, Instruction):
-            return Instructions(self.ins + [other])
-        elif isinstance(other, Instructions):
-            return Instructions(self.ins + other.ins)
-
-    def __iadd__(self, other) -> Instructions:
-        """
-        Append an instruction or instructions to this list.
-
-        Args:
-            other (Instruction | Instructions): The instruction or instructions to be appended.
-
-        Returns:
-            This list.
-        """
-
-        if isinstance(other, Instruction):
-            self.ins.append(other)
-        elif isinstance(other, Instructions):
-            self.ins += other.ins
-
-        return self
-
-    def iter(self) -> list[Instruction]:
-        """
-        Create a list of all instructions in this list.
-
-        Returns:
-            A list of all instructions in this list.
-        """
-
-        return self.ins
-
-    def __len__(self) -> int:
-        return len(self.ins)
-
-    def __getitem__(self, key: int):
-        return self.ins[key]
-
-    def __setitem__(self, key: int, value: Instruction):
-        self.ins[key] = value
-
-    def copy(self):
-        return Instructions([ins.copy() for ins in self.ins])
-
-    def param_replace(self, from_: str, to: str):
-        """
-        Replaces parameter names.
-
-        Args:
-            from_: Which names to replace.
-            to: What to replace them with.
-        """
-
-        for ins in self.ins:
-            ins.param_replace(from_, to)
+    "noop": InstructionNoop
+}

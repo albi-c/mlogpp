@@ -1,0 +1,15 @@
+BlockType f = getblock.floor(@thisx, @thisy + 1)
+setblock.floor(f, @thisx, @thisy)
+
+print(f)
+
+Unit flare = spawn(flare, @thisx, @thisy, 120, sharded)
+
+print(" ")
+print(flare)
+
+status.apply(burning, flare, 10)
+
+message.announce(5)
+
+while (true) {}

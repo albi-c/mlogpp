@@ -5,11 +5,6 @@ import enum
 
 import pyperclip
 
-from .lexer import Lexer, Lexer
-from .preprocess import Preprocessor
-from .parser_ import Parser
-from .optimizer import Optimizer
-from .linker import Linker
 from .error import Error
 from .compile import compile_code, compile_asm
 from . import __version__

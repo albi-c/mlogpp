@@ -123,7 +123,7 @@ class NativeMultiFunctionValue(Value):
 
 
 def native_function_value(ins: type[Instruction], params: list[Type], ret: int = -1, outputs: list[int] = None, *,
-                          constants: dict[int, str] = None) -> Value:
+                          constants: dict[int, str] = None) -> NativeFunctionValue:
 
     if constants is None:
         constants = {}
@@ -152,14 +152,14 @@ def native_multi_function_value(ins: type[Instruction], functions: dict[str, lis
                                                                         tuple[list[Type], int] |
                                                                         tuple[list[Type], int, list[int]] |
                                                                         tuple[list[Type], int, list[int], list[int]] |
-                                                                        Value]) -> Value:
+                                                                        NativeFunctionValue]) -> NativeMultiFunctionValue:
 
     func = {}
     for n, f in functions.items():
         if isinstance(f, list):
             func[n] = native_function_value(ins, f)
 
-        elif isinstance(f, Value):
+        elif isinstance(f, NativeFunctionValue):
             func[n] = f
 
         elif len(f) == 4:
@@ -169,6 +169,9 @@ def native_multi_function_value(ins: type[Instruction], functions: dict[str, lis
 
         else:
             func[n] = native_function_value(ins, *f)
+
+        if not isinstance(f, NativeFunctionValue):
+            func[n].params = [(Param.CONSTANT, n)] + func[n].params
 
     return NativeMultiFunctionValue(func)
 
@@ -374,9 +377,82 @@ BUILTIN_FUNCTIONS = {
             "spawn": ([Type.ANY, Type.ANY, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 3, [4, 5, 6], [0, 1, 2]),
             "damaged": ([Type.ANY, Type.ANY, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 3, [4, 5, 6], [0, 1, 2])
         }
-    )
+    ),
 
-    # TODO: world processor functions
+    "getblock": native_multi_function_value(
+        InstructionGetBlock,
+        {
+            "floor": ([Type.BLOCK_TYPE, Type.NUM, Type.NUM], 0),
+            "ore": ([Type.BLOCK_TYPE, Type.NUM, Type.NUM], 0),
+            "block": ([Type.BLOCK_TYPE, Type.NUM, Type.NUM], 0),
+            "building": ([Type.BLOCK, Type.NUM, Type.NUM], 0)
+        }
+    ),
+    "setblock": native_multi_function_value(
+        InstructionSetBlock,
+        {
+            "floor": [Type.BLOCK_TYPE, Type.NUM, Type.NUM],
+            "ore": [Type.BLOCK_TYPE, Type.NUM, Type.NUM],
+            "block": [Type.BLOCK_TYPE, Type.NUM, Type.NUM, Type.TEAM, Type.NUM]
+        }
+    ),
+    "spawn": native_function_value(InstructionSpawn, [Type.UNIT_TYPE, Type.NUM, Type.NUM, Type.NUM, Type.TEAM,
+                                                      Type.UNIT], 5),
+    "status": native_multi_function_value(
+        InstructionStatus,
+        {
+            "apply": native_function_value(InstructionStatus, [Type.NUM, EnumEffect.type, Type.UNIT, Type.NUM],
+                                           constants={0: "true"}),
+            "clear": native_function_value(InstructionStatus, [Type.NUM, EnumEffect.type, Type.UNIT],
+                                           constants={0: "false"})
+        }
+    ),
+    "spawnwave": native_function_value(InstructionSpawnWave, [Type.NUM, Type.NUM, Type.NUM]),
+    "setrule": native_multi_function_value(
+        InstructionSetRule,
+        {rule: [[Type.NUM, Type.TEAM] if param else [Type.NUM]] for rule, param in RULES.items()} |
+        {
+            "mapArea": ([Type.ANY] + [Type.NUM] * 4, 0, [], [0])
+        }
+    ),
+    "message": native_multi_function_value(
+        InstructionMessage,
+        {
+            "notify": [],
+            "announce": [Type.NUM],
+            "toast": [Type.NUM],
+            "mission": []
+        }
+    ),
+    "cutscene": native_multi_function_value(
+        InstructionCutscene,
+        {
+            "pan": [Type.NUM] * 3,
+            "zoom": [Type.NUM],
+            "stop": []
+        }
+    ),
+    "explosion": native_function_value(InstructionExplosion, [Type.TEAM] + [Type.NUM] * 7),
+    "setrate": native_function_value(InstructionSetRate, [Type.NUM]),
+    "fetch": native_multi_function_value(
+        InstructionFetch,
+        {
+            "unit": ([Type.UNIT, Type.TEAM, Type.NUM], 0),
+            "unitCount": ([Type.NUM, Type.TEAM], 0),
+            "player": ([Type.UNIT, Type.TEAM, Type.NUM], 0),
+            "playerCount": ([Type.NUM, Type.TEAM], 0),
+            "core": ([Type.BLOCK, Type.TEAM, Type.NUM], 0),
+            "coreCount": ([Type.NUM, Type.TEAM], 0),
+            "build": ([Type.BLOCK, Type.TEAM, Type.NUM, Type.BLOCK_TYPE], 0),
+            "buildCount": ([Type.NUM, Type.TEAM, Type.ANY, Type.BLOCK_TYPE], 0, [], [2])
+        }
+    ),
+    "getflag": native_function_value(InstructionGetFlag, [Type.NUM, Type.STR], 0),
+    "setflag": native_function_value(InstructionSetFlag, [Type.STR, Type.NUM]),
+    "setprop": native_multi_function_value(
+        InstructionSetProp,
+        {prop: [type_, Type.BLOCK | Type.UNIT] for prop, type_ in SETPROP.items()}
+    )
 }
 
 _OPERATIONS = {

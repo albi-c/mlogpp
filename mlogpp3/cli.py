@@ -5,8 +5,13 @@ import enum
 
 import pyperclip
 
+from .lexer import Lexer, Lexer
+from .preprocess import Preprocessor
+from .parser_ import Parser
+from .optimizer import Optimizer
+from .linker import Linker
 from .error import Error
-from .compile import compile_code
+from .compile import compile_code, compile_asm
 from . import __version__
 
 
@@ -78,11 +83,10 @@ def main() -> None:
             code = f.read()
 
     try:
-        # if args.assembly:
-        #     out = compile_asm(code, args.file)
-        # else:
-        #     out = compile_code(code, args.file)
-        out = compile_code(code, args.file)
+        if args.assembly:
+            out = compile_asm(code, args.file)
+        else:
+            out = compile_code(code, args.file)
     except Error as e:
         e.print()
 

@@ -164,7 +164,7 @@ class Value:
         self._type = type_
 
     def __str__(self):
-        return self.get()
+        return str(self.get())
 
     def __eq__(self, other):
         raise NotImplementedError
@@ -173,9 +173,6 @@ class Value:
         raise NotImplementedError
 
     # TODO: into(var) optimization
-
-    def print(self) -> tuple[str, ...]:
-        return self.get(),
 
     def type(self) -> Type:
         return self._type
@@ -224,6 +221,9 @@ class SensorValue(Value):
             return self.value == other.value and self.prop == other.prop
 
         return False
+
+    def __str__(self):
+        return f"{self.value}.{self.prop}"
 
     def get(self) -> str:
         result = Gen.tmp()

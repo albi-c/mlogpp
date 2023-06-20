@@ -159,7 +159,7 @@ SENSOR_READABLE = {
     "controller": Type.BLOCK | Type.UNIT,
     "name": Type.NUM,
     "payloadCount": Type.NUM,
-    "payloadType": Type.NUM,
+    "payloadType": Type.BLOCK_TYPE | Type.UNIT_TYPE,
     "enabled": Type.NUM,
     "config": Type.NUM,
     "color": Type.NUM

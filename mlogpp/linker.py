@@ -1,4 +1,4 @@
-from .instruction import *
+from .instruction import Instruction
 
 
 class Linker:
@@ -7,7 +7,7 @@ class Linker:
     """
 
     @staticmethod
-    def link(code: Instructions | Instruction) -> str:
+    def link(code: list[Instruction]) -> str:
         """
         Resolve labels.
 
@@ -23,7 +23,7 @@ class Linker:
 
         # find labels
         line = 0
-        for ins in code.iter():
+        for ins in code:
             # generate the instruction
             generated = str(ins)
 
@@ -36,7 +36,7 @@ class Linker:
                     line += 1
 
         # generate instructions and skip labels
-        code = [ins for ins in (str(ins) for ins in code.iter()) if not ins.endswith(":")]
+        code = [ins for ins in (str(ins) for ins in code) if not ins.endswith(":")]
 
         output_code = ""
         for i, generated in enumerate(code):

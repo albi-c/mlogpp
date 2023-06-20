@@ -77,5 +77,9 @@ class Content:
         "shielded", "guardian", "shocked", "blasted", "corroded", "disarmed"
     }
 
+    TEAMS: set[str] = {
+        "derelict", "sharded", "crux", "malis"
+    }
+
     SENSABLE: dict[str, 'Type'] = {}
     CONTROLLABLE: dict[str, 'Type'] = {}
