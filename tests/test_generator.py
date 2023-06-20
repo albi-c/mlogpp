@@ -25,11 +25,9 @@ class GeneratorTestCase(unittest.TestCase):
     def test_emit(self):
         Gen.reset()
 
-        ins = InstructionNoop()
+        Gen.emit(InstructionNoop())
 
-        Gen.emit(ins)
-
-        self.assertEqual(Gen.get(), [ins])
+        self.assertEqual(Gen.get(), [InstructionNoop()])
 
 
 if __name__ == '__main__':

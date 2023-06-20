@@ -4,6 +4,7 @@ from .generator import Gen
 from .preprocess import Preprocessor
 from .lexer import Lexer
 from .parser import Parser
+from .optimizer import Optimizer
 from .linker import Linker
 from .scope import Scope
 from .builtins import BUILTINS
@@ -30,7 +31,7 @@ def compile_code(code: str, filename: str) -> str:
     code = Parser().parse(code)
     code.gen()
     code = Gen.get()
-    # TODO: optimize
+    code = Optimizer.optimize(code)
     code = Linker.link(code)
 
     return code

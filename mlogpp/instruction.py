@@ -5,17 +5,23 @@ from .error import InternalError
 
 class BaseInstruction:
     name: str
-    params: tuple
+    params: list[str]
 
     def __init__(self, name: str, params: tuple):
         self.name = name
-        self.params = params
+        self.params = [str(param) for param in params]
 
     def __str__(self):
-        return f"{self.name} {' '.join(map(str, self.params))}"
+        return f"{self.name} {' '.join(self.params)}"
+
+    def __eq__(self, other):
+        if isinstance(other, BaseInstruction):
+            return self.name == other.name and self.params == other.params
+
+        return False
 
     @classmethod
-    def create(cls, name: str, n_params: int) -> type:
+    def create(cls, name: str, n_params: int) -> type[Instruction]:
         def __init__(self, *params):
             BaseInstruction.__init__(self, name, params)
 
@@ -25,13 +31,16 @@ class BaseInstruction:
         def num_params() -> int:
             return n_params
 
-        return type(f"Instruction{name[0].upper()}{name[1:]}", (BaseInstruction,), {
+        return type[Instruction](f"Instruction{name[0].upper()}{name[1:]}", (BaseInstruction,), {
             "__init__": __init__,
             "num_params": num_params,
         })
 
 
 class Instruction(BaseInstruction):
+    name: str
+    params: list[str]
+
     def __init__(self, *_):
         super().__init__("", ())
 

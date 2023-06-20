@@ -61,7 +61,7 @@ if (player.shooting) {
         }
 
         ucontrol.target(0, 0, 0)
-        end
+        end()
     }
 
     ucontrol.targetp(enemy, 1)

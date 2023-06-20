@@ -438,16 +438,11 @@ class IfNode(Node):
 
         condition = self.condition.gen().get()
         lab1, lab2 = Gen.tmp(), None
-        result = Gen.tmp()
-        result2 = NullValue()
 
         Gen.emit(
             InstructionJump(lab1, "equal", condition, 0)
         )
-        result1 = self.code.gen()
-        Gen.emit(
-            InstructionSet(result, result1.get())
-        )
+        self.code.gen()
         if self.else_code is not None:
             lab2 = Gen.tmp()
             Gen.emit(
@@ -458,16 +453,12 @@ class IfNode(Node):
         )
 
         if self.else_code is not None:
-            result2 = self.else_code.gen()
+            self.else_code.gen()
             Gen.emit(
-                InstructionSet(result, result2.get()),
                 Label(lab2)
             )
 
         self.scope_pop()
-
-        if self.else_code is not None and result1.type() == result2.type():
-            return VariableValue(result, result1.type())
 
         return NullValue()
 
