@@ -172,8 +172,6 @@ class Value:
     def get(self) -> str:
         raise NotImplementedError
 
-    # TODO: into(var) optimization
-
     def type(self) -> Type:
         return self._type
 

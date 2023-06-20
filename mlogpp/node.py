@@ -641,10 +641,10 @@ class FunctionNode(Node):
         self.scope_push(name)
 
         params = []
-        for type_, name in self.params:
+        for type_, n in self.params:
             type_ = self.parse_type(type_)
-            value = VariableValue(name, type_)
-            value.name = self.scope_declare(name, value)
+            value = VariableValue(n, type_)
+            value.name = self.scope_declare(n, value)
             params.append((type_, value.name))
 
         Gen.emit(

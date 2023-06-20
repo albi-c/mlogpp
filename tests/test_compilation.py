@@ -37,8 +37,8 @@ for (i : LOOP_UNTIL) {
 
         vm.cycle()
 
-        self.assertEqual(vm["x"], 1024)
-        self.assertEqual(vm["y"], 10240)
+        self.assertEqual(vm["x@<main>"], 1024)
+        self.assertEqual(vm["y@<main>"], 10240)
 
 
 if __name__ == '__main__':

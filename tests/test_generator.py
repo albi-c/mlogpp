@@ -1,23 +1,35 @@
 import unittest
 
 from mlogpp.generator import Gen
-from mlogpp.value import Type
+from mlogpp.instruction import InstructionNoop
 
 
 class GeneratorTestCase(unittest.TestCase):
     def test_variables(self):
-        Gen.reset()
+        Gen._tmp_index = 0
 
-        self.assertEqual(Gen.temp_var(Type.NUM).name, "__tmp0")
-        self.assertEqual(Gen.temp_lab(), "__tmp0")
-        self.assertEqual(Gen.temp_var(Type.NUM).name, "__tmp1")
-        self.assertEqual(Gen.temp_lab(), "__tmp1")
+        self.assertEqual(Gen.tmp(), "__tmp1")
+        self.assertEqual(Gen.tmp(), "__tmp2")
 
     def test_reset(self):
+        Gen.tmp()
+        Gen.emit(InstructionNoop())
+
         Gen.reset()
 
-        self.assertEqual(Gen.VAR_COUNT, 0)
-        self.assertEqual(Gen.LAB_COUNT, 0)
+        # should not reset to avoid name collisions
+        self.assertNotEqual(Gen._tmp_index, 0)
+
+        self.assertEqual(Gen._instructions, [])
+
+    def test_emit(self):
+        Gen.reset()
+
+        ins = InstructionNoop()
+
+        Gen.emit(ins)
+
+        self.assertEqual(Gen.get(), [ins])
 
 
 if __name__ == '__main__':

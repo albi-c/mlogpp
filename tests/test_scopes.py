@@ -5,35 +5,14 @@ from mlogpp.scope import *
 
 class ScopesTestCase(unittest.TestCase):
     def test_variables_functions(self):
-        Scopes.push("test_scope")
+        Scope.reset({})
 
-        Scopes.add(VariableValue(Type.NUM, "var_a"))
-        Scopes.add(VariableValue(Type.NUM, "var_b"))
+        Scope.push("test_scope")
 
-        Scopes.add(Function("fun_a", [], Type.NUM))
-
-        self.assertTrue(isinstance(Scopes.get("var_a"), VariableValue))
-        self.assertTrue(isinstance(Scopes.get("var_b"), VariableValue))
-
-        self.assertTrue(isinstance(Scopes.get("@counter"), VariableValue))
-
-        self.assertTrue(isinstance(Scopes.get("fun_a"), Function))
-
-        Scopes.pop()
-
-        self.assertFalse(isinstance(Scopes.get("var_a"), VariableValue))
-        self.assertFalse(isinstance(Scopes.get("var_b"), VariableValue))
-
-        self.assertTrue(isinstance(Scopes.get("@counter"), VariableValue))
-
-        self.assertFalse(isinstance(Scopes.get("fun_a"), Function))
-
-    def test_reset(self):
-        Scopes.add(VariableValue(Type.STR, "test"))
-
-        Scopes.reset()
-
-        self.assertEqual(Scopes.get("test"), None)
+        self.assertEqual(Scope.scopes, [{}, {}, {}, {}])
+        self.assertEqual(Scope.names, ["<enum>", "<builtins>", "<main>", "test_scope"])
+        self.assertEqual(Scope.loops, [])
+        self.assertEqual(Scope.functions, [])
 
 
 if __name__ == '__main__':
