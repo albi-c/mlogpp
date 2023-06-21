@@ -31,7 +31,7 @@ for (i : LOOP_UNTIL) {
 }"""
 
     def test_compilation(self):
-        code = compile_code(CompilationTestCase.CODE, "")
+        code = compile_code(CompilationTestCase.CODE, "<test>")
 
         vm = VM(*VMParser.parse(code))
 

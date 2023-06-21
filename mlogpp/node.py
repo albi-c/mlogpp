@@ -316,6 +316,8 @@ class CallNode(Node):
         return f"{self.value}({','.join(map(str, self.params))})"
 
     def gen(self) -> Value:
+        # TODO: function inlining
+
         Node.gen(self)
         
         func = self.value.gen()

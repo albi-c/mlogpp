@@ -255,6 +255,7 @@ BUILTIN_VARIABLES = {
     "@thisx": VariableValue("@thisx", Type.NUM, True),
     "@thisy": VariableValue("@thisy", Type.NUM, True),
     "@ipt": VariableValue("@ipt", Type.NUM, True),
+    "@timescale": VariableValue("@ipt", Type.NUM, True),
     "@counter": VariableValue("@counter", Type.NUM, True),
     "@links": VariableValue("@links", Type.NUM, True),
     "@unit": VariableValue("@unit", Type.UNIT, False),
@@ -454,6 +455,24 @@ BUILTIN_FUNCTIONS = {
         {prop: [type_, Type.BLOCK | Type.UNIT] for prop, type_ in SETPROP.items()}
     )
 }
+PRIVATE_BUILTIN_FUNCTIONS = {
+    "set": native_function_value(InstructionSet, [Type.ANY] * 2, 0),
+    "op": native_function_value(InstructionOp, [Type.ANY] * 4, 1),
+    "noop": native_function_value(InstructionNoop, []),
+    "jump": native_function_value(InstructionJump, [Type.ANY] * 4),
+    "label": native_function_value(Label, [Type.ANY]),
+    "status": native_multi_function_value(
+        InstructionStatus,
+        {
+            "true": native_function_value(InstructionStatus, [EnumEffect.type, Type.UNIT, Type.NUM]),
+            "false": native_function_value(InstructionStatus, [EnumEffect.type, Type.UNIT])
+        }
+    ),
+}
+BaseInstruction.Param = Param
+BaseInstruction.NativeFunctionValue = NativeFunctionValue
+BaseInstruction.NativeMultiFunctionValue = NativeMultiFunctionValue
+BaseInstruction.Builtins = BUILTIN_FUNCTIONS | PRIVATE_BUILTIN_FUNCTIONS
 
 _OPERATIONS = {
     "max": 2,

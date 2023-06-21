@@ -6,13 +6,33 @@ from .error import InternalError
 class BaseInstruction:
     name: str
     params: list[str]
+    inputs: list[int]
+    outputs: list[int]
+
+    Param: type = None
+    NativeFunctionValue: type = None
+    NativeMultiFunctionValue: type = None
+    Builtins: dict[str, NativeFunctionValue | NativeMultiFunctionValue] = None
 
     def __init__(self, name: str, params: tuple):
         self.name = name
         self.params = [str(param) for param in params]
 
+        val = BaseInstruction.Builtins[name]
+
+        if isinstance(val, BaseInstruction.NativeMultiFunctionValue):
+            val = val.functions[self.params[0]]
+
+        if isinstance(val, BaseInstruction.NativeFunctionValue):
+            self.inputs = [i for i, [param, _] in enumerate(val.params) if param == BaseInstruction.Param.INPUT]
+            self.outputs = [i for i, [param, _] in enumerate(val.params)
+                            if param in (BaseInstruction.Param.OUTPUT, BaseInstruction.Param.OUTPUT_P)]
+
+        else:
+            raise TypeError("Invalid function type")
+
     def __str__(self):
-        return f"{self.name} {' '.join(self.params)}"
+        return f"{self.name} {' '.join(map(str, self.params))}"
 
     def __eq__(self, other):
         if isinstance(other, BaseInstruction):
@@ -40,6 +60,8 @@ class BaseInstruction:
 class Instruction(BaseInstruction):
     name: str
     params: list[str]
+    inputs: list[int]
+    outputs: list[int]
 
     def __init__(self, *_):
         super().__init__("", ())
