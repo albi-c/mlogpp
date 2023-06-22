@@ -339,6 +339,23 @@ class CallNode(Node):
 
                 Scope.enum()
 
+            if isinstance(func, InlinableCallableValue):
+                if func.name in Scope.functions:
+                    Error.custom(self.get_pos(), "Recursion is forbidden")
+
+                self.scope_push(func.name)
+                end_label = FunctionValue.end_label
+                FunctionValue.end_label = Gen.tmp()
+                for key, value in func.scope.items():
+                    Scope.scopes[-1][key] = value
+                result = func.inline(self, params)
+                Gen.emit(
+                    Label(FunctionValue.end_label)
+                )
+                FunctionValue.end_label = end_label
+                self.scope_pop()
+                return result
+
             return func.call(self, params)
 
         Error.not_callable(self, func)
@@ -372,7 +389,7 @@ class ReturnNode(Node):
             )
 
         Gen.emit(
-            InstructionSet("@counter", ABI.function_return_pos(func))
+            InstructionJump(FunctionValue.end_label, "always", 0, 0)
         )
 
         return NullValue()
@@ -629,8 +646,6 @@ class FunctionNode(Node):
         
         name = ABI.function_name(self.name)
 
-        end = Gen.tmp()
-
         self.scope_push(name)
 
         params = []
@@ -640,24 +655,17 @@ class FunctionNode(Node):
             value.name = self.scope_declare(n, value)
             params.append((type_, value.name))
 
-        Gen.emit(
-            InstructionJump(end, "always", 0, 0),
-            Label(name)
-        )
-        self.code.gen()
-        Gen.emit(
-            InstructionSet(ABI.function_return(name), "null"),
-            InstructionSet("@counter", ABI.function_return_pos(name)),
-            Label(end)
-        )
+        func_scope = Scope.scopes[-1]
 
         self.scope_pop()
 
         return_type = self.parse_type(self.return_type)
 
-        self.scope_declare(self.name, FunctionValue(name, params, return_type))
+        function = FunctionValue(name, params, return_type, self.code, func_scope)
 
-        return VariableValue(ABI.function_return(name), return_type)
+        self.scope_declare(self.name, function)
+
+        return function
 
 
 class ValueNode(Node):

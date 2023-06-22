@@ -204,6 +204,14 @@ class CallableValue(Value, ABC):
         return []
 
 
+class InlinableCallableValue(CallableValue, ABC):
+    name: str
+    scope: dict[str, Value]
+
+    def inline(self, node: 'Node', params: list[Value]) -> Value:
+        raise NotImplementedError
+
+
 class SensorValue(Value):
     value: str
     prop: str
@@ -374,17 +382,21 @@ class IndexedValue(SettableValue):
         return False
 
 
-class FunctionValue(CallableValue):
-    name: str
+class FunctionValue(InlinableCallableValue):
     params: list[tuple[Type, str]]
     ret: Type
+    code: 'Node'
 
-    def __init__(self, name: str, params: list[tuple[Type, str]], ret: Type):
+    end_label: str = None
+
+    def __init__(self, name: str, params: list[tuple[Type, str]], ret: Type, code: 'Node', scope: dict[str, Value]):
         super().__init__(Type.function([param[0] for param in params], ret))
 
         self.name = name
         self.params = params
         self.ret = ret
+        self.code = code
+        self.scope = scope
 
     def __eq__(self, other):
         if isinstance(other, FunctionValue):
@@ -396,6 +408,12 @@ class FunctionValue(CallableValue):
         return str(self.type())
 
     def call(self, node: 'Node', params: list[Value]) -> Value:
+        raise RuntimeError("Must be inlined")
+
+    def get_params(self) -> list[Type]:
+        return [param[0] for param in self.params]
+
+    def inline(self, node: 'Node', params: list[Value]) -> Value:
         for i, [type_, name] in enumerate(self.params):
             if params[i].type() not in type_:
                 Error.incompatible_types(node, params[i].type(), type_)
@@ -404,12 +422,10 @@ class FunctionValue(CallableValue):
                 InstructionSet(name, params[i].get())
             )
 
+        self.code.gen()
+
         Gen.emit(
-            InstructionOp("add", ABI.function_return_pos(self.name), "@counter", 1),
-            InstructionJump(self.name, "always", 0, 0)
+            InstructionSet(ABI.function_return(self.name), "null")
         )
 
         return VariableValue(ABI.function_return(self.name), self.ret)
-
-    def get_params(self) -> list[Type]:
-        return [param[0] for param in self.params]

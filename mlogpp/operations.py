@@ -128,6 +128,14 @@ class Operations:
         # equal and notEqual are not implemented because they use type conversion
     }
 
+    JUMP_PRECALC: dict[str, typing.Callable[[int | float, int | float | None], int | float]] = {
+        "lessThan": lambda a, b: a < b,
+        "lessThanEq": lambda a, b: a <= b,
+        "greaterThan": lambda a, b: a > b,
+        "greaterThanEq": lambda a, b: a >= b,
+        "strictEqual": lambda a, b: a == b
+    }
+
     @classmethod
     def unary(cls, op: str, value: Value) -> Value | None | typing.Callable:
         if op in cls.UNARY:

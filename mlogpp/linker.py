@@ -6,8 +6,10 @@ class Linker:
     Resolves labels.
     """
 
-    @staticmethod
-    def link(code: list[Instruction]) -> str:
+    EMIT_LABELS: bool = False
+
+    @classmethod
+    def link(cls, code: list[Instruction]) -> str:
         """
         Resolve labels.
 
@@ -25,9 +27,9 @@ class Linker:
         line = 0
         for ins in code:
             # generate the instruction
-            generated = str(ins)
+            generated = str(ins).strip()
 
-            if generated.strip():
+            if generated:
                 # check if the line is a label
                 if generated.endswith(":"):
                     labels[generated[:-1]] = line
@@ -36,9 +38,10 @@ class Linker:
                     line += 1
 
         # generate instructions and skip labels
-        code = [ins for ins in (str(ins) for ins in code) if not ins.endswith(":")]
+        code = [ins for ins in (str(ins) for ins in code) if not ins.endswith(":") or cls.EMIT_LABELS]
 
         output_code = ""
+        offset = 0
         for i, generated in enumerate(code):
             # resolve jump addressed
             if generated.startswith("jump "):
@@ -54,7 +57,15 @@ class Linker:
                 if i == len(code) - 1 and jump_to == 0:
                     continue
 
-                output_code += spl[0] + " " + str(jump_to) + " " + spl[2] + "\n"
+                if jump_to == i + 1:
+                    offset += 1
+                    continue
+
+                if cls.EMIT_LABELS:
+                    output_code += generated + "\n"
+
+                else:
+                    output_code += spl[0] + " " + str(jump_to - offset) + " " + spl[2] + "\n"
 
             else:
                 output_code += generated + "\n"
