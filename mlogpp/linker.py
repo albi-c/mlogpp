@@ -1,4 +1,5 @@
 from .instruction import Instruction
+from .error import InternalError
 
 
 class Linker:
@@ -54,9 +55,11 @@ class Linker:
                 if jump_to >= line:
                     jump_to = 0
 
+                # skip if jump is at the end of code and points to the start
                 if i == len(code) - 1 and jump_to == 0:
                     continue
 
+                # skip if jump is pointing to the next instruction
                 if jump_to == i + 1:
                     offset += 1
                     continue
@@ -65,6 +68,7 @@ class Linker:
                     output_code += generated + "\n"
 
                 else:
+                    print(spl[1], jump_to - offset, jump_to, offset)
                     output_code += spl[0] + " " + str(jump_to - offset) + " " + spl[2] + "\n"
 
             else:

@@ -1,26 +1,176 @@
+from __future__ import annotations
+
 from collections import defaultdict
 import math
+import typing
 
 from .instruction import *
 from .operations import Operations
 
 
+class Phi(Instruction):
+    def __init__(self):
+        BaseInstruction.__init__(self, "phi", tuple(), True)
+
+    def __str__(self):
+        # raise RuntimeError("Phi instruction must be converted")
+        print("! Phi instruction must be converted !")
+        return "PHI"
+
+
+class Block(list):
+    predecessors: set[Block]
+    successors: set[Block]
+    variables: dict[str, int]
+    assignments: set[str]
+
+    def __init__(self, code: typing.Iterable[Instruction]):
+        super().__init__(code)
+
+        self.predecessors = set()
+        self.successors = set()
+        self.variables = {}
+        self.assignments = set()
+
+    def __hash__(self):
+        return hash(id(self))
+
+
 class Optimizer:
     Instructions = list[Instruction]
+    Blocks = list[Block]
 
     @classmethod
     def optimize(cls, code: Instructions) -> Instructions:
         cls._remove_noops(code)
-        cls._optimize_immediate_move(code)
+        cls._optimize_jumps(code)
+
+        cls._remove_noops(code)
+        while cls._optimize_immediate_move(code):
+            pass
+
+        cls._remove_noops(code)
+
+        blocks = cls._make_blocks(code)
+        cls._eval_block_jumps(blocks)
+        cls._find_assignments(blocks)
+        for i, block in enumerate(blocks):
+            print("BLOCK", i)
+            print("PRE", len(block.predecessors), block.predecessors)
+            print("SUC", len(block.successors), block.successors)
+            print("ASSIGN", block.assignments)
+            print("\n".join(map(str, block)))
+            print()
+        cls._make_ssa(blocks)
+        code = cls._make_instructions(blocks)
+
+        cls._remove_noops(code)
+        cls._optimize_jumps(code)
+
+        cls._remove_noops(code)
+        while cls._optimize_immediate_move(code):
+            pass
 
         cls._remove_noops(code)
         # cls._ExecutionOptimizer(code).optimize(1)
 
         cls._remove_noops(code)
-        cls._optimize_unused(code)
+        cls._remove_unused_variables(code)
 
         cls._remove_noops(code)
         return code
+
+    @classmethod
+    def _optimize_jumps(cls, code: Instructions):
+        jumps = {ins.params[0] for ins in code if isinstance(ins, InstructionJump)}
+        print(jumps)
+        code[:] = [ins for i, ins in enumerate(code) if not isinstance(ins, Label) or (ins.params[0] in jumps)]
+
+    @classmethod
+    def _make_blocks(cls, code: Instructions) -> Blocks:
+        blocks: Blocks = [[]]
+        for ins in code:
+            if isinstance(ins, Label):
+                blocks.append([ins])
+
+            elif isinstance(ins, InstructionJump):
+                blocks[-1].append(ins)
+                blocks.append([])
+
+            else:
+                blocks[-1].append(ins)
+
+        return [Block(block) for block in blocks if len(block) > 0]
+
+    @classmethod
+    def _find_assignments(cls, code: Blocks):
+        for block in code:
+            for ins in block:
+                for o in ins.outputs:
+                    block.assignments.add(ins.params[o])
+
+    @classmethod
+    def _make_instructions(cls, code: Blocks) -> Instructions:
+        return [ins for block in code for ins in block]
+
+    @classmethod
+    def _eval_block_jumps(cls, code: Blocks):
+        """
+        Evaluate jumps to remove dead blocks and list predecessors.
+        """
+
+        if len(code) == 0:
+            return
+
+        labels = {lab.params[0]: i for i, block in enumerate(code) for lab in block if isinstance(lab, Label)}
+
+        used = set()
+        cls._eval_block_jumps_internal(code, labels, 0, used)
+
+        code[:] = [block for i, block in enumerate(code) if i in used]
+        for block in code:
+            block.predecessors = {pre for pre in block.predecessors if pre in code}
+            for pre in block.predecessors:
+                pre.successors.add(block)
+
+    @classmethod
+    def _eval_block_jumps_internal(cls, code: Blocks, labels: dict[str, int], i: int, used: set[int], from_: int = None):
+        if i >= len(code):
+            return
+
+        if from_ is not None:
+            code[i].predecessors.add(code[from_])
+
+        if i in used:
+            return
+        used.add(i)
+
+        for ins in code[i]:
+            if isinstance(ins, InstructionJump):
+                if ins.params[1] == "always":
+                    cls._eval_block_jumps_internal(code, labels, labels[ins.params[0]], used, i)
+                    return
+
+                else:
+                    cls._eval_block_jumps_internal(code, labels, labels[ins.params[0]], used, i)
+                    cls._eval_block_jumps_internal(code, labels, i + 1, used, i)
+                    return
+
+        cls._eval_block_jumps_internal(code, labels, i + 1, used, i)
+
+    @classmethod
+    def _make_ssa(cls, code: Blocks):
+        # TODO: insert phi instructions
+
+        variables = defaultdict(int)
+        for block in code:
+            for ins in block:
+                for i in ins.inputs:
+                    if ins.params[i] in variables:
+                        ins.params[i] += ":" + str(variables[ins.params[i]])
+                for o in ins.outputs:
+                    variables[ins.params[o]] += 1
+                    ins.params[o] += ":" + str(variables[ins.params[o]])
 
     @classmethod
     def _optimize_immediate_move(cls, code: Instructions) -> bool:
@@ -37,11 +187,11 @@ class Optimizer:
         first_uses = {}
 
         for i, ins in enumerate(code):
-            for j in ins.inputs + ins.inputs:
+            for j in ins.inputs + ins.outputs:
                 param = ins.params[j]
                 uses[param] += 1
                 if uses[param] == 1:
-                    first_uses[param] = i, j
+                    first_uses[param] = (i, j)
 
         for i, ins in enumerate(code):
             if isinstance(ins, InstructionSet):
@@ -50,9 +200,12 @@ class Optimizer:
                 if uses[tmp] == 2 and i != first[0]:
                     code[first[0]].params[first[1]] = ins.params[0]
                     code[i] = InstructionNoop()
+                    return True
+
+        return False
 
     @classmethod
-    def _optimize_unused(cls, code: Instructions):
+    def _remove_unused_variables(cls, code: Instructions):
         uses = defaultdict(int)
         first_uses = {}
 

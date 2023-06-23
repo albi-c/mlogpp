@@ -34,6 +34,9 @@ class BaseInstruction:
 
         self.side_effects = side_effects
 
+        for i in self.outputs:
+            assert self.params[i] != "@counter", "@counter should not be written"
+
     def __str__(self):
         return f"{self.name} {' '.join(map(str, self.params))}"
 
@@ -42,6 +45,9 @@ class BaseInstruction:
             return self.name == other.name and self.params == other.params
 
         return False
+
+    def __hash__(self):
+        return hash((self.name, tuple(self.params)))
 
     @classmethod
     def create(cls, name: str, n_params: int, side_effects: bool) -> type[Instruction]:
