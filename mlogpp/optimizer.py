@@ -1,28 +1,39 @@
 from __future__ import annotations
 
 from collections import defaultdict
-import math
 import typing
+import itertools
 
 from .instruction import *
 from .operations import Operations
+from . import builtins
 
 
 class Phi(Instruction):
-    def __init__(self):
-        BaseInstruction.__init__(self, "phi", tuple(), True)
+    variable: str
+    output: str
+    inputs_: set[Block]
+
+    def __init__(self, variable: str, output: str, inputs: set[Block]):
+        BaseInstruction.__init__(self, "phi", (), True)
+
+        self.variable = variable
+        self.output = output
+        self.inputs_ = inputs
 
     def __str__(self):
-        # raise RuntimeError("Phi instruction must be converted")
-        print("! Phi instruction must be converted !")
-        return "PHI"
+        raise RuntimeError("Phi instruction must be converted")
+
+BaseInstruction.Builtins["phi"] = builtins.native_function_value(Phi, [])
 
 
-class Block(list):
+class Block(list[Instruction]):
     predecessors: set[Block]
     successors: set[Block]
     variables: dict[str, int]
     assignments: set[str]
+    is_ssa: bool
+    add_phi: list[Instruction]
 
     def __init__(self, code: typing.Iterable[Instruction]):
         super().__init__(code)
@@ -31,6 +42,8 @@ class Block(list):
         self.successors = set()
         self.variables = {}
         self.assignments = set()
+        self.is_ssa = False
+        self.add_phi = []
 
     def __hash__(self):
         return hash(id(self))
@@ -54,14 +67,10 @@ class Optimizer:
         blocks = cls._make_blocks(code)
         cls._eval_block_jumps(blocks)
         cls._find_assignments(blocks)
-        for i, block in enumerate(blocks):
-            print("BLOCK", i)
-            print("PRE", len(block.predecessors), block.predecessors)
-            print("SUC", len(block.successors), block.successors)
-            print("ASSIGN", block.assignments)
-            print("\n".join(map(str, block)))
-            print()
+        cls._optimize_block_jumps(blocks)
         cls._make_ssa(blocks)
+        # TODO: ssa optimizations
+        cls._resolve_ssa(blocks)
         code = cls._make_instructions(blocks)
 
         cls._remove_noops(code)
@@ -83,12 +92,15 @@ class Optimizer:
     @classmethod
     def _optimize_jumps(cls, code: Instructions):
         jumps = {ins.params[0] for ins in code if isinstance(ins, InstructionJump)}
-        print(jumps)
         code[:] = [ins for i, ins in enumerate(code) if not isinstance(ins, Label) or (ins.params[0] in jumps)]
+
+        labels = {ins.params[0]: i for i, ins in enumerate(code) if isinstance(ins, Label)}
+        code[:] = [ins if not isinstance(ins, InstructionJump) or
+                          labels[ins.params[0]] != i else InstructionNoop() for i, ins in enumerate(code)]
 
     @classmethod
     def _make_blocks(cls, code: Instructions) -> Blocks:
-        blocks: Blocks = [[]]
+        blocks: list[Optimizer.Instructions] = [[]]
         for ins in code:
             if isinstance(ins, Label):
                 blocks.append([ins])
@@ -159,18 +171,66 @@ class Optimizer:
         cls._eval_block_jumps_internal(code, labels, i + 1, used, i)
 
     @classmethod
-    def _make_ssa(cls, code: Blocks):
-        # TODO: insert phi instructions
+    def _optimize_block_jumps(cls, code: Blocks):
+        labels = {lab.params[0]: i for i, block in enumerate(code) for lab in block if isinstance(lab, Label)}
+        for i, block in enumerate(code):
+            if isinstance(block[-1], InstructionJump) and labels[block[-1].params[0]] == i + 1:
+                block.pop(-1)
 
-        variables = defaultdict(int)
+    @classmethod
+    def _make_ssa(cls, code: Blocks):
+        if len(code) > 0:
+            cls._make_ssa_internal(code[0], {})
+
+    @classmethod
+    def _make_ssa_internal(cls, block: Block, variables: dict[str, int]):
+        if block.is_ssa:
+            return
+
+        block.variables = variables.copy()
+
+        phi_required: dict[str, set[Block]] = {}
+        for a, b in itertools.combinations(block.predecessors, 2):
+            for common in a.assignments & b.assignments:
+                if common in phi_required:
+                    phi_required[common] |= {a, b}
+                else:
+                    phi_required[common] = {a, b}
+
+        for name, blocks in phi_required.items():
+            block.variables[name] = block.variables.get(name, 0) + 1
+            block.insert(0, Phi(name, f"{name}:{block.variables[name]}", blocks))
+
+        for ins in block:
+            for i in ins.inputs:
+                inp = ins.params[i]
+                if inp in block.variables:
+                    ins.params[i] += ":" + str(block.variables[inp])
+            for o in ins.outputs:
+                out = ins.params[o]
+                block.variables[out] = block.variables.get(out, 0) + 1
+                ins.params[o] += ":" + str(block.variables[out])
+
+        block.is_ssa = True
+
+        for suc in block.successors:
+            cls._make_ssa_internal(suc, block.variables)
+
+    @classmethod
+    def _resolve_ssa(cls, code: Blocks):
         for block in code:
-            for ins in block:
-                for i in ins.inputs:
-                    if ins.params[i] in variables:
-                        ins.params[i] += ":" + str(variables[ins.params[i]])
-                for o in ins.outputs:
-                    variables[ins.params[o]] += 1
-                    ins.params[o] += ":" + str(variables[ins.params[o]])
+            for i, ins in enumerate(block):
+                if isinstance(ins, Phi):
+                    for b in ins.inputs_:
+                        b.add_phi.append(InstructionSet(ins.output, f"{ins.variable}:{b.variables[ins.variable]}"))
+                    block[i] = InstructionNoop()
+
+        for block in code:
+            if isinstance(block[-1], InstructionJump):
+                block[-1:] = block.add_phi + block[-1:]
+
+            else:
+                block += block.add_phi
 
     @classmethod
     def _optimize_immediate_move(cls, code: Instructions) -> bool:
@@ -218,7 +278,7 @@ class Optimizer:
 
         for i, ins in enumerate(code):
             if not ins.side_effects and len(ins.outputs) > 0:
-                if not any(uses.get(ins.params[i], 0) > 1 for i in ins.outputs):
+                if not any(uses.get(ins.params[j], 0) > 1 for j in ins.outputs):
                     code[i] = InstructionNoop()
 
     @classmethod

@@ -29,7 +29,7 @@ if ((flag === REGEN_FLAG) && (health === maxHealth)) {
 } else {
     if ((health < maxHealth * REGEN_HEALTH) || flag === REGEN_FLAG) {
         go_heal()
-        end
+        end()
     }
 }
 
@@ -40,7 +40,7 @@ if (enemy === null) {
     } else {
         ucontrol.approach(@thisx, @thisy, DISTANCE)
     }
-    end
+    end()
 }
 
 num r = rand(360)

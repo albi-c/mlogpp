@@ -366,8 +366,8 @@ BUILTIN_FUNCTIONS = {
             "unbind": []
         }
     ),
-    "uradar": native_function_value(InstructionRadar, [EnumRadarFilter.type] * 3 + [EnumRadarSort.type, Type.ANY,
-                                                                                    Type.NUM, Type.UNIT], 6,
+    "uradar": native_function_value(InstructionURadar, [EnumRadarFilter.type] * 3 + [EnumRadarSort.type, Type.ANY,
+                                                                                     Type.NUM, Type.UNIT], 6,
                                     constants={5: "0"}),
     "ulocate": native_multi_function_value(
         InstructionULocate,
@@ -467,7 +467,7 @@ PRIVATE_BUILTIN_FUNCTIONS = {
             "true": native_function_value(InstructionStatus, [EnumEffect.type, Type.UNIT, Type.NUM]),
             "false": native_function_value(InstructionStatus, [EnumEffect.type, Type.UNIT])
         }
-    ),
+    )
 }
 BaseInstruction.Param = Param
 BaseInstruction.NativeFunctionValue = NativeFunctionValue

@@ -24,13 +24,13 @@ if ((flag == REGEN_FLAG) && (health == maxHealth)) {
         } else {
             ucontrol.approach(@thisx, @thisy, DISTANCE)
         }
-        end
+        end()
     }
 }
 
 if (player === null) {
     ucontrol.approach(@thisx, @thisy, DISTANCE)
-    end
+    end()
 }
 
 ucontrol.approach(player.x, player.y, DISTANCE)

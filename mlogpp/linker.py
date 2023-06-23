@@ -21,8 +21,7 @@ class Linker:
             The code with resolved labels.
         """
 
-        # label at the start of the code
-        labels = {"start": 0}
+        labels = {}
 
         # find labels
         line = 0
@@ -42,7 +41,6 @@ class Linker:
         code = [ins for ins in (str(ins) for ins in code) if not ins.endswith(":") or cls.EMIT_LABELS]
 
         output_code = ""
-        offset = 0
         for i, generated in enumerate(code):
             # resolve jump addressed
             if generated.startswith("jump "):
@@ -51,25 +49,19 @@ class Linker:
                 if jump_to is None:
                     InternalError.label_not_found(spl[1])
 
-                # wrap around to 0 if address is larger than last instruction
-                if jump_to >= line:
+                # wrap around to 0 if address is larger than end of code or smaller than zero
+                if jump_to >= line or jump_to < 0:
                     jump_to = 0
 
                 # skip if jump is at the end of code and points to the start
                 if i == len(code) - 1 and jump_to == 0:
                     continue
 
-                # skip if jump is pointing to the next instruction
-                if jump_to == i + 1:
-                    offset += 1
-                    continue
-
                 if cls.EMIT_LABELS:
                     output_code += generated + "\n"
 
                 else:
-                    print(spl[1], jump_to - offset, jump_to, offset)
-                    output_code += spl[0] + " " + str(jump_to - offset) + " " + spl[2] + "\n"
+                    output_code += spl[0] + " " + str(jump_to) + " " + spl[2] + "\n"
 
             else:
                 output_code += generated + "\n"

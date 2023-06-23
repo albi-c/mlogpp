@@ -4,6 +4,7 @@ from mlogpp.compile import compile_code
 
 from mlog_emulator.vm import VM
 from mlog_emulator.parser_ import Parser as VMParser
+from mlog_emulator.building import Building, BuildingType
 
 
 class CompilationTestCase(unittest.TestCase):
@@ -28,17 +29,25 @@ func2(val)
 num y = 0
 for (i : LOOP_UNTIL) {
     y += i * x
-}"""
+}
+
+Block message1
+print(x)
+print(" ")
+print(y)
+printflush(message1)
+"""
 
     def test_compilation(self):
         code = compile_code(CompilationTestCase.CODE, "<test>")
 
         vm = VM(*VMParser.parse(code))
 
+        vm.env["variables"]["message1"] = Building(BuildingType.MESSAGE, "message1", {})
+
         vm.cycle()
 
-        self.assertEqual(vm["x@<main>"], 1024)
-        self.assertEqual(vm["y@<main>"], 10240)
+        self.assertEqual(vm["message1"].state["text"], "1024.0 10240.0")
 
 
 if __name__ == '__main__':
