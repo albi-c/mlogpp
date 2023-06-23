@@ -1,4 +1,5 @@
 import typing
+import math
 
 from .instruction import InstructionOp
 from .generator import Gen

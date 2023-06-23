@@ -47,7 +47,9 @@ printflush(message1)
 
         vm.cycle()
 
-        self.assertEqual(vm["message1"].state["text"], "1024.0 10240.0")
+        spl = vm["message1"].state["text"].split()
+        self.assertIn(spl[0], ("1024", "1024.0"))
+        self.assertIn(spl[1], ("10240", "10240.0"))
 
 
 if __name__ == '__main__':

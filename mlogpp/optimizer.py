@@ -69,7 +69,8 @@ class Optimizer:
         cls._find_assignments(blocks)
         cls._optimize_block_jumps(blocks)
         cls._make_ssa(blocks)
-        # TODO: ssa optimizations
+        while cls._propagate_constants(blocks) | cls._precalculate_values(blocks):
+            pass
         cls._resolve_ssa(blocks)
         code = cls._make_instructions(blocks)
 
@@ -215,6 +216,72 @@ class Optimizer:
 
         for suc in block.successors:
             cls._make_ssa_internal(suc, block.variables)
+
+    @classmethod
+    def _propagate_constants(cls, code: Blocks) -> bool:
+        constants: dict[str, str] = {}
+
+        for block in code:
+            for ins in block:
+                if isinstance(ins, InstructionSet):
+                    constants[ins.params[0]] = ins.params[1]
+
+        found = False
+        for block in code:
+            for ins in block:
+                for i in ins.inputs:
+                    if ins.params[i] in constants:
+                        ins.params[i] = constants[ins.params[i]]
+                        found = True
+
+        return found
+
+    @classmethod
+    def _precalculate_values(cls, code: Blocks) -> bool:
+        found = False
+        for block in code:
+            for i, ins in enumerate(block):
+                if isinstance(ins, InstructionOp):
+                    if (ins.params[0] == "sub" and ins.params[2] == ins.params[3]) or \
+                            (ins.params[0] == "mul" and (ins.params[2] == "0" or ins.params[3] == "0")) or \
+                            (ins.params[0] in ("div", "idiv") and ins.params[2] == "0") or \
+                            (ins.params[0] == "and" and (ins.params[2] == "0" or ins.params[3] == "0")):
+
+                        block[i] = InstructionSet(ins.params[1], 0)
+                        found = True
+
+                    elif ins.params[0] in ("add", "or", "xor") and ins.params[2] == "0":
+                        block[i] = InstructionSet(ins.params[3], 0)
+                        found = True
+
+                    elif ins.params[0] in ("add", "or", "xor") and ins.params[3] == "0":
+                        block[i] = InstructionSet(ins.params[2], 0)
+                        found = True
+
+                    elif ins.params[0] in ("shr", "shl") and ins.params[3] == "0":
+                        block[i] = InstructionSet(ins.params[2], 0)
+                        found = True
+
+                    elif ins.params[0] in Operations.PRECALC:
+                        try:
+                            a = float(ins.params[2])
+                            if a.is_integer():
+                                a = int(a)
+                            b = float(ins.params[3])
+                            if b.is_integer():
+                                b = int(b)
+
+                            result = float(Operations.PRECALC[ins.params[0]](a, b))
+                            if result.is_integer():
+                                result = int(result)
+
+                            block[i] = InstructionSet(ins.params[1], result)
+                            found = True
+
+                        except (ArithmeticError, ValueError, TypeError):
+                            pass
+
+        return found
 
     @classmethod
     def _resolve_ssa(cls, code: Blocks):
