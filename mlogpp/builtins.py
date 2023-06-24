@@ -4,12 +4,11 @@ import enum
 import math
 import typing
 
-from .values import Type, Value, CallableValue, VariableValue, NullValue, SettableValue, NumberValue
+from .values import CallableValue, VariableValue, NullValue, SettableValue, NumberValue
 from .instruction import *
 from .generator import Gen
 from .error import Error
 from .enums import *
-from .scope import Scope
 
 
 class Param(Enum):
@@ -104,10 +103,11 @@ class NativeFunctionValue(CallableValue):
 class NativeMultiFunctionValue(Value):
     functions: dict[str, Value]
 
-    def __init__(self, functions: dict[str, Value]):
+    def __init__(self, functions: dict[str, Value], subname_function):
         super().__init__(Type.OBJECT)
 
         self.functions = functions
+        self.subname_function = subname_function
 
     def __eq__(self, other):
         if isinstance(other, NativeMultiFunctionValue):
@@ -124,7 +124,6 @@ class NativeMultiFunctionValue(Value):
 
 def native_function_value(ins: type[Instruction], params: list[Type], ret: int = -1, outputs: list[int] = None, *,
                           constants: dict[int, str] = None) -> NativeFunctionValue:
-
     if constants is None:
         constants = {}
 
@@ -149,11 +148,12 @@ def native_function_value(ins: type[Instruction], params: list[Type], ret: int =
 
 
 def native_multi_function_value(ins: type[Instruction], functions: dict[str, list[Type] |
-                                                                        tuple[list[Type], int] |
-                                                                        tuple[list[Type], int, list[int]] |
-                                                                        tuple[list[Type], int, list[int], list[int]] |
-                                                                        NativeFunctionValue]) -> NativeMultiFunctionValue:
-
+                                                                             tuple[list[Type], int] |
+                                                                             tuple[list[Type], int, list[int]] |
+                                                                             tuple[list[Type], int, list[int], list[
+                                                                                 int]] |
+                                                                             NativeFunctionValue],
+                                subname_index: int = 0, subname_function=None) -> NativeMultiFunctionValue:
     func = {}
     for n, f in functions.items():
         if isinstance(f, list):
@@ -171,9 +171,13 @@ def native_multi_function_value(ins: type[Instruction], functions: dict[str, lis
             func[n] = native_function_value(ins, *f)
 
         if not isinstance(f, NativeFunctionValue):
-            func[n].params = [(Param.CONSTANT, n)] + func[n].params
+            if subname_index == -1:
+                func[n].params.append((Param.CONSTANT, n))
+            else:
+                func[n].params.insert(subname_index, (Param.CONSTANT, n))
 
-    return NativeMultiFunctionValue(func)
+    return NativeMultiFunctionValue(func, (
+        lambda params: params[subname_index]) if subname_function is None else subname_function)
 
 
 class BuiltinOperationValue(CallableValue):
@@ -316,10 +320,11 @@ BUILTIN_FUNCTIONS = {
         }
     ),
     "radar": native_function_value(InstructionRadar, [EnumRadarFilter.type] * 3 + [EnumRadarSort.type, Type.BLOCK,
-                                                                                    Type.NUM, Type.UNIT], 6),
+                                                                                   Type.NUM, Type.UNIT], 6),
     "sensor": native_multi_function_value(
         InstructionSensor,
-        {name: ([type_, Type.BLOCK | Type.UNIT], 0) for name, type_ in SENSABLE.items()}
+        {name: ([type_, Type.BLOCK | Type.UNIT], 0) for name, type_ in SENSABLE.items()},
+        -1, lambda params: params[-1][1:]
     ),
 
     "lookup": native_multi_function_value(
@@ -373,10 +378,12 @@ BUILTIN_FUNCTIONS = {
         InstructionULocate,
         {
             "ore": ([Type.ANY, Type.ANY, Type.BLOCK_TYPE, Type.NUM, Type.NUM, Type.NUM, Type.NUM], 3, [4, 5], [0, 1]),
-            "building": ([EnumLocateType.type, Type.NUM, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 3,
-                         [4, 5, 6], [2]),
-            "spawn": ([Type.ANY, Type.ANY, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 3, [4, 5, 6], [0, 1, 2]),
-            "damaged": ([Type.ANY, Type.ANY, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 3, [4, 5, 6], [0, 1, 2])
+            "building": ([EnumLocateType.type, Type.NUM, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 5,
+                         [3, 4, 6], [2]),
+            "spawn": (
+            [Type.ANY, Type.ANY, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 3, [4, 5, 6], [0, 1, 2]),
+            "damaged": (
+            [Type.ANY, Type.ANY, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 3, [4, 5, 6], [0, 1, 2])
         }
     ),
 

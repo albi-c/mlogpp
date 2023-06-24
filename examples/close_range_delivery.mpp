@@ -1,0 +1,31 @@
+configuration UnitType UNIT = UnitType.flare
+configuration ItemType ITEM = null
+
+num FLAG = floor(@thisx + @thisy * @mapw)
+
+ubind(UNIT)
+while (@unit.flag != 0) {
+    ubind(UNIT)
+}
+ucontrol.flag(FLAG)
+if (@unit.flag != FLAG) {
+    end()
+}
+
+ucontrol.move(@thisx, @thisy)
+while (!ucontrol.within(@thisx, @thisy, 2)) {}
+num coreX, coreY
+Block coreBlock
+if (!ulocate.building(core, false, coreX, coreY, coreBlock)) {
+    end()
+}
+BlockType coreType
+Block coreB = ucontrol.getBlock(coreX, coreY, coreType, false)
+
+while (!@unit.dead) {
+    for (i : @links) {
+        ucontrol.move(coreX, coreY)
+        ucontrol.itemTake(coreB, ITEM, @unit.itemCapacity)
+        ucontrol.itemDrop(getlink(i), @unit.itemCapacity)
+    }
+}

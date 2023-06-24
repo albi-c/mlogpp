@@ -11,7 +11,7 @@ class Operations:
     UNARY: dict[str, typing.Callable[[str, str], list[str | int]]] = {
         "-": lambda result, value: ["sub", result, 0, value],
         "~": lambda result, value: ["flip", result, value, 0],
-        "!": lambda result, value: ["not", result, value, 0]
+        "!": lambda result, value: ["equal", result, value, 0]
     }
 
     BINARY: dict[str, str] = {

@@ -22,7 +22,8 @@ class BaseInstruction:
         val = BaseInstruction.Builtins[name]
 
         if isinstance(val, BaseInstruction.NativeMultiFunctionValue):
-            val = val.functions[self.params[0]]
+            print(val.subname_function, val.subname_function(self.params))
+            val = val.functions[val.subname_function(self.params)]
 
         if isinstance(val, BaseInstruction.NativeFunctionValue):
             self.inputs = [i for i, [param, _] in enumerate(val.params) if param == BaseInstruction.Param.INPUT]

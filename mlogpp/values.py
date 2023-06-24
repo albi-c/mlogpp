@@ -234,7 +234,7 @@ class SensorValue(Value):
     def get(self) -> str:
         result = Gen.tmp()
         Gen.emit(
-            InstructionSensor(self.prop, result, self.value)
+            InstructionSensor(result, self.value, "@" + self.prop)
         )
         return result
 
