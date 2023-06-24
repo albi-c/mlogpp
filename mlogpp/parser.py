@@ -33,7 +33,6 @@ class Parser(GenericParser):
 
     def parse_Statement(self) -> Node:
         if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.ID, None, 2):
-
             type_ = self.next_token()
             name = self.next_token()
 
@@ -77,6 +76,14 @@ class Parser(GenericParser):
 
                 case "continue":
                     return ContinueNode(tok.pos)
+
+                case "configuration":
+                    type_ = self.next_token()
+                    name = self.next_token()
+                    self.next_token()
+                    value = self.parse_Value()
+
+                    return ConfigNode(type_.pos + value.get_pos(), type_.value, name.value, value)
 
             raise RuntimeError("invalid keyword")
 

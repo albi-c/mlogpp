@@ -201,6 +201,8 @@ class MultiDeclarationNode(Node):
         return f"{self.type} {', '.join(self.names)}"
 
     def gen(self) -> Value:
+        Node.gen(self)
+
         type_ = self.parse_type(self.type)
 
         for name in self.names:
@@ -209,6 +211,37 @@ class MultiDeclarationNode(Node):
                 self.scope_declare(name, val)
             else:
                 val.name = self.scope_declare(name, val)
+
+        return NullValue()
+
+
+class ConfigNode(Node):
+    type: str
+    name: str
+    value: Node
+
+    def __init__(self, pos: Position, type_: str, name: str, value: Node):
+        super().__init__(pos)
+
+        self.type = type_
+        self.name = name
+        self.value = value
+
+    def __str__(self):
+        return f"configuration {self.type} {self.name} = {self.value}"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        type_ = self.parse_type(self.type)
+
+        val = self.value.gen()
+        if val.type() not in type_:
+            Error.incompatible_types(self, val.type(), type_)
+        Scope.configurations[self.name] = val
+
+        val = VariableValue(self.name, type_)
+        Scope.scopes[2][self.name] = val
 
         return NullValue()
 

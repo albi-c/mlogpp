@@ -1,5 +1,4 @@
 from ..util import Position
-from ..instruction import *
 from ..values import *
 from ..generator import Gen
 from .. import enums
@@ -44,7 +43,7 @@ class Node:
             The generated code.
         """
 
-        return Instructions()
+        raise NotImplementedError
 
 
 class CodeBlockNode(Node):

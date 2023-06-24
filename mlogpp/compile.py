@@ -32,6 +32,7 @@ def compile_code(code: str, filename: str) -> str:
     code.gen()
     code = Gen.get()
     code = Optimizer.optimize(code)
+    code = Scope.get_config() + code
     code = Linker.link(code)
 
     return code

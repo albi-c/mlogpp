@@ -53,6 +53,15 @@ class Optimizer:
     Instructions = list[Instruction]
     Blocks = list[Block]
 
+    JUMP_TRANSLATION: dict[str, str] = {
+        "equal": "notEqual",
+        "notEqual": "equal",
+        "greaterThan": "lessThanEq",
+        "lessThan": "greaterThanEq",
+        "greaterThanEq": "lessThan",
+        "lessThanEq": "greaterThan"
+    }
+
     @classmethod
     def optimize(cls, code: Instructions) -> Instructions:
         cls._remove_noops(code)
@@ -338,6 +347,13 @@ class Optimizer:
         set x __tmp0
 
         read x cell1 0
+
+        Remove unnecessary comparisons when jumping.
+
+        op lessThan __tmp0 x y
+        jump label equal __tmp0 0
+
+        jump label greaterThanEq x y
         """
 
         uses = defaultdict(int)
@@ -358,6 +374,14 @@ class Optimizer:
                     code[first[0]].params[first[1]] = ins.params[0]
                     code[i] = InstructionNoop()
                     return True
+
+            elif isinstance(ins, InstructionJump) and ins.params[1] == "equal" and ins.params[3] == "0":
+                tmp = ins.params[2]
+                first = first_uses[tmp]
+                if uses[tmp] == 2 and i != first[0] and code[first[0]].params[0] in Optimizer.JUMP_TRANSLATION:
+                    ins.params[2:] = code[first[0]].params[2:]
+                    ins.params[1] = Optimizer.JUMP_TRANSLATION[code[first[0]].params[0]]
+                    code[first[0]] = InstructionNoop()
 
         return False
 

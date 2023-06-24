@@ -9,8 +9,8 @@ class ScopesTestCase(unittest.TestCase):
 
         Scope.push("test_scope")
 
-        self.assertEqual(Scope.scopes, [{}, {}, {}, {}])
-        self.assertEqual(Scope.names, ["<enum>", "<builtins>", "<main>", "test_scope"])
+        self.assertEqual(Scope.scopes, [{}, {}, {}, {}, {}])
+        self.assertEqual(Scope.names, ["<enum>", "<builtins>", "<config>", "<main>", "test_scope"])
         self.assertEqual(Scope.loops, [])
         self.assertEqual(Scope.functions, [])
 

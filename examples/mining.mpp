@@ -10,8 +10,9 @@
 
 Block vault1, hail1, cell1, message1, switch1
 
-UnitType UNIT = UnitType.mono
-Block VAULT = vault1
+configuration UnitType UNIT = UnitType.mono
+configuration Block VAULT = vault1
+
 num DEPOSIT_FLAG = floor(@thisx + @thisy * @mapw)
 
 num x = 0

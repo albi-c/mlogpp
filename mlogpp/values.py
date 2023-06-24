@@ -72,7 +72,7 @@ class Type:
         return cls.any_type
 
     @classmethod
-    def parse(cls, name: str, node: 'Node') -> Type:
+    def parse(cls, name: str, node) -> Type:
         if name in cls.typenames:
             return cls.typenames[name]
 
@@ -194,7 +194,7 @@ class SettableValue(Value, ABC):
 
 
 class CallableValue(Value, ABC):
-    def call(self, node: 'Node', params: list[Value]) -> Value:
+    def call(self, node, params: list[Value]) -> Value:
         raise NotImplementedError
 
     def get_params(self) -> list[Type]:
@@ -208,7 +208,7 @@ class InlinableCallableValue(CallableValue, ABC):
     name: str
     scope: dict[str, Value]
 
-    def inline(self, node: 'Node', params: list[Value]) -> Value:
+    def inline(self, node, params: list[Value]) -> Value:
         raise NotImplementedError
 
 
@@ -260,7 +260,7 @@ class ControlValue(SettableValue):
 
     def set(self, value: Value):
         if value.type() not in Content.CONTROLLABLE[self.prop]:
-            Error.incompatible_types(Error.node_class.current, value.type(), CONTROLLABLE[self.prop])
+            Error.incompatible_types(Error.node_class.current, value.type(), Content.CONTROLLABLE[self.prop])
 
         Gen.emit(
             InstructionControl(self.prop, self.value, value.get(), 0, 0, 0)
@@ -385,11 +385,10 @@ class IndexedValue(SettableValue):
 class FunctionValue(InlinableCallableValue):
     params: list[tuple[Type, str]]
     ret: Type
-    code: 'Node'
 
     end_label: str = None
 
-    def __init__(self, name: str, params: list[tuple[Type, str]], ret: Type, code: 'Node', scope: dict[str, Value]):
+    def __init__(self, name: str, params: list[tuple[Type, str]], ret: Type, code, scope: dict[str, Value]):
         super().__init__(Type.function([param[0] for param in params], ret))
 
         self.name = name
@@ -407,13 +406,13 @@ class FunctionValue(InlinableCallableValue):
     def get(self) -> str:
         return str(self.type())
 
-    def call(self, node: 'Node', params: list[Value]) -> Value:
+    def call(self, node, params: list[Value]) -> Value:
         raise RuntimeError("Must be inlined")
 
     def get_params(self) -> list[Type]:
         return [param[0] for param in self.params]
 
-    def inline(self, node: 'Node', params: list[Value]) -> Value:
+    def inline(self, node, params: list[Value]) -> Value:
         for i, [type_, name] in enumerate(self.params):
             if params[i].type() not in type_:
                 Error.incompatible_types(node, params[i].type(), type_)
