@@ -69,8 +69,11 @@ class Optimizer:
         cls._find_assignments(blocks)
         cls._optimize_block_jumps(blocks)
         cls._make_ssa(blocks)
-        while cls._propagate_constants(blocks) | cls._precalculate_values(blocks):
+        while cls._propagate_constants(blocks) | cls._precalculate_values(blocks) | \
+                cls._eliminate_common_subexpressions(blocks):
+
             pass
+        # TODO: execute code as far as possible
         cls._resolve_ssa(blocks)
         code = cls._make_instructions(blocks)
 
@@ -86,6 +89,9 @@ class Optimizer:
 
         cls._remove_noops(code)
         cls._remove_unused_variables(code)
+
+        cls._remove_noops(code)
+        cls._join_instructions(code)
 
         cls._remove_noops(code)
         return code
@@ -251,18 +257,26 @@ class Optimizer:
                         found = True
 
                     elif ins.params[0] in ("add", "or", "xor") and ins.params[2] == "0":
-                        block[i] = InstructionSet(ins.params[3], 0)
+                        block[i] = InstructionSet(ins.params[1], ins.params[3])
                         found = True
 
                     elif ins.params[0] in ("add", "or", "xor") and ins.params[3] == "0":
-                        block[i] = InstructionSet(ins.params[2], 0)
+                        block[i] = InstructionSet(ins.params[1], ins.params[2])
+                        found = True
+
+                    elif ins.params[0] == "mul" and ins.params[2] == "1":
+                        block[i] = InstructionSet(ins.params[1], ins.params[3])
+                        found = True
+
+                    elif ins.params[0] == "mul" and ins.params[3] == "1":
+                        block[i] = InstructionSet(ins.params[1], ins.params[2])
                         found = True
 
                     elif ins.params[0] in ("shr", "shl") and ins.params[3] == "0":
-                        block[i] = InstructionSet(ins.params[2], 0)
+                        block[i] = InstructionSet(ins.params[1], ins.params[2])
                         found = True
 
-                    elif ins.params[0] in Operations.PRECALC:
+                    if ins.params[0] in Operations.PRECALC:
                         try:
                             a = float(ins.params[2])
                             if a.is_integer():
@@ -280,6 +294,22 @@ class Optimizer:
 
                         except (ArithmeticError, ValueError, TypeError):
                             pass
+
+        return found
+
+    @classmethod
+    def _eliminate_common_subexpressions(cls, code: Blocks) -> bool:
+        found = False
+        for block in code:
+            operations: dict[tuple[str, str, str], str] = {}
+            for i, ins in enumerate(block):
+                if isinstance(ins, InstructionOp):
+                    operands = (ins.params[0], ins.params[2], ins.params[3])
+                    if operands in operations:
+                        block[i] = InstructionSet(ins.params[1], operations[operands])
+                        found = True
+                    else:
+                        operations[operands] = ins.params[1]
 
         return found
 
@@ -349,8 +379,51 @@ class Optimizer:
                     code[i] = InstructionNoop()
 
     @classmethod
+    def _join_instructions(cls, code: Instructions):
+        prints: list[tuple[int, str]] = []
+        for i, ins in enumerate(code):
+            if isinstance(ins, InstructionPrint):
+                val = None
+                if (num := cls._parse_num(ins.params[0])) is not None:
+                    val = num
+                elif ins.params[0].startswith("\"") and ins.params[0].endswith("\""):
+                    val = ins.params[0][1:-1]
+
+                if val is None:
+                    cls._join_instructions_flush(code, prints)
+                else:
+                    prints.append((i, str(val)))
+
+            else:
+                cls._join_instructions_flush(code, prints)
+
+    @classmethod
+    def _join_instructions_flush(cls, code: Instructions, prints: list[tuple[int, str]]):
+        if len(prints) > 1:
+            buffer = ""
+            for _, p in prints:
+                buffer += p
+
+            code[prints[0][0]].params[0] = f"\"{buffer}\""
+            for i, _ in prints[1:]:
+                code[i] = InstructionNoop()
+
+        prints.clear()
+
+    @classmethod
     def _remove_noops(cls, code: Instructions):
         code[:] = [ins for ins in code if ins != InstructionNoop()]
+
+    @classmethod
+    def _parse_num(cls, value: str) -> int | float | None:
+        try:
+            val = float(value)
+            if val.is_integer():
+                val = int(val)
+            return val
+
+        except ValueError:
+            return None
 
     class _ExecutionOptimizer:
         """
