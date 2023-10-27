@@ -9,13 +9,14 @@ from .instruction import *
 from .generator import Gen
 from .error import Error
 from .enums import *
+from .node import Node
 
 
 class Param(Enum):
-    INPUT = enum.auto()
-    OUTPUT = enum.auto()
-    OUTPUT_P = enum.auto()
-    CONSTANT = enum.auto()
+    INPUT: Param = enum.auto()
+    OUTPUT: Param = enum.auto()
+    OUTPUT_P: Param = enum.auto()
+    CONSTANT: Param = enum.auto()
 
 
 class NativeFunctionValue(CallableValue):
@@ -154,7 +155,7 @@ def native_multi_function_value(ins: type[Instruction], functions: dict[str, lis
                                                                                  int]] |
                                                                              NativeFunctionValue],
                                 subname_index: int = 0, subname_function=None) -> NativeMultiFunctionValue:
-    func = {}
+    func: dict[str, NativeFunctionValue] = {}
     for n, f in functions.items():
         if isinstance(f, list):
             func[n] = native_function_value(ins, f)

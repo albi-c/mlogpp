@@ -1,5 +1,4 @@
 from .tokens import TokenType, Token
-from .error import Error
 from .node import *
 from .generic_parser import GenericParser
 
@@ -191,7 +190,7 @@ class Parser(GenericParser):
 
         raise RuntimeError("invalid keyword")
 
-    def parse_binaryOp(self, operators: tuple[str, ...], lower_func: callable,
+    def parse_binaryOp(self, operators: tuple[str, ...], lower_func: Callable[[], Node],
                        token_type: TokenType = TokenType.OPERATOR, invert: bool = False) -> Node:
 
         if invert:
@@ -231,7 +230,7 @@ class Parser(GenericParser):
 
             return node
 
-    def parse_unaryOp(self, operators: tuple[str, ...], lower_func: callable,
+    def parse_unaryOp(self, operators: tuple[str, ...], lower_func: Callable[[], Node],
                       token_type: TokenType = TokenType.OPERATOR) -> Node:
 
         operations = []
