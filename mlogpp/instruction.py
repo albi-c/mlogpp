@@ -22,7 +22,8 @@ class BaseInstruction:
         val = BaseInstruction.Builtins[name]
 
         if isinstance(val, BaseInstruction.NativeMultiFunctionValue):
-            print(val.subname_function, val.subname_function(self.params))
+            print(val.subname_function, val.subname_function(self.params), self.params)
+            print(val.functions)
             val = val.functions[val.subname_function(self.params)]
 
         if isinstance(val, BaseInstruction.NativeFunctionValue):
@@ -114,7 +115,30 @@ InstructionULocate = Instruction.create("ulocate", 8, False)
 InstructionGetBlock = Instruction.create("getblock", 4, False)
 InstructionSetBlock = Instruction.create("setblock", 6, True)
 InstructionSpawn = Instruction.create("spawn", 6, True)
-InstructionStatus = Instruction.create("status", 4, True)
+
+class InstructionStatus(BaseInstruction):
+    name: str
+    params: list[str]
+    inputs: list[int]
+    outputs: list[int]
+    side_effects: bool
+
+    def __init__(self, *params):
+        self.name = "status"
+        self.params = [str(param) for param in params[1:]]
+
+        val = BaseInstruction.Builtins["status"].functions[params[0]]
+
+        self.inputs = [i-1 for i, [param, _] in enumerate(val.params) if param == BaseInstruction.Param.INPUT]
+        self.outputs = [i-1 for i, [param, _] in enumerate(val.params)
+                        if param in (BaseInstruction.Param.OUTPUT, BaseInstruction.Param.OUTPUT_P)]
+
+        self.side_effects = True
+
+    @staticmethod
+    def num_params() -> int:
+        return 4
+
 InstructionSpawnWave = Instruction.create("spawnwave", 3, True)
 InstructionSetRule = Instruction.create("setrule", 6, True)
 InstructionMessage = Instruction.create("message", 2, True)

@@ -177,6 +177,12 @@ def native_multi_function_value(ins: type[Instruction], functions: dict[str, lis
             else:
                 func[n].params.insert(subname_index, (Param.CONSTANT, n))
 
+        else:
+            if subname_index == -1:
+                f.params.append((Param.CONSTANT, n))
+            else:
+                f.params.insert(subname_index, (Param.CONSTANT, n))
+
     return NativeMultiFunctionValue(func, (
         lambda params: params[subname_index]) if subname_function is None else subname_function)
 
@@ -412,8 +418,8 @@ BUILTIN_FUNCTIONS = {
         {
             "apply": native_function_value(InstructionStatus, [Type.NUM, EnumEffect.type, Type.UNIT, Type.NUM],
                                            constants={0: "true"}),
-            "clear": native_function_value(InstructionStatus, [Type.NUM, EnumEffect.type, Type.UNIT],
-                                           constants={0: "false"})
+            "clear": native_function_value(InstructionStatus, [Type.NUM, EnumEffect.type, Type.UNIT, Type.NUM],
+                                           constants={0: "false", 3: 0})
         }
     ),
     "spawnwave": native_function_value(InstructionSpawnWave, [Type.NUM, Type.NUM, Type.NUM]),
@@ -469,13 +475,6 @@ PRIVATE_BUILTIN_FUNCTIONS = {
     "noop": native_function_value(InstructionNoop, []),
     "jump": native_function_value(InstructionJump, [Type.ANY] * 4),
     "label": native_function_value(Label, [Type.ANY]),
-    "status": native_multi_function_value(
-        InstructionStatus,
-        {
-            "true": native_function_value(InstructionStatus, [EnumEffect.type, Type.UNIT, Type.NUM]),
-            "false": native_function_value(InstructionStatus, [EnumEffect.type, Type.UNIT])
-        }
-    )
 }
 BaseInstruction.Param = Param
 BaseInstruction.NativeFunctionValue = NativeFunctionValue
