@@ -22,8 +22,6 @@ class BaseInstruction:
         val = BaseInstruction.Builtins[name]
 
         if isinstance(val, BaseInstruction.NativeMultiFunctionValue):
-            print(val.subname_function, val.subname_function(self.params), self.params)
-            print(val.functions)
             val = val.functions[val.subname_function(self.params)]
 
         if isinstance(val, BaseInstruction.NativeFunctionValue):
