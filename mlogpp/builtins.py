@@ -38,7 +38,7 @@ class NativeFunctionValue(CallableValue):
     def get(self) -> str:
         return "null"
 
-    def call(self, node: 'Node', params: list[Value]) -> Value:
+    def call(self, node: Node, params: list[Value]) -> Value:
         result = NullValue()
 
         par: list[str] = []
@@ -78,7 +78,7 @@ class NativeFunctionValue(CallableValue):
         return [i for i, [param, _] in enumerate(self.params) if param == Param.OUTPUT]
 
     @staticmethod
-    def _add_param(node: 'Node', params: list[str], outputs: list[tuple[VariableValue, SettableValue]],
+    def _add_param(node: Node, params: list[str], outputs: list[tuple[VariableValue, SettableValue]],
                    param: Value, type_: Type, output: bool):
 
         if output:
@@ -218,7 +218,7 @@ class BuiltinOperationValue(CallableValue):
     def get(self) -> str:
         return "null"
 
-    def call(self, node: 'Node', params: list[Value]) -> Value:
+    def call(self, node: Node, params: list[Value]) -> Value:
         if len(params) != self.params:
             Error.invalid_arg_count(node, len(params), self.params)
 

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class Content:
     BLOCKS: set[str] = {
         "graphite-press", "multi-press", "silicon-smelter", "silicon-crucible", "kiln", "plastanium-compressor",
@@ -81,5 +84,5 @@ class Content:
         "derelict", "sharded", "crux", "malis"
     }
 
-    SENSABLE: dict[str, 'Type'] = {}
-    CONTROLLABLE: dict[str, 'Type'] = {}
+    SENSABLE: dict[str, Type] = {}
+    CONTROLLABLE: dict[str, Type] = {}
