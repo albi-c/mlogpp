@@ -95,7 +95,7 @@ class Lexer:
 
         # check if there is a character available
         if self.i + 1 >= len(self.current_code):
-            return ""
+            return "" if char is None else False
 
         # check if the next character matches
         if self.current_code[self.i + 1] == char:
@@ -108,6 +108,16 @@ class Lexer:
 
         # char == None, return the next character
         return self.current_code[self.i + 1]
+
+    def lookahead_str(self, text: str) -> bool:
+        if self.i + len(text) >= len(self.current_code):
+            return False
+
+        if all(self.current_code[self.i + i] == ch for i, ch in enumerate(text, 1)):
+            self.i += len(text)
+            return True
+
+        return False
 
     def prev_char(self):
         """
@@ -393,13 +403,8 @@ class Lexer:
             The lexed token.
         """
 
-        if self.next_char() == "-":
-            if self.next_char() == ">":
-                return "->"
-
-            self.prev_char()
-
-        self.prev_char()
+        if self.lookahead_str("->"):
+            return "->"
 
     def lex_operator(self) -> str | None:
         """
@@ -413,28 +418,18 @@ class Lexer:
             # . + - ~ ^ %
             case "." | "+" | "-" | "~" | "^" | "%":
                 return ch
-            # & && | ||
-            case "&" | "|":
+            # & && | || * ** / //
+            case "&" | "|" | "*" | "/":
                 if self.lookahead_char(ch):
                     return ch + ch
                 return ch
-            # * **
-            case "*":
-                if self.lookahead_char("*"):
-                    return "**"
-                return "*"
-            # / //
-            case "/":
-                if self.lookahead_char("/"):
-                    return "//"
-                return "/"
             # == ===
             case "=":
                 if self.lookahead_char("="):
                     if self.lookahead_char("="):
                         return "==="
                     return "=="
-            # < <= > >=
+            # < <= << > >= >>
             case "<" | ">":
                 if self.lookahead_char("="):
                     return ch + "="
@@ -471,19 +466,14 @@ class Lexer:
                     return ch + "="
             # *= **= /= //=
             case "*" | "/":
-                if self.lookahead_char() == ch:
-                    self.next_char()
-                    if self.lookahead_char("="):
-                        return ch + ch + "="
-                    self.prev_char()
+                if self.lookahead_str(ch + "="):
+                    return ch + ch + "="
                 elif self.lookahead_char("="):
                     return ch + "="
             # <<= >>=
             case "<" | ">":
-                if self.lookahead_char(ch):
-                    if self.lookahead_char("="):
-                        return ch + ch + "="
-                    self.prev_char()
+                if self.lookahead_str(ch + "="):
+                    return ch + ch + "="
 
         # step back if nothing matched
         self.prev_char()

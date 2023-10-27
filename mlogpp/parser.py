@@ -3,6 +3,8 @@ from .error import Error
 from .node import *
 from .generic_parser import GenericParser
 
+from typing import Callable
+
 
 class Parser(GenericParser):
     """
