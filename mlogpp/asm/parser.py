@@ -1,10 +1,6 @@
-import ast
-import operator
-
-from ..instruction import INSTRUCTIONS
-from ..tokens import TokenType, Token
-from ..generic_parser import GenericParser
 from .node import *
+from ..generic_parser import GenericParser
+from ..tokens import TokenType
 
 
 class AsmParser(GenericParser):
@@ -91,7 +87,7 @@ class AsmParser(GenericParser):
                     self.next_token(TokenType.RPAREN)
                     return JumpNode(n.pos, label.value, (op.value, a, b))
                 else:
-                    return JumpNode(n.pos + label.pos, label.value, ("always", NullValue(), NullValue()))
+                    return JumpNode(n.pos + label.pos, label.value, ("always", Value.null(), Value.null()))
 
         elif n.type in (TokenType.NUMBER, TokenType.STRING) and self.lookahead_line() != n.pos.line:
             return None
@@ -101,14 +97,14 @@ class AsmParser(GenericParser):
     def parse_Value(self) -> Value:
         n = self.next_token(TokenType.ID | TokenType.NUMBER | TokenType.STRING)
         if n.type == TokenType.ID:
-            return VariableValue(n.value, Type.ANY)
+            return Value.variable(n.value, Type.ANY)
         elif n.type == TokenType.NUMBER:
             try:
-                return NumberValue(int(n.value))
+                return Value.number(int(n.value))
             except ValueError:
-                return NumberValue(float(n.value))
+                return Value.number(float(n.value))
         elif n.type == TokenType.STRING:
-            return StringValue(n.value)
+            return Value.string(n.value)
 
         raise RuntimeError("Internal error")
 

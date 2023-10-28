@@ -12,6 +12,7 @@ status.apply(burning, flare, 10)
 
 message.announce(5)
 
+let color = %_35adc8
 while (true) {
-    effect.hit(@thisx, @thisy, %_35adc8)
+    effect.hit(@thisx, @thisy, color)
 }

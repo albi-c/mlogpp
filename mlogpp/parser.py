@@ -425,7 +425,8 @@ class Parser(GenericParser):
             case TokenType.OPERATOR:
                 if tok.value == "%" and self.lookahead_token(TokenType.ID):
                     col = self.next_token(TokenType.ID)
-                    return ColorValueNode(tok.pos + col.pos, "%" + col.value[1:])
+                    if col.value.startswith("_") and len(col.value) > 1:
+                        return ColorValueNode(tok.pos + col.pos, "%" + col.value[1:])
 
         Error.unexpected_token(tok)
 

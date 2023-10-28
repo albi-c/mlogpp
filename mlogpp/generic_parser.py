@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 from .tokens import Token, TokenType
 from .error import Error
 from .expression import Expression
@@ -5,7 +7,7 @@ from .util import Position
 from .lexer import Lexer
 
 
-class GenericParser:
+class GenericParser(ABC):
     """
     Parses tokens into an AST.
     """
@@ -46,6 +48,10 @@ class GenericParser:
         self._preprocess_tokens()
 
         return self.parse_CodeBlock(False)
+
+    @abstractmethod
+    def parse_CodeBlock(self, end_at_rbrace: bool):
+        raise NotImplementedError
 
     def _init(self):
         pass

@@ -6,7 +6,7 @@ from typing import Callable, TypeVar
 from .instruction import *
 from .generator import Gen
 from .error import Error
-from .enums import ENUMS, SENSABLE, RULES, SETPROP, EnumRadarFilter, EnumLocateType, EnumRadarSort, EnumEffect
+from .enums import ENUMS, SENSABLE, RULES, SETPROP, EnumRadarFilter, EnumLocateType, EnumRadarSort, EnumEffect, EnumTypeImpl
 from .node import Node
 from .values import TypeImpl, Type, Value
 
@@ -500,8 +500,15 @@ BUILTIN_OPERATIONS = {
     op: Value(Type.OBJECT, "null", type_impl=BuiltinOperationTypeImpl(op, params)) for op, params in _OPERATIONS.items()
 }
 
-BUILTIN_ENUMS = {
-    e.impl().name: e for e in ENUMS
-}
 
-BUILTINS = BUILTIN_VARIABLES | BUILTIN_CONSTANTS | BUILTIN_FUNCTIONS | BUILTIN_OPERATIONS | BUILTIN_ENUMS
+def _make_builtin_enums():
+    result = {}
+    for e in ENUMS:
+        impl = e.impl()
+        assert isinstance(impl, EnumTypeImpl)
+        result[impl.name] = e
+    return result
+
+BUILTIN_ENUMS = _make_builtin_enums()
+
+BUILTINS: dict[str, Value] = BUILTIN_VARIABLES | BUILTIN_CONSTANTS | BUILTIN_FUNCTIONS | BUILTIN_OPERATIONS | BUILTIN_ENUMS
