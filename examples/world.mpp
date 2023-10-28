@@ -12,4 +12,6 @@ status.apply(burning, flare, 10)
 
 message.announce(5)
 
-while (true) {}
+while (true) {
+    effect.hit(@thisx, @thisy, %_35adc8)
+}

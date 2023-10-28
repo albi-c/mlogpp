@@ -422,6 +422,11 @@ class Parser(GenericParser):
                 val.pos = tok.pos + end.pos
                 return val
 
+            case TokenType.OPERATOR:
+                if tok.value == "%" and self.lookahead_token(TokenType.ID):
+                    col = self.next_token(TokenType.ID)
+                    return ColorValueNode(tok.pos + col.pos, "%" + col.value[1:])
+
         Error.unexpected_token(tok)
 
     def parse_funcParamsValues(self) -> list[Node]:

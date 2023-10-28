@@ -848,3 +848,18 @@ class StructValueNode(ValueNode):
         Node.gen(self)
 
         return Value(self.type, self.value)
+
+
+class ColorValueNode(ValueNode):
+    value: str
+
+
+    def __init__(self, pos: Position, value: str):
+        super().__init__(pos, value)
+
+        self.value = value
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        return Value(Type.COLOR, self.value)

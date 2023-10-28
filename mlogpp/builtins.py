@@ -311,6 +311,7 @@ BUILTIN_FUNCTIONS = {
             "move": [Type.NUM] * 2,
             "approach": [Type.NUM] * 3,
             "pathfind": [Type.NUM] * 2,
+            "autoPathfind": [],
             "boost": [Type.NUM],
             "target": [Type.NUM] * 3,
             "targetp": [Type.UNIT, Type.NUM],
@@ -400,6 +401,44 @@ BUILTIN_FUNCTIONS = {
             "stop": []
         }
     ),
+    "effect": native_multi_function_value(
+        InstructionEffect,
+        {
+            "warn": [Type.NUM] * 2,
+            "cross": [Type.NUM] * 2,
+            "blockFall": ([Type.NUM, Type.NUM, Type.ANY, Type.ANY, Type.BLOCK], -1, [], [2, 3]),
+            "placeBlock": [Type.NUM, Type.NUM, Type.NUM],
+            "placeBlockSpark": [Type.NUM, Type.NUM, Type.NUM],
+            "breakBlock": [Type.NUM, Type.NUM, Type.NUM],
+            "spawn": [Type.NUM] * 2,
+            "trail": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "breakProp": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "smokeCloud": ([Type.NUM, Type.NUM, Type.NUM, Type.COLOR], -1, [], [2]),
+            "vapor": ([Type.NUM, Type.NUM, Type.NUM, Type.COLOR], -1, [], [2]),
+            "hit": ([Type.NUM, Type.NUM, Type.NUM, Type.COLOR], -1, [], [2]),
+            "hitSquare": ([Type.NUM, Type.NUM, Type.NUM, Type.COLOR], -1, [], [2]),
+            "shootSmall": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "shootBig": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "smokeSmall": [Type.NUM] * 3,
+            "smokeBig": [Type.NUM] * 3,
+            "smokeColor": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "smokeSquare": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "smokeSquareBig": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "spark": ([Type.NUM, Type.NUM, Type.NUM, Type.COLOR], -1, [], [2]),
+            "sparkBig": ([Type.NUM, Type.NUM, Type.NUM, Type.COLOR], -1, [], [2]),
+            "sparkShoot": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "sparkShootBig": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "drill": ([Type.NUM, Type.NUM, Type.NUM, Type.COLOR], -1, [], [2]),
+            "drillBig": ([Type.NUM, Type.NUM, Type.NUM, Type.COLOR], -1, [], [2]),
+            "lightBlock": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "explosion": [Type.NUM] * 3,
+            "smokePuff": ([Type.NUM, Type.NUM, Type.NUM, Type.COLOR], -1, [], [2]),
+            "sparkExplosion": ([Type.NUM, Type.NUM, Type.NUM, Type.COLOR], -1, [], [2]),
+            "crossExplosion": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "wave": [Type.NUM, Type.NUM, Type.NUM, Type.COLOR],
+            "bubble": [Type.NUM] * 2
+        }
+    ),
     "explosion": native_function_value(InstructionExplosion, [Type.TEAM] + [Type.NUM] * 7),
     "setrate": native_function_value(InstructionSetRate, [Type.NUM]),
     "fetch": native_multi_function_value(
@@ -415,6 +454,7 @@ BUILTIN_FUNCTIONS = {
             "buildCount": ([Type.NUM, Type.TEAM, Type.ANY, Type.BLOCK_TYPE], 0, [], [2])
         }
     ),
+    "sync": native_function_value(InstructionSync, [Type.ANY]),
     "getflag": native_function_value(InstructionGetFlag, [Type.NUM, Type.STR], 0),
     "setflag": native_function_value(InstructionSetFlag, [Type.STR, Type.NUM]),
     "setprop": native_multi_function_value(

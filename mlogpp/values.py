@@ -37,10 +37,6 @@ class Value:
         return Value(Type.STR, val)
 
     @classmethod
-    def function(cls, name: str, params: list[tuple[Type, str]], ret: Type, code) -> Value:
-        return Value(Type.function([p[0] for p in params], ret), name, type_impl=FunctionTypeImpl(params, ret, code))
-
-    @classmethod
     def variable(cls, name: str, type_: Type, const: bool = False) -> Value:
         return Value(type_, name, const)
 

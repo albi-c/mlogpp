@@ -1,6 +1,7 @@
 from ..util import Position
 from ..values import *
 from ..generator import Gen
+from ..instruction import *
 from .. import enums
 from .. import instruction
 

@@ -26,6 +26,7 @@ class Type:
     BLOCK_TYPE = None
     LIQUID_TYPE = None
     CONTROLLER = None
+    COLOR = None
 
     # private types
     OBJECT = None
@@ -125,10 +126,7 @@ class Type:
 
     def __or__(self, other):
         if isinstance(other, Type):
-            if other.any_:
-                return Type(set(), True)
-
-            return Type(self.types | other.types, False)
+            return Type(self.types | other.types, self.any_ or other.any_)
 
         return NotImplemented
 
@@ -151,6 +149,8 @@ Type.BLOCK_TYPE = Type.simple("BlockType")
 Type.LIQUID_TYPE = Type.simple("LiquidType")
 
 Type.CONTROLLER = Type.simple("Controller")
+
+Type.COLOR = Type.simple("Color")
 
 # private types
 Type.OBJECT = Type.private("object")

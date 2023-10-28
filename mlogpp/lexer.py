@@ -3,7 +3,6 @@ import string
 
 from .preprocess import Preprocessor
 from .error import Error
-from .util import Position, sanitize
 from .tokens import *
 
 

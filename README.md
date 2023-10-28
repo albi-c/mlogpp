@@ -179,6 +179,8 @@ Prints `1 2 3 4 5`
   `ulocate.building(core, true, x: num, y: num, building: Block)`
 * structures \
   `struct Vec2 { num x, y }`
+* colors for effects \
+  `effect.hit(x, y, %_35adc8)`
 
 ## Native functions:
 * read `result`, `cell`, `position`
