@@ -30,3 +30,7 @@ class ABI:
     @staticmethod
     def loop_continue(name: str) -> str:
         return f"__{name}_c"
+
+    @staticmethod
+    def struct_field(struct: str, name: str) -> str:
+        return f"{struct}::{name}"

@@ -1,0 +1,12 @@
+Block message1
+
+struct Vec2 {
+    num x
+    num y
+}
+
+let vec = Vec2(10, 20)
+print(vec.x)
+print(" ")
+print(vec.y)
+printflush(message1)

@@ -82,6 +82,10 @@ class Error(Exception):
         raise Error(f"Variable [{name}] is already defined", node.get_pos())
 
     @staticmethod
+    def already_defined_type(node: Node, name: str):
+        raise Error(f"Type [{name}] is already defined", node.get_pos())
+
+    @staticmethod
     def undefined_variable(node: Node, name: str):
         raise Error(f"Undefined variable [{name}]", node.get_pos())
 

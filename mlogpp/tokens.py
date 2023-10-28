@@ -39,7 +39,8 @@ class Token:
     BLOCK_STATEMENTS = (
         "if", "elif", "else",
         "while", "for",
-        "function"
+        "function",
+        "struct"
     )
     STATEMENTS = BLOCK_STATEMENTS + (
         "return",

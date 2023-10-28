@@ -191,7 +191,28 @@ class Parser(GenericParser):
 
                 return FunctionNode(tok.pos + end.pos, name.value, params, type_, code)
 
+            case "struct":
+                name = self.next_token(TokenType.ID)
+                self.next_token(TokenType.LBRACE)
+                fields = self.parse_structFields()
+                end = self.next_token(TokenType.RBRACE)
+
+                return StructNode(tok.pos + end.pos, name.value, fields)
+
         raise RuntimeError("invalid keyword")
+
+    def parse_structFields(self) -> list[tuple[str, str]]:
+        fields = []
+        while not self.lookahead_token(TokenType.RBRACE):
+            type_ = self.next_token(TokenType.ID).value
+
+            fields.append((type_, self.next_token(TokenType.ID).value))
+
+            while self.lookahead_token(TokenType.COMMA):
+                self.next_token(TokenType.COMMA)
+                fields.append((type_, self.next_token(TokenType.ID).value))
+
+        return fields
 
     def parse_binaryOp(self, operators: tuple[str, ...], lower_func: Callable[[], Node],
                        token_type: TokenType = TokenType.OPERATOR, invert: bool = False) -> Node:

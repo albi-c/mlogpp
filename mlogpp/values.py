@@ -179,6 +179,8 @@ class Value:
         return True
 
     def getattr(self, name: str) -> Value | None:
+        print(name)
+
         if self.type() in Type.BLOCK and name in Content.CONTROLLABLE:
             return ControlValue(self, name)
 
@@ -428,3 +430,63 @@ class FunctionValue(InlinableCallableValue):
         )
 
         return VariableValue(ABI.function_return(self.name), self.ret)
+
+
+class StructValue(Value):
+    fields: dict[str, Value]
+
+    def __init__(self, type_: Type, fields: dict[str, Value]):
+        super().__init__(type_)
+
+        self.fields = fields
+
+    def __eq__(self, other):
+        if isinstance(other, StructValue):
+            return self.fields == other.fields and self.type() == other.type()
+
+        return False
+
+    def get(self) -> str:
+        return "null"
+
+    def getattr(self, name: str) -> Value | None:
+        return self.fields.get(name)
+
+
+class StructVariableValue(SettableValue):
+    name: str
+    fields: dict[str, Type]
+    _const: bool
+
+    def __init__(self, name: str, type_: Type,
+                 fields: dict[str, Type], const: bool = False):
+
+        super().__init__(type_)
+
+        self.name = name
+        self.fields = fields
+        self._const = const
+
+    def __eq__(self, other):
+        if isinstance(other, StructVariableValue):
+            return self.name == other.name and self.type() == other.type()
+
+        return False
+
+    def get(self) -> str:
+        return self.name
+
+    def const(self) -> bool:
+        return self._const
+
+    def set(self, value: Value):
+        Gen.emit(*[
+            InstructionSet(ABI.struct_field(self.name, field), value.getattr(field))
+            for field in self.fields.keys()
+        ])
+
+    def getattr(self, name: str) -> Value | None:
+        if name in self.fields:
+            return VariableValue(ABI.struct_field(self.name, name), self.fields[name])
+
+        return None

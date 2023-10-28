@@ -720,6 +720,41 @@ class FunctionNode(Node):
         return function
 
 
+class StructNode(Node):
+    name: str
+    fields: list[tuple[str, str]]
+
+    def __init__(self, pos: Position, name: str, fields: list[tuple[str, str]]):
+        super().__init__(pos)
+
+        self.name = name
+        self.fields = fields
+
+    def __str__(self):
+        fields = "".join(f"{k} {v}\n" for k, v in self.fields)
+        return f"struct {self.name} {{{fields}}}"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        if self.name in Type.typenames:
+            Error.already_defined_type(self, self.name)
+
+        pos = self.get_pos()
+
+        type_ = Type.simple(self.name)
+        Type.register(self.name, type_)
+        constructor = FunctionNode(pos, self.name, self.fields, self.name, BlockNode(self.get_pos(), [
+            ReturnNode(pos, StructValueNode(self.get_pos(), {
+                "x": NumberValue(20),
+                "y": NumberValue(10)
+            }, type_))
+        ]))
+        constructor.gen()
+
+        return NullValue()
+
+
 class ValueNode(Node):
     def __init__(self, pos: Position, value):
         super().__init__(pos)
@@ -751,7 +786,7 @@ class NumberValueNode(ValueNode):
     def __init__(self, pos: Position, value: int | float):
         super().__init__(pos, value)
 
-        if self.value.is_integer():
+        if isinstance(self.value, float) and self.value.is_integer():
             self.value = int(self.value)
 
     def gen(self) -> Value:
@@ -770,3 +805,33 @@ class StringValueNode(ValueNode):
         Node.gen(self)
         
         return StringValue(self.value)
+
+
+class StructValueNode(ValueNode):
+    value: dict[str, Value]
+    type: Type
+
+    def __init__(self, pos: Position, value: dict[str, Value], type_: Type):
+        super().__init__(pos, value)
+
+        self.type = type_
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        return StructValue(self.type, self.value)
+
+
+class StructVariableValueNode(ValueNode):
+    value: str
+    fields: dict[str, Type]
+
+    def __init__(self, pos: Position, value: str, fields: dict[str, Type]):
+        super().__init__(pos, value)
+
+        self.fields = fields
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        return self.scope_get(self.value)
