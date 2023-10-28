@@ -64,6 +64,7 @@ Prints `5`
 
 ### Memory cell access:
 ```javascript
+Block cell1
 cell1[0] = 10
 print(cell1[0])
 printflush(message1)
@@ -80,10 +81,12 @@ Makes all `@mega` units move to the processor
 ### Scopes:
 ```javascript
 num a = 0
-num b = 0
+
+# use let for type inference
+let b = 0
 
 function test(num x) {
-    num a = x
+    let a = x
     b = x
 }
 
@@ -119,6 +122,8 @@ Prints `1 2 3 4 5`
 ## Features:
 * variables \
   `num x = 1`
+* type inference \
+  `let x = 2`
 * types 
   * `num`, `str`
   * `Block`, `Unit`,
@@ -149,6 +154,8 @@ Prints `1 2 3 4 5`
   `{x = 7 ^ 2}`   
   `print({y = x // 2})`
   `{"cell" + x}[0] = y`
+* output from builtin functions directly to new variables \
+  `ulocate.building(core, true, x: num, y: num, building: Block)`
 
 ## Native functions:
 * read `result`, `cell`, `position`

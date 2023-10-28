@@ -79,12 +79,15 @@ class Parser(GenericParser):
                     return ContinueNode(tok.pos)
 
                 case "configuration":
-                    type_ = self.next_token()
-                    name = self.next_token()
-                    self.next_token()
+                    if self.lookahead_token(TokenType.SET, n=2):
+                        type_ = "let"
+                    else:
+                        type_ = self.next_token(TokenType.ID).value
+                    name = self.next_token(TokenType.ID)
+                    self.next_token(TokenType.SET)
                     value = self.parse_Value()
 
-                    return ConfigNode(type_.pos + value.get_pos(), type_.value, name.value, value)
+                    return ConfigNode(tok.pos + value.get_pos(), type_, name.value, value)
 
             raise RuntimeError("invalid keyword")
 
@@ -424,7 +427,17 @@ class Parser(GenericParser):
                 if last_tok == TokenType.ID:
                     Error.unexpected_token(self.next_token())
 
-                params.append(self.parse_Value())
+                if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.COLON, n=2) \
+                        and self.lookahead_token(TokenType.ID, n=3):
+
+                    name = self.next_token()
+                    self.next_token()
+                    type_ = self.next_token()
+
+                    params.append(DeclarationNode(type_.pos + name.pos, type_.value, name.value, None, False))
+
+                else:
+                    params.append(self.parse_Value())
 
                 last_tok = TokenType.ID
 

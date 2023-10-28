@@ -147,34 +147,44 @@ class DeclarationNode(Node):
     type: str
     name: str
     value: Node | None
+    is_block_special: bool
 
-    def __init__(self, pos: Position, type_: str, name: str, value: Node | None):
+    def __init__(self, pos: Position, type_: str, name: str, value: Node | None, is_block_special: bool = True):
         super().__init__(pos)
 
         self.type = type_
         self.name = name
         self.value = value
+        self.is_block_special = is_block_special
 
     def __str__(self):
         return f"{self.type} {self.name} = {self.value}"
 
     def gen(self) -> Value:
         Node.gen(self)
-        
-        type_ = self.parse_type(self.type)
 
         if self.value is None:
-            if self.type == "Block":
+            if self.type == "let":
+                Error.custom(self.get_pos(), "Cannot infer type")
+
+            type_ = self.parse_type(self.type)
+
+            if self.type == "Block" and self.is_block_special:
                 value = VariableValue(self.name, Type.BLOCK, True)
                 self.scope_declare(self.name, value)
 
-                return NullValue()
+                return value
 
             else:
                 value = NullValue()
 
         else:
             value = self.value.gen()
+
+            if self.type == "let":
+                type_ = value.type()
+            else:
+                type_ = self.parse_type(self.type)
 
         self.check_types(value.type(), type_)
 
@@ -184,7 +194,7 @@ class DeclarationNode(Node):
         if value != NullValue():
             val.set(value)
 
-        return NullValue()
+        return val
 
 
 class MultiDeclarationNode(Node):
@@ -202,6 +212,9 @@ class MultiDeclarationNode(Node):
 
     def gen(self) -> Value:
         Node.gen(self)
+
+        if self.type == "let":
+            Error.custom(self.get_pos(), "Cannot infer type")
 
         type_ = self.parse_type(self.type)
 
@@ -233,9 +246,13 @@ class ConfigNode(Node):
     def gen(self) -> Value:
         Node.gen(self)
 
-        type_ = self.parse_type(self.type)
-
         val = self.value.gen()
+
+        if self.type == "let":
+            type_ = val.type()
+        else:
+            type_ = self.parse_type(self.type)
+
         if val.type() not in type_:
             Error.incompatible_types(self, val.type(), type_)
         Scope.configurations[self.name] = val
@@ -486,10 +503,12 @@ class IfNode(Node):
     def gen(self) -> Value:
         Node.gen(self)
         
-        self.scope_push(Gen.tmp())
+        # self.scope_push(Gen.tmp())
 
         condition = self.condition.gen().get()
         lab1, lab2 = Gen.tmp(), None
+
+        self.scope_push(Gen.tmp())
 
         Gen.emit(
             InstructionJump(lab1, "equal", condition, 0)

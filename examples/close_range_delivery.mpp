@@ -1,7 +1,7 @@
 configuration UnitType UNIT = UnitType.flare
 configuration ItemType ITEM = null
 
-num FLAG = floor(@thisx + @thisy * @mapw)
+let FLAG = floor(@thisx + @thisy * @mapw)
 
 ubind(UNIT)
 while (@unit.flag != 0) {
@@ -14,13 +14,10 @@ if (@unit.flag != FLAG) {
 
 ucontrol.move(@thisx, @thisy)
 while (!ucontrol.within(@thisx, @thisy, 2)) {}
-num coreX, coreY
-Block coreBlock
-if (!ulocate.building(core, false, coreX, coreY, coreBlock)) {
+if (!ulocate.building(core, false, coreX: num, coreY: num, coreBlock: Block)) {
     end()
 }
-BlockType coreType
-Block coreB = ucontrol.getBlock(coreX, coreY, coreType, false)
+let coreB = ucontrol.getBlock(coreX, coreY, coreType: BlockType, false)
 
 while (!@unit.dead) {
     for (i : @links) {

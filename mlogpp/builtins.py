@@ -283,7 +283,9 @@ BUILTIN_VARIABLES = {
     "@ctrlPlayer": VariableValue("@ctrlPlayer", Type.CONTROLLER, True),
     "@ctrlCommand": VariableValue("@ctrlCommand", Type.CONTROLLER, True),
 
-    "@solid": VariableValue("@solid", Type.BLOCK_TYPE, True)
+    "@solid": VariableValue("@solid", Type.BLOCK_TYPE, True),
+
+    "_": VariableValue("_", Type.ANY, False)
 }
 
 BUILTIN_CONSTANTS = {

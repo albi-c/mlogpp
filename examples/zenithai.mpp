@@ -1,9 +1,9 @@
-num DISTANCE = 8
-UnitType UNIT = UnitType.zenith
-num RANGE = 19
-num REGEN_HEALTH = 0.5
-num REGEN_NEHEALTH = 0.8
-num REGEN_FLAG = 73584
+let DISTANCE = 8
+let UNIT = UnitType.zenith
+let RANGE = 19
+let REGEN_HEALTH = 0.5
+let REGEN_NEHEALTH = 0.8
+let REGEN_FLAG = 73584
 
 ubind(UNIT)
 Unit player = uradar(player, ally, any, distance, 1)
@@ -16,9 +16,7 @@ if ((flag == REGEN_FLAG) && (health == maxHealth)) {
     ucontrol.flag(0)
 } else {
     if ((health < maxHealth * REGEN_HEALTH) || flag === REGEN_FLAG) {
-        num x, y
-        Block building
-        if (ulocate.building(repair, false, x, y, building)) {
+        if (ulocate.building(repair, false, x: num, y: num, _)) {
             ucontrol.flag(REGEN_FLAG)
             ucontrol.approach(x, y, 2)
         } else {
@@ -50,9 +48,7 @@ if (player.shooting) {
 
     if (enemy === null) {
         if (health < maxHealth * REGEN_NEHEALTH) {
-            num x, y
-            Block building
-            if (ulocate.building(repair, false, x, y, building)) {
+            if (ulocate.building(repair, false, x: num, y: num, _)) {
                 ucontrol.flag(REGEN_FLAG)
                 ucontrol.approach(x, y, 2)
             } else {

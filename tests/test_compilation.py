@@ -11,7 +11,7 @@ class CompilationTestCase(unittest.TestCase):
     CODE = """\
 const LOOP_UNTIL = 5
 
-num x = 10
+let x = 10
 
 function func1(num x, num y) -> num {
     x = 12

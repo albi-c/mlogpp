@@ -10,13 +10,13 @@
 
 Block vault1, hail1, cell1, message1, switch1
 
-configuration UnitType UNIT = UnitType.mono
-configuration Block VAULT = vault1
+configuration UNIT = UnitType.mono
+configuration VAULT = vault1
 
-num DEPOSIT_FLAG = floor(@thisx + @thisy * @mapw)
+let DEPOSIT_FLAG = floor(@thisx + @thisy * @mapw)
 
-num x = 0
-num y = 0
+let x = 0
+let y = 0
 
 print("[orange]Miner v1.2\nEnable switch and click\n on an ore to mine\n")
 print("[yellow]Selected unit: ")

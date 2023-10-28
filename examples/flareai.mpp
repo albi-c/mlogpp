@@ -1,14 +1,12 @@
-num DISTANCE = 8
-UnitType UNIT = UnitType.flare
-num RANGE = 13
-num REGEN_HEALTH = 0.5
-num REGEN_NEHEALTH = 0.8
-num REGEN_FLAG = 73584
+let DISTANCE = 8
+let UNIT = UnitType.flare
+let RANGE = 13
+let REGEN_HEALTH = 0.5
+let REGEN_NEHEALTH = 0.8
+let REGEN_FLAG = 73584
 
 function go_heal() {
-    num x, y
-    Block building
-    if (ulocate.building(repair, false, x, y, building)) {
+    if (ulocate.building(repair, false, x: num, y: num, building: Block)) {
         ucontrol.flag(REGEN_FLAG)
         ucontrol.approach(x, y, 2)
     } else {
@@ -43,8 +41,8 @@ if (enemy === null) {
     end()
 }
 
-num r = rand(360)
-num x = cos(r) * DISTANCE + enemy.x
-num y = sin(r) * DISTANCE + enemy.y
+let r = rand(360)
+let x = cos(r) * DISTANCE + enemy.x
+let y = sin(r) * DISTANCE + enemy.y
 ucontrol.move(x, y)
 ucontrol.targetp(enemy, 1)
