@@ -247,7 +247,7 @@ BUILTIN_CONSTANTS = {
 
 BUILTIN_FUNCTIONS = {
     "read": native_function_value(InstructionRead, [Type.NUM, Type.BLOCK, Type.NUM], 0),
-    "write": native_function_value(InstructionWrite, [Type.NUM, Type.BLOCK, Type.NUM]),
+    "write": native_function_value(InstructionWrite, [Type.NUM | Type.COLOR, Type.BLOCK, Type.NUM]),
     "draw": native_multi_function_value(
         InstructionDraw,
         {

@@ -49,6 +49,12 @@ class Value:
     def type(self) -> Type:
         return self._type
 
+    def type_get(self) -> Type:
+        return self._type_impl.type_get(self)
+
+    def type_set(self) -> Type:
+        return self._type_impl.type_set(self)
+
     def const(self) -> bool:
         return self._const
 
@@ -115,6 +121,12 @@ class TypeImpl:
             InstructionSet(value.value, source.get())
         )
 
+    def type_get(self, value: Value) -> Type:
+        return value.type()
+
+    def type_set(self, value: Value) -> Type:
+        return value.type()
+
     def write(self, value: Value, cell: Value, index: Value):
         Gen.emit(
             InstructionWrite(value.get(), cell.value, index.get())
@@ -165,6 +177,12 @@ class IndexedTypeImpl(TypeImpl):
 
     def set(self, value: Value, source: Value):
         source.write(value, self.index)
+
+    def type_get(self, value: Value) -> Type:
+        return Type.NUM
+
+    def type_set(self, value: Value) -> Type:
+        return Type.NUM | Type.COLOR
 
 
 TypeImpl._DEFAULT_IMPL = TypeImpl()

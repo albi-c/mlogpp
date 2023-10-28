@@ -166,6 +166,9 @@ class Operations:
     def binary(cls, a: Value, op: str, b: Value) -> Value | None | typing.Callable:
         if op == "=":
             if not a.const():
+                if b.type_get() not in a.type_set():
+                    return lambda node: Error.incompatible_types(node, b.type(), a.type())
+
                 a.set(b)
                 return b
 

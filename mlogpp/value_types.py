@@ -10,6 +10,7 @@ from .error import Error
 class Type:
     types: set[str]
     any_: bool
+    convertible_from: set[str]
 
     typenames = {}
     any_type = None
@@ -54,13 +55,16 @@ class Type:
         if name in cls.typenames:
             return cls.typenames[name]
 
-        type_ = cls({name}, False)
+        type_ = cls({name}, False, set())
         cls.typenames[name] = type_
         return type_
 
     @classmethod
     def private(cls, name: str) -> Type:
         return cls.simple(f"${name}")
+
+    def is_private(self) -> bool:
+        return any(t.startswith("$") for t in self.types) or self.any_
 
     @classmethod
     def function(cls, params: list[Type], ret: Type | list[Type]) -> Type:
@@ -73,7 +77,7 @@ class Type:
     @classmethod
     def any(cls):
         if cls.any_type is None:
-            cls.any_type = cls(set(), True)
+            cls.any_type = cls(set(), True, set())
 
         return cls.any_type
 
@@ -86,7 +90,7 @@ class Type:
 
     def list_types(self) -> typing.Iterable[Type]:
         for name in self.types:
-            yield Type({name}, False)
+            yield Type({name}, False, set())
 
     def __class_getitem__(cls, name: str) -> Type:
         return cls.typenames[name]
@@ -120,13 +124,14 @@ class Type:
             if other.any_:
                 return self.any_
 
-            return other.types & self.types == other.types or other.types == {"null"}
+            return other.types & self.types == other.types or other.types == {"null"} \
+                   or other.types & self.convertible_from == other.types
 
         return False
 
     def __or__(self, other):
         if isinstance(other, Type):
-            return Type(self.types | other.types, self.any_ or other.any_)
+            return Type(self.types | other.types, self.any_ or other.any_, self.convertible_from & other.convertible_from)
 
         return NotImplemented
 
@@ -151,6 +156,7 @@ Type.LIQUID_TYPE = Type.simple("LiquidType")
 Type.CONTROLLER = Type.simple("Controller")
 
 Type.COLOR = Type.simple("Color")
+Type.COLOR.convertible_from.add("num")
 
 # private types
 Type.OBJECT = Type.private("object")

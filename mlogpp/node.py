@@ -184,6 +184,9 @@ class DeclarationNode(Node):
 
             if self.type == "let":
                 type_ = value.type()
+
+                if type_.is_private():
+                    Error.private_type(self, type_)
             else:
                 type_ = self.parse_type(self.type)
 
@@ -251,6 +254,9 @@ class ConfigNode(Node):
 
         if self.type == "let":
             type_ = val.type()
+
+            if type_.is_private():
+                Error.private_type(self, type_)
         else:
             type_ = self.parse_type(self.type)
 

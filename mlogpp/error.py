@@ -67,6 +67,10 @@ class Error(Exception):
         raise Error(f"Incompatible types {a}, {b}", node.get_pos())
 
     @staticmethod
+    def private_type(node: Node, type_: Type):
+        raise Error(f"Inferring private type {type_}", node.get_pos())
+
+    @staticmethod
     def invalid_operation(node: Node, a: Value, op: str, b: Value = None):
         if b is None:
             raise Error(f"Invalid operation [{op}{a}]", node.get_pos())

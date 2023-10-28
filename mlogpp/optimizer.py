@@ -106,6 +106,22 @@ class Optimizer:
         return code
 
     @classmethod
+    def _optimize_jumps_check_ins(cls, ins: Instruction) -> bool:
+        if ins.params[1] == "equal":
+            if (ins.params[2] in ("true", "1") and ins.params[3] in ("false", "0")) \
+                        or (ins.params[3] in ("true", "1") and ins.params[2] in ("false", "0")):
+
+                return False
+
+        if ins.params[1] == "notEqual":
+            if (ins.params[2] in ("true", "1") and ins.params[3] in ("true", "1")) \
+                        or (ins.params[3] in ("false", "0") and ins.params[2] in ("false", "0")):
+
+                return False
+
+        return True
+
+    @classmethod
     def _optimize_jumps(cls, code: Instructions):
         jumps = {ins.params[0] for ins in code if isinstance(ins, InstructionJump)}
         code[:] = [ins for i, ins in enumerate(code) if not isinstance(ins, Label) or (ins.params[0] in jumps)]
@@ -113,6 +129,9 @@ class Optimizer:
         labels = {ins.params[0]: i for i, ins in enumerate(code) if isinstance(ins, Label)}
         code[:] = [ins if not isinstance(ins, InstructionJump) or
                           labels[ins.params[0]] != i else InstructionNoop() for i, ins in enumerate(code)]
+
+        code[:] = [ins if not isinstance(
+            ins, InstructionJump) or cls._optimize_jumps_check_ins(ins) else InstructionNoop() for ins in code]
 
     @classmethod
     def _make_blocks(cls, code: Instructions) -> Blocks:
