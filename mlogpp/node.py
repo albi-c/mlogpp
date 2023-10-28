@@ -144,6 +144,35 @@ class BlockNode(Node):
         return Value.null()
 
 
+class AsmBlockNode(Node):
+    node: Node
+    inputs: list[str]
+    outputs: list[str]
+
+    def __init__(self, pos: Position, node: Node, inputs: list[str], outputs: list[str]):
+        super().__init__(pos)
+
+        self.node = node
+        self.inputs = inputs
+        self.outputs = outputs
+
+    def __str__(self):
+        return f"asm ({', '.join(self.inputs)}) -> ({', '.join(self.outputs)}) {self.node}"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        Gen.emit(*[
+            InstructionSet(inp, self.scope_get(inp).get()) for inp in self.inputs
+        ])
+        self.node.gen()
+        Gen.emit(*[
+            InstructionSet(self.scope_get(out).get(), out) for out in self.outputs
+        ])
+
+        return Value.null()
+
+
 class DeclarationNode(Node):
     type: str
     name: str

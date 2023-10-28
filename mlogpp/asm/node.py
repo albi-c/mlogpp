@@ -36,7 +36,7 @@ class Node:
 
         return "NODE"
 
-    def generate(self):
+    def gen(self):
         """
         Generate the node.
 
@@ -65,9 +65,9 @@ class CodeBlockNode(Node):
             string += str(node) + "\n"
         return string + "}"
 
-    def generate(self):
+    def gen(self):
         for node in self.code:
-            node.generate()
+            node.gen()
 
 
 class AssignmentNode(Node):
@@ -105,7 +105,7 @@ class AssignmentNode(Node):
     def __str__(self):
         return f"{self.var} {self.op} {self.value}"
 
-    def generate(self):
+    def gen(self):
         if self.op == "=":
             if "." in self.var and (spl := self.var.split(".", 1))[1] in enums.CONTROLLABLE:
                 Gen.emit(
@@ -114,7 +114,7 @@ class AssignmentNode(Node):
 
             else:
                 Gen.emit(
-                    InstructionSet(self.value, self.value)
+                    InstructionSet(self.var, self.value)
                 )
 
             return
@@ -140,7 +140,7 @@ class CellWriteNode(Node):
         self.index = index
         self.value = value
 
-    def generate(self):
+    def gen(self):
         Gen.emit(
             InstructionWrite(self.value, self.cell, self.index)
         )
@@ -162,7 +162,7 @@ class CellReadNode(Node):
         self.index = index
         self.value = value
 
-    def generate(self):
+    def gen(self):
         Gen.emit(
             InstructionRead(self.value, self.cell, self.index)
         )
@@ -221,7 +221,7 @@ class BinaryOpNode(Node):
     def __str__(self):
         return f"{self.left} {self.op} {self.right}"
 
-    def generate(self):
+    def gen(self):
         Gen.emit(
             InstructionOp(BinaryOpNode.OPERATORS[self.op], self.result, self.left, self.right)
         )
@@ -246,7 +246,7 @@ class UnaryOpNode(Node):
     def __str__(self):
         return f"{self.op}{str(self.value)}"
 
-    def generate(self):
+    def gen(self):
         match self.op:
             case "-":
                 Gen.emit(
@@ -274,7 +274,7 @@ class LabelNode(Node):
 
         self.name = name
 
-    def generate(self):
+    def gen(self):
         Gen.emit(
             Label(self.name)
         )
@@ -304,7 +304,7 @@ class JumpNode(Node):
         self.label = label
         self.condition = [JumpNode.CONDITIONS.get(condition[0], condition[0]), condition[1], condition[2]]
 
-    def generate(self):
+    def gen(self):
         Gen.emit(
             InstructionJump(self.label, *self.condition)
         )
@@ -324,7 +324,10 @@ class CallNode(Node):
         self.name = name
         self.params = params
 
-    def generate(self):
+    def __str__(self):
+        return f"{self.name}({', '.join(map(str, self.params))})"
+
+    def gen(self):
         ins = instruction.INSTRUCTIONS[self.name]
         Gen.emit(
             ins(*self.params, *([0] * (ins.num_params() - len(self.params))))

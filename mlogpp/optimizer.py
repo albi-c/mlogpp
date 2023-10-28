@@ -163,7 +163,7 @@ class Optimizer:
     @classmethod
     def _eval_block_jumps(cls, code: Blocks):
         """
-        Evaluate jumps to remove dead blocks and list predecessors.
+        Evaluate jumps to remove dead blocks and make list of predecessors.
         """
 
         if len(code) == 0:

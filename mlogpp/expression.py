@@ -96,5 +96,10 @@ class Expression:
             return Expression.variables[node.id]
         elif isinstance(node, ast.Expr):
             return Expression.op_eval(node.value)
+        elif isinstance(node, ast.IfExp):
+            if Expression.op_eval(node.test):
+                return Expression.op_eval(node.body)
+            else:
+                return Expression.op_eval(node.orelse)
         else:
             raise RuntimeError(f"Eval error {node}")
