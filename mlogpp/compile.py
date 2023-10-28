@@ -60,7 +60,7 @@ def compile_asm(code: str, filename: str) -> str:
     code = Preprocessor.preprocess(code)
     code = Lexer(os.path.dirname(os.path.abspath(filename))).lex(code, filename)
     code = AsmParser().parse(code)
-    code.generate()
+    code.gen()
     code = Gen.get()
     code = Linker.link(code)
 

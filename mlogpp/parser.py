@@ -1,6 +1,7 @@
 from .tokens import TokenType, Token
 from .node import *
 from .generic_parser import GenericParser
+from .asm.parser import AsmParser
 
 from typing import Callable
 
@@ -10,7 +11,7 @@ class Parser(GenericParser):
     Parses mlog++ code.
     """
 
-    def parse_CodeBlock(self, end_at_rbrace: bool):
+    def parse_CodeBlock(self, end_at_rbrace: bool) -> Node:
         pos = None
         code = []
         end_by_rbrace = False
@@ -32,7 +33,31 @@ class Parser(GenericParser):
 
         return BlockNode(pos, code)
 
+    def parse_AsmCodeBlock(self) -> Node:
+        self.next_token(TokenType.LBRACE)
+
+        tokens = []
+
+        depth = 1
+        while self.has_token():
+            if self.lookahead_token(TokenType.LBRACE):
+                depth += 1
+            elif self.lookahead_token(TokenType.RBRACE):
+                depth -= 1
+                if depth == 0:
+                    self.next_token()
+                    break
+
+            tokens.append(self.next_token())
+
+        return AsmParser().parse(tokens)
+
     def parse_Statement(self) -> Node:
+        if self.lookahead_token(TokenType.KEYWORD, "asm"):
+            self.next_token()
+
+            return self.parse_inlineAsm()
+
         if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.ID, None, 2):
             type_ = self.next_token()
             name = self.next_token()
@@ -92,6 +117,71 @@ class Parser(GenericParser):
             raise RuntimeError("invalid keyword")
 
         return self.parse_Value()
+
+    def parse_inlineAsm(self) -> Node:
+        inputs = []
+        if self.lookahead_token(TokenType.LPAREN):
+            self.next_token()
+
+            last = TokenType.LPAREN
+            while self.has_token():
+                tok = self.next_token()
+
+                if tok.type == TokenType.RPAREN:
+                    if last == TokenType.COMMA:
+                        Error.unexpected_token(tok)
+
+                    break
+
+                elif tok.type == TokenType.ID:
+                    if last == TokenType.ID:
+                        Error.unexpected_token(tok)
+
+                    inputs.append(tok.value)
+                    last = TokenType.ID
+
+                elif tok.type == TokenType.COMMA:
+                    if last == TokenType.COMMA:
+                        Error.unexpected_token(tok)
+
+                    last = TokenType.COMMA
+
+                else:
+                    Error.unexpected_token(tok)
+
+        outputs = []
+        if self.lookahead_token(TokenType.ARROW):
+            self.next_token()
+            self.next_token(TokenType.LPAREN)
+
+            last = TokenType.LPAREN
+            while self.has_token():
+                tok = self.next_token()
+
+                if tok.type == TokenType.RPAREN:
+                    if last == TokenType.COMMA:
+                        Error.unexpected_token(tok)
+
+                    break
+
+                elif tok.type == TokenType.ID:
+                    if last == TokenType.ID:
+                        Error.unexpected_token(tok)
+
+                    outputs.append(tok.value)
+                    last = TokenType.ID
+
+                elif tok.type == TokenType.COMMA:
+                    if last == TokenType.COMMA:
+                        Error.unexpected_token(tok)
+
+                    last = TokenType.COMMA
+
+                else:
+                    Error.unexpected_token(tok)
+
+        block = self.parse_AsmCodeBlock()
+        return AsmBlockNode(block.get_pos(), block, inputs, outputs)
 
     def parse_if(self) -> tuple[Node, Node, Position]:
         self.next_token(TokenType.LPAREN)

@@ -40,7 +40,8 @@ class Token:
         "if", "elif", "else",
         "while", "for",
         "function",
-        "struct"
+        "struct",
+        "asm"
     )
     STATEMENTS = BLOCK_STATEMENTS + (
         "return",
