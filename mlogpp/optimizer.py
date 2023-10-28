@@ -357,11 +357,21 @@ class Optimizer:
         """
 
         uses = defaultdict(int)
+        inputs = defaultdict(int)
+        outputs = defaultdict(int)
         first_uses = {}
 
         for i, ins in enumerate(code):
-            for j in ins.inputs + ins.outputs:
+            for j in ins.inputs:
                 param = ins.params[j]
+                inputs[param] += 1
+                uses[param] += 1
+                if uses[param] == 1:
+                    first_uses[param] = (i, j)
+
+            for j in ins.outputs:
+                param = ins.params[j]
+                outputs[param] += 1
                 uses[param] += 1
                 if uses[param] == 1:
                     first_uses[param] = (i, j)
@@ -370,7 +380,7 @@ class Optimizer:
             if isinstance(ins, InstructionSet):
                 tmp = ins.params[1]
                 first = first_uses[tmp]
-                if uses[tmp] == 2 and i != first[0]:
+                if inputs[tmp] == 1 and outputs[tmp] == 1 and i != first[0]:
                     code[first[0]].params[first[1]] = ins.params[0]
                     code[i] = InstructionNoop()
                     return True
@@ -378,7 +388,7 @@ class Optimizer:
             elif isinstance(ins, InstructionJump) and ins.params[1] == "equal" and ins.params[3] == "0":
                 tmp = ins.params[2]
                 first = first_uses[tmp]
-                if uses[tmp] == 2 and i != first[0] and code[first[0]].params[0] in Optimizer.JUMP_TRANSLATION:
+                if inputs[tmp] == 1 and outputs[tmp] == 1 and i != first[0] and code[first[0]].params[0] in Optimizer.JUMP_TRANSLATION:
                     ins.params[2:] = code[first[0]].params[2:]
                     ins.params[1] = Optimizer.JUMP_TRANSLATION[code[first[0]].params[0]]
                     code[first[0]] = InstructionNoop()

@@ -1,492 +1,273 @@
 from __future__ import annotations
 
-from abc import ABC
-from dataclasses import dataclass
-import typing
-
-from .error import Error
+from .value_types import Type
 from .generator import Gen
-from .instruction import *
+from .instruction import InstructionSet, InstructionRead, InstructionWrite, InstructionControl, InstructionSensor
 from .abi import ABI
+from .error import Error
 from .content import Content
-
-
-@dataclass(init=True, repr=True, eq=False, order=False, unsafe_hash=False, frozen=True)
-class Type:
-    types: set[str]
-    any_: bool
-
-    typenames = {}
-    any_type = None
-
-    # builtin types
-    NUM = None
-    STR = None
-    NULL = None
-    BLOCK = None
-    UNIT = None
-    TEAM = None
-    UNIT_TYPE = None
-    ITEM_TYPE = None
-    BLOCK_TYPE = None
-    LIQUID_TYPE = None
-    CONTROLLER = None
-
-    # private types
-    OBJECT = None
-
-    # compound types
-    CONTENT = None
-    ANY = None
-
-    @classmethod
-    def register(cls, name: str, type_: Type):
-        cls.typenames[name] = type_
-
-    @classmethod
-    def simple(cls, name: str) -> Type:
-        if name in cls.typenames:
-            return cls.typenames[name]
-
-        type_ = cls({name}, False)
-        cls.typenames[name] = type_
-        return type_
-
-    @classmethod
-    def private(cls, name: str) -> Type:
-        return cls.simple(f"${name}")
-
-    @classmethod
-    def function(cls, params: list[Type], ret: Type | list[Type]) -> Type:
-        if isinstance(ret, list):
-            return cls.simple(f"({','.join(map(str, params))} -> {','.join(map(str, ret))})")
-
-        else:
-            return cls.simple(f"({','.join(map(str, params))} -> {ret})")
-
-    @classmethod
-    def any(cls):
-        if cls.any_type is None:
-            cls.any_type = cls(set(), True)
-
-        return cls.any_type
-
-    @classmethod
-    def parse(cls, name: str, node) -> Type:
-        if name in cls.typenames:
-            return cls.typenames[name]
-
-        Error.undefined_type(node, name)
-
-    def list_types(self) -> typing.Iterable[Type]:
-        for name in self.types:
-            yield Type({name}, False)
-
-    def __class_getitem__(cls, name: str) -> Type:
-        return cls.typenames[name]
-
-    def __str__(self):
-        if self.any_:
-            return "[any]"
-
-        return f"[{' | '.join(self.types)}]"
-
-    def __eq__(self, other):
-        if isinstance(other, Type):
-            if self.any_:
-                return other.any_
-
-            return self.types == other.types
-
-        return False
-
-    def __hash__(self):
-        if self.any_:
-            return hash("AnyType")
-
-        return hash(tuple(self.types))
-
-    def __contains__(self, other):
-        if isinstance(other, Type):
-            if self.any_:
-                return True
-
-            if other.any_:
-                return self.any_
-
-            return other.types & self.types == other.types or other.types == {"null"}
-
-        return False
-
-    def __or__(self, other):
-        if isinstance(other, Type):
-            if other.any_:
-                return Type(set(), True)
-
-            return Type(self.types | other.types, False)
-
-        return NotImplemented
-
-    def __ior__(self, _):
-        raise RuntimeError
-
-
-# builtin types
-Type.NUM = Type.simple("num")
-Type.STR = Type.simple("str")
-Type.NULL = Type.simple("null")
-
-Type.BLOCK = Type.simple("Block")
-Type.UNIT = Type.simple("Unit")
-Type.TEAM = Type.simple("Team")
-
-Type.UNIT_TYPE = Type.simple("UnitType")
-Type.ITEM_TYPE = Type.simple("ItemType")
-Type.BLOCK_TYPE = Type.simple("BlockType")
-Type.LIQUID_TYPE = Type.simple("LiquidType")
-
-Type.CONTROLLER = Type.simple("Controller")
-
-# private types
-Type.OBJECT = Type.private("object")
-
-# compound types
-Type.CONTENT = Type.UNIT_TYPE | Type.ITEM_TYPE | Type.BLOCK_TYPE | Type.LIQUID_TYPE
-Type.register("Content", Type.CONTENT)
-
-Type.ANY = Type.any()
 
 
 class Value:
     _type: Type
+    value: str
+    _const: bool
+    _type_impl: TypeImpl
 
-    def __init__(self, type_: Type):
+    def __init__(self, type_: Type, value: str, const: bool = True, *, type_impl: TypeImpl = None):
         self._type = type_
-
-    def __str__(self):
-        return str(self.get())
+        self.value = value
+        self._const = const
+        self._type_impl = TypeImpl.get_impl(self._type) if type_impl is None else type_impl
 
     def __eq__(self, other):
-        raise NotImplementedError
+        if isinstance(other, Value):
+            return self.type() == other.type() and self.value == other.value and self._type_impl == other._type_impl
 
-    def get(self) -> str:
-        raise NotImplementedError
+    @classmethod
+    def null(cls) -> Value:
+        return Value(Type.NULL, "null")
+
+    @classmethod
+    def number(cls, val: int | float | str) -> Value:
+        return Value(Type.NUM, str(val))
+
+    @classmethod
+    def string(cls, val: str) -> Value:
+        return Value(Type.STR, val)
+
+    @classmethod
+    def function(cls, name: str, params: list[tuple[Type, str]], ret: Type, code) -> Value:
+        return Value(Type.function([p[0] for p in params], ret), name, type_impl=FunctionTypeImpl(params, ret, code))
+
+    @classmethod
+    def variable(cls, name: str, type_: Type, const: bool = False) -> Value:
+        return Value(type_, name, const)
+
+    def is_null(self) -> bool:
+        return self.get() == "null" or self.type() in Type.NULL
+
+    def impl(self) -> TypeImpl:
+        return self._type_impl
 
     def type(self) -> Type:
         return self._type
 
     def const(self) -> bool:
-        return True
+        return self._const
+
+    def callable(self) -> bool:
+        return self._type_impl.callable(self)
+
+    def get(self) -> str:
+        return self._type_impl.get(self)
+
+    def set(self, value: Value):
+        if self.const():
+            raise TypeError("Assignment to const variable")
+
+        return self._type_impl.set(self, value)
+
+    def write(self, cell: Value, index: Value):
+        self._type_impl.write(self, cell, index)
+
+    def read(self, cell: Value, index: Value):
+        if self.const():
+            raise TypeError("Assignment to const variable")
+
+        self._type_impl.read(self, cell, index)
 
     def getattr(self, name: str) -> Value | None:
-        print(name)
+        return self._type_impl.getattr(self, name)
 
-        if self.type() in Type.BLOCK and name in Content.CONTROLLABLE:
-            return ControlValue(self, name)
+    def call(self, node, params: list[Value]) -> Value:
+        if not self.callable():
+            raise TypeError("Trying to call non callable value")
 
-        elif self.type() in Type.BLOCK | Type.UNIT and name in Content.SENSABLE:
-            return SensorValue(self, name)
+        return self._type_impl.call(self, node, params)
+
+    def get_params(self) -> list[Type]:
+        if not self.callable():
+            raise TypeError("Trying to call non callable value")
+
+        return self._type_impl.get_params(self)
+
+    def outputs(self) -> list[int]:
+        if not self.callable():
+            raise TypeError("Trying to call non callable value")
+
+        return self._type_impl.outputs(self)
+
+
+class TypeImpl:
+    _IMPLEMENTATIONS: dict[Type, TypeImpl] = {}
+    _DEFAULT_IMPL: TypeImpl = None
+
+    @classmethod
+    def add_impl(cls, type_: Type, impl: TypeImpl):
+        cls._IMPLEMENTATIONS[type_] = impl
+
+    @classmethod
+    def get_impl(cls, type_: Type) -> TypeImpl:
+        return cls._IMPLEMENTATIONS.get(type_, cls._DEFAULT_IMPL)
+
+    def get(self, value: Value) -> str:
+        return value.value
+
+    def set(self, value: Value, source: Value):
+        Gen.emit(
+            InstructionSet(value.value, source.get())
+        )
+
+    def write(self, value: Value, cell: Value, index: Value):
+        Gen.emit(
+            InstructionWrite(value.get(), cell.value, index.get())
+        )
+
+    def read(self, value: Value, cell: Value, index: Value):
+        val = Gen.tmp()
+        Gen.emit(
+            InstructionRead(val, cell.value, index.get())
+        )
+        value.set(Value(value.type(), val, False))
+
+    def getattr(self, value: Value, name: str) -> Value | None:
+        if name in Content.CONTROLLABLE and value.type() in Type.BLOCK:
+            return Value(Content.CONTROLLABLE[name], value.get(), False, type_impl=ControlSensorTypeImpl(name))
+
+        elif name in Content.SENSABLE and value.type() in Type.BLOCK | Type.UNIT:
+            return Value(Content.SENSABLE[name], value.get(), True, type_impl=ControlSensorTypeImpl(name))
+
+        return None
+
+    def callable(self, value: Value) -> bool:
+        return False
+
+    def call(self, value: Value, node, params: list[Value]) -> Value:
+        raise NotImplementedError
+
+    def get_params(self, value: Value) -> list[Type]:
+        raise NotImplementedError
+
+    def outputs(self, value: Value) -> list[int]:
+        return []
+
+    def will_inline(self) -> bool:
+        return False
+
+
+class IndexedTypeImpl(TypeImpl):
+    index: Value
+
+    def __init__(self, index: Value):
+        self.index = index
+
+    def get(self, value: Value) -> str:
+        val = Value.variable(Gen.tmp(), Type.NUM)
+        val.read(value, self.index)
+        return val.get()
+
+    def set(self, value: Value, source: Value):
+        source.write(value, self.index)
+
+
+TypeImpl._DEFAULT_IMPL = TypeImpl()
+
+
+class StructSourceTypeImpl(TypeImpl):
+    fields: dict[str, Value]
+
+    def __init__(self, fields: dict[str, Value]):
+        self.fields = fields
+
+    def get(self, value: Value) -> str:
+        return "null"
+
+    def getattr(self, value: Value, name: str) -> Value | None:
+        return self.fields.get(name)
+
+
+class StructTypeImpl(TypeImpl):
+    fields: dict[str, Type]
+
+    def __init__(self, fields: dict[str, Type]):
+        self.fields = fields
+
+    def get(self, value: Value) -> str:
+        return "null"
+
+    def set(self, value: Value, source: Value):
+        for field in self.fields.keys():
+            value.getattr(field).set(source.getattr(field))
+
+    def write(self, value: Value, cell: Value, index: Value):
+        # TODO: serialization
+        raise NotImplementedError
+
+    def read(self, value: Value, cell: Value, index: Value):
+        # TODO: deserialization
+        raise NotImplementedError
+
+    def getattr(self, value: Value, name: str) -> Value | None:
+        if name in self.fields:
+            return Value(self.fields[name], ABI.struct_field(value.value, name), value.const())
 
         return None
 
 
-class SettableValue(Value, ABC):
-    def set(self, value: Value):
-        raise NotImplementedError
-
-
-class CallableValue(Value, ABC):
-    def call(self, node, params: list[Value]) -> Value:
-        raise NotImplementedError
-
-    def get_params(self) -> list[Type]:
-        raise NotImplementedError
-
-    def outputs(self) -> list[int]:
-        return []
-
-
-class InlinableCallableValue(CallableValue, ABC):
-    name: str
-    scope: dict[str, Value]
-
-    def inline(self, node, params: list[Value]) -> Value:
-        raise NotImplementedError
-
-
-class SensorValue(Value):
-    value: str
-    prop: str
-
-    def __init__(self, value: Value, prop: str):
-        super().__init__(Content.SENSABLE[prop])
-
-        self.value = value.get()
-        self.prop = prop
-
-    def __eq__(self, other):
-        if isinstance(other, SensorValue):
-            return self.value == other.value and self.prop == other.prop
-
-        return False
-
-    def __str__(self):
-        return f"{self.value}.{self.prop}"
-
-    def get(self) -> str:
-        result = Gen.tmp()
-        Gen.emit(
-            InstructionSensor(result, self.value, "@" + self.prop)
-        )
-        return result
-
-
-class ControlValue(SettableValue):
-    value: str
-    prop: str
-
-    def __init__(self, value: Value, prop: str):
-        super().__init__(Type.OBJECT)
-
-        self.value = value.get()
-        self.prop = prop
-
-    def __eq__(self, other):
-        if isinstance(other, ControlValue):
-            return self.value == other.value and self.prop == other.prop
-
-        return False
-
-    def get(self) -> str:
-        return "null"
-
-    def set(self, value: Value):
-        if value.type() not in Content.CONTROLLABLE[self.prop]:
-            Error.incompatible_types(Error.node_class.current, value.type(), Content.CONTROLLABLE[self.prop])
-
-        Gen.emit(
-            InstructionControl(self.prop, self.value, value.get(), 0, 0, 0)
-        )
-
-    def const(self) -> bool:
-        return False
-
-
-class NumberValue(Value):
-    value: int | float
-
-    def __init__(self, value: int | float):
-        super().__init__(Type.NUM)
-
-        self.value = value
-
-    def __eq__(self, other):
-        if isinstance(other, NumberValue):
-            return self.value == other.value
-
-        return False
-
-    def get(self) -> str:
-        return str(self.value)
-
-
-class StringValue(Value):
-    value: str
-
-    def __init__(self, value: str):
-        super().__init__(Type.STR)
-
-        self.value = value
-
-    def __eq__(self, other):
-        if isinstance(other, StringValue):
-            return self.value == other.value
-
-        return False
-
-    def get(self) -> str:
-        return self.value
-
-
-class VariableValue(SettableValue):
-    name: str
-    _const: bool
-
-    def __init__(self, name: str, type_: Type, const: bool = False):
-        super().__init__(type_)
-
-        self.name = name
-        self._const = const
-
-    def __eq__(self, other):
-        if isinstance(other, VariableValue):
-            return self.name == other.name and self.type() == other.type()
-
-        return False
-
-    def get(self) -> str:
-        return self.name
-
-    def const(self) -> bool:
-        return self._const
-
-    def set(self, value: Value):
-        Gen.emit(
-            InstructionSet(self.name, value.get())
-        )
-
-
-class NullValue(Value):
-    def __init__(self):
-        super().__init__(Type.NULL)
-
-    def __eq__(self, other):
-        return isinstance(other, NullValue)
-
-    def get(self) -> str:
-        return "null"
-
-
-class IndexedValue(SettableValue):
-    cell: str
-    index: str
-
-    def __init__(self, cell: str, index: str):
-        super().__init__(Type.NUM)
-
-        self.cell = cell
-        self.index = index
-
-    def __eq__(self, other):
-        if isinstance(other, IndexedValue):
-            return self.cell == other.cell and self.index == other.index
-
-        return False
-
-    def __str__(self):
-        return f"{self.cell}[{self.index}]"
-
-    def get(self) -> str:
-        var = Gen.tmp()
-        Gen.emit(
-            InstructionRead(var, self.cell, self.index)
-        )
-
-        return var
-
-    def set(self, value: Value):
-        val = value.get()
-        Gen.emit(
-            InstructionWrite(val, self.cell, self.index)
-        )
-
-    def const(self) -> bool:
-        return False
-
-
-class FunctionValue(InlinableCallableValue):
+class FunctionTypeImpl(TypeImpl):
     params: list[tuple[Type, str]]
     ret: Type
+    scope: dict[str, Value]
 
-    end_label: str = None
-
-    def __init__(self, name: str, params: list[tuple[Type, str]], ret: Type, code, scope: dict[str, Value]):
-        super().__init__(Type.function([param[0] for param in params], ret))
-
-        self.name = name
+    def __init__(self, params: list[tuple[Type, str]], ret: Type, code, scope: dict[str, Value]):
         self.params = params
         self.ret = ret
         self.code = code
         self.scope = scope
 
-    def __eq__(self, other):
-        if isinstance(other, FunctionValue):
-            return self.name == other.name and self.type() == other.type()
+    def callable(self, value: Value) -> bool:
+        return True
 
-        return False
-
-    def get(self) -> str:
-        return str(self.type())
-
-    def call(self, node, params: list[Value]) -> Value:
-        raise RuntimeError("Must be inlined")
-
-    def get_params(self) -> list[Type]:
-        return [param[0] for param in self.params]
-
-    def inline(self, node, params: list[Value]) -> Value:
+    def call(self, value: Value, node, params: list[Value]) -> Value:
         for i, [type_, name] in enumerate(self.params):
             if params[i].type() not in type_:
                 Error.incompatible_types(node, params[i].type(), type_)
 
-            Gen.emit(
-                InstructionSet(name, params[i].get())
-            )
+            Value.variable(name, type_).set(params[i])
 
         self.code.gen()
 
         Gen.emit(
-            InstructionSet(ABI.function_return(self.name), "null")
+            InstructionSet(ABI.function_return(value.value), "null")
         )
 
-        return VariableValue(ABI.function_return(self.name), self.ret)
+        return Value(self.ret, ABI.function_return(value.value), False)
+
+    def get_params(self, value: Value) -> list[Type]:
+        return [param[0] for param in self.params]
+
+    def will_inline(self) -> bool:
+        return True
 
 
-class StructValue(Value):
-    fields: dict[str, Value]
+class ControlSensorTypeImpl(TypeImpl):
+    attrib: str
 
-    def __init__(self, type_: Type, fields: dict[str, Value]):
-        super().__init__(type_)
+    def __init__(self, attrib: str):
+        self.attrib = attrib
 
-        self.fields = fields
+    def get(self, value: Value) -> str:
+        if self.attrib in Content.SENSABLE:
+            val = Gen.tmp()
+            Gen.emit(
+                InstructionSensor(val, value.value, "@" + self.attrib)
+            )
+            return val
 
-    def __eq__(self, other):
-        if isinstance(other, StructValue):
-            return self.fields == other.fields and self.type() == other.type()
-
-        return False
-
-    def get(self) -> str:
         return "null"
 
-    def getattr(self, name: str) -> Value | None:
-        return self.fields.get(name)
-
-
-class StructVariableValue(SettableValue):
-    name: str
-    fields: dict[str, Type]
-    _const: bool
-
-    def __init__(self, name: str, type_: Type,
-                 fields: dict[str, Type], const: bool = False):
-
-        super().__init__(type_)
-
-        self.name = name
-        self.fields = fields
-        self._const = const
-
-    def __eq__(self, other):
-        if isinstance(other, StructVariableValue):
-            return self.name == other.name and self.type() == other.type()
-
-        return False
-
-    def get(self) -> str:
-        return self.name
-
-    def const(self) -> bool:
-        return self._const
-
-    def set(self, value: Value):
-        Gen.emit(*[
-            InstructionSet(ABI.struct_field(self.name, field), value.getattr(field))
-            for field in self.fields.keys()
-        ])
-
-    def getattr(self, name: str) -> Value | None:
-        if name in self.fields:
-            return VariableValue(ABI.struct_field(self.name, name), self.fields[name])
-
-        return None
+    def set(self, value: Value, source: Value):
+        Gen.emit(
+            InstructionControl(self.attrib, value.value, source.get(), 0, 0, 0)
+        )

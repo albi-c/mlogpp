@@ -1,49 +1,42 @@
 from __future__ import annotations
 
 import enum
-import math
-import typing
+from typing import Callable, TypeVar
 
-from .values import CallableValue, VariableValue, NullValue, SettableValue, NumberValue
 from .instruction import *
 from .generator import Gen
 from .error import Error
-from .enums import *
+from .enums import ENUMS, SENSABLE, RULES, SETPROP, EnumRadarFilter, EnumLocateType, EnumRadarSort, EnumEffect
 from .node import Node
+from .values import TypeImpl, Type, Value
 
 
-class Param(Enum):
+class Param(enum.Enum):
     INPUT: Param = enum.auto()
     OUTPUT: Param = enum.auto()
     OUTPUT_P: Param = enum.auto()
     CONSTANT: Param = enum.auto()
 
 
-class NativeFunctionValue(CallableValue):
+class NativeInsTypeImpl(TypeImpl):
     ins: type[Instruction]
     params: list[tuple[Param, Type | str]]
 
     def __init__(self, ins: type[Instruction], params: list[tuple[Param, Type | str]]):
-        super().__init__(Type.function([param[1] for param in params if param[0] == Param.INPUT],
-                                       [param[1] for param in params if param[0] in (Param.OUTPUT, Param.OUTPUT_P)]))
-
         self.ins = ins
         self.params = params
 
-    def __eq__(self, other):
-        if isinstance(other, NativeFunctionValue):
-            return self.ins == other.ins and self.params == other.params
-
-        return False
-
-    def get(self) -> str:
+    def get(self, value: Value) -> str:
         return "null"
 
-    def call(self, node: Node, params: list[Value]) -> Value:
-        result = NullValue()
+    def callable(self, value: Value) -> bool:
+        return True
+
+    def call(self, value: Value, node, params: list[Value]) -> Value:
+        result = Value.null()
 
         par: list[str] = []
-        out: list[tuple[VariableValue, SettableValue]] = []
+        out: list[tuple[Value, Value]] = []
         i = 0
         for p, t in self.params:
             if p == Param.INPUT:
@@ -55,44 +48,32 @@ class NativeFunctionValue(CallableValue):
                 i += 1
 
             elif p == Param.OUTPUT_P:
-                result = VariableValue(Gen.tmp(), t)
-                par.append(result.name)
+                result = Value.variable(Gen.tmp(), t)
+                par.append(result.value)
 
             elif p == Param.CONSTANT:
                 par.append(t)
 
-            else:
-                raise ValueError("Invalid function")
-
         Gen.emit(
             self.ins(*(par + ["0"] * (self.ins.num_params() - len(par))))
         )
-        for res, val in out:
-            val.set(res)
+        for dst, src in out:
+            dst.set(src)
 
         return result
 
-    def get_params(self) -> list[Type]:
-        return [param[1] for param in self.params if param[0] in (Param.INPUT, Param.OUTPUT)]
-
-    def outputs(self) -> list[int]:
-        return [i for i, [param, _] in enumerate(self.params) if param == Param.OUTPUT]
-
     @staticmethod
-    def _add_param(node: Node, params: list[str], outputs: list[tuple[VariableValue, SettableValue]],
-                   param: Value, type_: Type, output: bool):
-
+    def _add_param(node: Node, params: list[str], outputs: list[tuple[Value, Value]], param: Value, type_: Type, output: bool):
         if output:
+            if param.const():
+                Error.write_to_const(node, param.get())
+
             if type_ not in param.type():
                 Error.incompatible_types(node, type_, param.type())
 
-            if isinstance(param, SettableValue) and not param.const():
-                result = Gen.tmp()
-                params.append(result)
-                outputs.append((VariableValue(result, type_), param))
-
-            else:
-                Error.write_to_const(node, str(param))
+            result = Gen.tmp()
+            params.append(result)
+            outputs.append((param, Value.variable(result, type_)))
 
         else:
             if param.type() not in type_:
@@ -100,38 +81,40 @@ class NativeFunctionValue(CallableValue):
 
             params.append(param.get())
 
+    def get_params(self, value: Value) -> list[Type]:
+        return [param[1] for param in self.params if param[0] in (Param.INPUT, Param.OUTPUT)]
 
-class NativeMultiFunctionValue(Value):
-    functions: dict[str, Value]
+    def outputs(self, value: Value) -> list[int]:
+        return [i for i, [param, _] in enumerate(self.params) if param == Param.OUTPUT]
 
-    def __init__(self, functions: dict[str, Value], subname_function):
-        super().__init__(Type.OBJECT)
 
-        self.functions = functions
+T = TypeVar("T")
+
+
+class NativeMultiInsTypeImpl(TypeImpl):
+    instructions: dict[str, Value]
+    subname_function: Callable[[list[T]], T]
+
+    def __init__(self, instructions: dict[str, Value], subname_function: Callable[[list[T]], T]):
+        self.instructions = instructions
         self.subname_function = subname_function
 
-    def __eq__(self, other):
-        if isinstance(other, NativeMultiFunctionValue):
-            return self.functions == other.functions
-
-        return False
-
-    def get(self) -> str:
+    def get(self, value: Value) -> str:
         return "null"
 
-    def getattr(self, name: str) -> Value | None:
-        return self.functions.get(name)
+    def getattr(self, value: Value, name: str) -> Value | None:
+        return self.instructions.get(name)
 
 
 def native_function_value(ins: type[Instruction], params: list[Type], ret: int = -1, outputs: list[int] = None, *,
-                          constants: dict[int, str] = None) -> NativeFunctionValue:
+                          constants: dict[int, str] = None) -> Value:
     if constants is None:
         constants = {}
 
     if outputs is None:
         outputs = []
 
-    par = []
+    par: list[tuple[Param, Type | str]] = []
     for i, param in enumerate(params):
         if i in constants:
             par.append((Param.CONSTANT, constants[i]))
@@ -145,22 +128,22 @@ def native_function_value(ins: type[Instruction], params: list[Type], ret: int =
         else:
             par.append((Param.INPUT, param))
 
-    return NativeFunctionValue(ins, par)
-
+    return Value(Type.OBJECT, "null", type_impl=NativeInsTypeImpl(ins, par))
 
 def native_multi_function_value(ins: type[Instruction], functions: dict[str, list[Type] |
                                                                              tuple[list[Type], int] |
                                                                              tuple[list[Type], int, list[int]] |
                                                                              tuple[list[Type], int, list[int], list[
                                                                                  int]] |
-                                                                             NativeFunctionValue],
-                                subname_index: int = 0, subname_function=None) -> NativeMultiFunctionValue:
-    func: dict[str, NativeFunctionValue] = {}
+                                                                             Value],
+                                subname_index: int = 0, subname_function: Callable[[list[T]], T]=None) -> Value:
+
+    func: dict[str, Value] = {}
     for n, f in functions.items():
         if isinstance(f, list):
             func[n] = native_function_value(ins, f)
 
-        elif isinstance(f, NativeFunctionValue):
+        elif isinstance(f, Value):
             func[n] = f
 
         elif len(f) == 4:
@@ -171,61 +154,47 @@ def native_multi_function_value(ins: type[Instruction], functions: dict[str, lis
         else:
             func[n] = native_function_value(ins, *f)
 
-        if not isinstance(f, NativeFunctionValue):
-            if subname_index == -1:
-                func[n].params.append((Param.CONSTANT, n))
+        if not isinstance(f, Value):
+            impl = func[n].impl()
+            if isinstance(impl, NativeInsTypeImpl):
+                if subname_index == -1:
+                    impl.params.append((Param.CONSTANT, n))
+                else:
+                    impl.params.insert(subname_index, (Param.CONSTANT, n))
+
             else:
-                func[n].params.insert(subname_index, (Param.CONSTANT, n))
+                raise TypeError
 
         else:
-            if subname_index == -1:
-                f.params.append((Param.CONSTANT, n))
+            impl = func[n].impl()
+            if isinstance(impl, NativeInsTypeImpl):
+                if subname_index == -1:
+                    impl.params.append((Param.CONSTANT, n))
+                else:
+                    impl.params.insert(subname_index, (Param.CONSTANT, n))
+
             else:
-                f.params.insert(subname_index, (Param.CONSTANT, n))
+                raise TypeError
 
-    return NativeMultiFunctionValue(func, (
-        lambda params: params[subname_index]) if subname_function is None else subname_function)
+    return Value(Type.OBJECT, "null", type_impl=NativeMultiInsTypeImpl(
+        func, (lambda params: params[subname_index]) if subname_function is None else subname_function))
 
 
-class BuiltinOperationValue(CallableValue):
+class BuiltinOperationTypeImpl(TypeImpl):
     op: str
     params: int
 
-    PRECALC: dict[str, typing.Callable[[int | float, int | float], int | float]] = {
-        "max": lambda a, b: max(a, b),
-        "min": lambda a, b: min(a, b),
-        "abs": lambda a, _: abs(a),
-        "log": lambda a, _: math.log(a),
-        "log10": lambda a, _: math.log10(a),
-        "floor": lambda a, _: math.floor(a),
-        "ceil": lambda a, _: math.ceil(a),
-        "sqrt": lambda a, _: math.sqrt(a),
-        "angle": lambda a, b: math.atan2(b, a) * 180 / math.pi,
-        "length": lambda a, b: math.sqrt(a * a + b * b),
-        "sin": lambda a, _: math.sin(math.radians(a)),
-        "cos": lambda a, _: math.cos(math.radians(a)),
-        "tan": lambda a, _: math.tan(math.radians(a)),
-        "asin": lambda a, _: math.degrees(math.asin(a)),
-        "acos": lambda a, _: math.degrees(math.acos(a)),
-        "atan": lambda a, _: math.degrees(math.atan(a))
-    }
-
     def __init__(self, op: str, params: int):
-        super().__init__(Type.function([Type.NUM] * params, Type.NUM))
-
         self.op = op
         self.params = params
 
-    def __eq__(self, other):
-        if isinstance(BuiltinOperationValue, other):
-            return self.op == other.op and self.params == other.params
-
-        return False
-
-    def get(self) -> str:
+    def get(self, value: Value) -> str:
         return "null"
 
-    def call(self, node: Node, params: list[Value]) -> Value:
+    def callable(self, value: Value) -> bool:
+        return True
+
+    def call(self, value: Value, node, params: list[Value]) -> Value:
         if len(params) != self.params:
             Error.invalid_arg_count(node, len(params), self.params)
 
@@ -233,65 +202,47 @@ class BuiltinOperationValue(CallableValue):
             if param.type() not in Type.NUM:
                 Error.incompatible_types(node, param.type(), Type.NUM)
 
-        if len(params) == 1 and isinstance(params[0], NumberValue):
-            try:
-                result = float(self.PRECALC[self.op](params[0].value, 0))
-                if result.is_integer():
-                    result = int(result)
-                return NumberValue(result)
-            except (TypeError, ArithmeticError, KeyError):
-                pass
-
-        elif len(params) == 2 and isinstance(params[0], NumberValue) and isinstance(params[1], NumberValue):
-            try:
-                result = float(self.PRECALC[self.op](params[0].value, params[1].value))
-                if result.is_integer():
-                    result = int(result)
-                return NumberValue(result)
-            except (TypeError, ArithmeticError, KeyError):
-                pass
-
         result = Gen.tmp()
         Gen.emit(
             InstructionOp(self.op, result, *params, *([0] * (2 - len(params))))
         )
-        return VariableValue(result, Type.NUM)
+        return Value.variable(result, Type.NUM)
 
-    def get_params(self) -> list[Type]:
+    def get_params(self, value: Value) -> list[Type]:
         return [Type.NUM] * self.params
 
 
 BUILTIN_VARIABLES = {
-    "@this": VariableValue("@this", Type.BLOCK, True),
-    "@thisx": VariableValue("@thisx", Type.NUM, True),
-    "@thisy": VariableValue("@thisy", Type.NUM, True),
-    "@ipt": VariableValue("@ipt", Type.NUM, True),
-    "@timescale": VariableValue("@ipt", Type.NUM, True),
-    "@counter": VariableValue("@counter", Type.NUM, True),
-    "@links": VariableValue("@links", Type.NUM, True),
-    "@unit": VariableValue("@unit", Type.UNIT, False),
-    "@time": VariableValue("@time", Type.NUM, True),
-    "@tick": VariableValue("@tick", Type.NUM, True),
-    "@second": VariableValue("@second", Type.NUM, True),
-    "@minute": VariableValue("@minute", Type.NUM, True),
-    "@waveNumber": VariableValue("@waveNumber", Type.NUM, True),
-    "@waveTime": VariableValue("@waveTime", Type.NUM, True),
-    "@mapw": VariableValue("@mapw", Type.NUM, True),
-    "@maph": VariableValue("@maph", Type.NUM, True),
+    "@this": Value.variable("@this", Type.BLOCK, True),
+    "@thisx": Value.variable("@thisx", Type.NUM, True),
+    "@thisy": Value.variable("@thisy", Type.NUM, True),
+    "@ipt": Value.variable("@ipt", Type.NUM, True),
+    "@timescale": Value.variable("@ipt", Type.NUM, True),
+    "@counter": Value.variable("@counter", Type.NUM, True),
+    "@links": Value.variable("@links", Type.NUM, True),
+    "@unit": Value.variable("@unit", Type.UNIT, False),
+    "@time": Value.variable("@time", Type.NUM, True),
+    "@tick": Value.variable("@tick", Type.NUM, True),
+    "@second": Value.variable("@second", Type.NUM, True),
+    "@minute": Value.variable("@minute", Type.NUM, True),
+    "@waveNumber": Value.variable("@waveNumber", Type.NUM, True),
+    "@waveTime": Value.variable("@waveTime", Type.NUM, True),
+    "@mapw": Value.variable("@mapw", Type.NUM, True),
+    "@maph": Value.variable("@maph", Type.NUM, True),
 
-    "@ctrlProcessor": VariableValue("@ctrlProcessor", Type.CONTROLLER, True),
-    "@ctrlPlayer": VariableValue("@ctrlPlayer", Type.CONTROLLER, True),
-    "@ctrlCommand": VariableValue("@ctrlCommand", Type.CONTROLLER, True),
+    "@ctrlProcessor": Value.variable("@ctrlProcessor", Type.CONTROLLER, True),
+    "@ctrlPlayer": Value.variable("@ctrlPlayer", Type.CONTROLLER, True),
+    "@ctrlCommand": Value.variable("@ctrlCommand", Type.CONTROLLER, True),
 
-    "@solid": VariableValue("@solid", Type.BLOCK_TYPE, True),
+    "@solid": Value.variable("@solid", Type.BLOCK_TYPE, True),
 
-    "_": VariableValue("_", Type.ANY, False)
+    "_": Value.variable("_", Type.ANY, False)
 }
 
 BUILTIN_CONSTANTS = {
-    "true": VariableValue("true", Type.NUM, True),
-    "false": VariableValue("false", Type.NUM, True),
-    "null": VariableValue("null", Type.NULL, True)
+    "true": Value.variable("true", Type.NUM, True),
+    "false": Value.variable("false", Type.NUM, True),
+    "null": Value.variable("null", Type.NULL, True)
 }
 
 BUILTIN_FUNCTIONS = {
@@ -328,7 +279,7 @@ BUILTIN_FUNCTIONS = {
             "color": [Type.BLOCK, Type.NUM]
         }
     ),
-    "radar": native_function_value(InstructionRadar, [EnumRadarFilter.type] * 3 + [EnumRadarSort.type, Type.BLOCK,
+    "radar": native_function_value(InstructionRadar, [EnumRadarFilter.type()] * 3 + [EnumRadarSort.type(), Type.BLOCK,
                                                                                    Type.NUM, Type.UNIT], 6),
     "sensor": native_multi_function_value(
         InstructionSensor,
@@ -380,14 +331,14 @@ BUILTIN_FUNCTIONS = {
             "unbind": []
         }
     ),
-    "uradar": native_function_value(InstructionURadar, [EnumRadarFilter.type] * 3 + [EnumRadarSort.type, Type.ANY,
+    "uradar": native_function_value(InstructionURadar, [EnumRadarFilter.type()] * 3 + [EnumRadarSort.type(), Type.ANY,
                                                                                      Type.NUM, Type.UNIT], 6,
                                     constants={5: "0"}),
     "ulocate": native_multi_function_value(
         InstructionULocate,
         {
             "ore": ([Type.ANY, Type.ANY, Type.BLOCK_TYPE, Type.NUM, Type.NUM, Type.NUM, Type.NUM], 3, [4, 5], [0, 1]),
-            "building": ([EnumLocateType.type, Type.NUM, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 5,
+            "building": ([EnumLocateType.type(), Type.NUM, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 5,
                          [3, 4, 6], [2]),
             "spawn": (
             [Type.ANY, Type.ANY, Type.ANY, Type.NUM, Type.NUM, Type.NUM, Type.BLOCK], 3, [4, 5, 6], [0, 1, 2]),
@@ -418,9 +369,9 @@ BUILTIN_FUNCTIONS = {
     "status": native_multi_function_value(
         InstructionStatus,
         {
-            "apply": native_function_value(InstructionStatus, [Type.NUM, EnumEffect.type, Type.UNIT, Type.NUM],
+            "apply": native_function_value(InstructionStatus, [Type.NUM, EnumEffect.type(), Type.UNIT, Type.NUM],
                                            constants={0: "true"}),
-            "clear": native_function_value(InstructionStatus, [Type.NUM, EnumEffect.type, Type.UNIT, Type.NUM],
+            "clear": native_function_value(InstructionStatus, [Type.NUM, EnumEffect.type(), Type.UNIT, Type.NUM],
                                            constants={0: "false", 3: 0})
         }
     ),
@@ -479,9 +430,10 @@ PRIVATE_BUILTIN_FUNCTIONS = {
     "label": native_function_value(Label, [Type.ANY]),
 }
 BaseInstruction.Param = Param
-BaseInstruction.NativeFunctionValue = NativeFunctionValue
-BaseInstruction.NativeMultiFunctionValue = NativeMultiFunctionValue
+BaseInstruction.NativeInsTypeImpl = NativeInsTypeImpl
+BaseInstruction.NativeMultiInsTypeImpl = NativeMultiInsTypeImpl
 BaseInstruction.Builtins = BUILTIN_FUNCTIONS | PRIVATE_BUILTIN_FUNCTIONS
+BaseInstruction.Value = Value
 
 _OPERATIONS = {
     "max": 2,
@@ -505,11 +457,11 @@ _OPERATIONS = {
 }
 
 BUILTIN_OPERATIONS = {
-    op: BuiltinOperationValue(op, params) for op, params in _OPERATIONS.items()
+    op: Value(Type.OBJECT, "null", type_impl=BuiltinOperationTypeImpl(op, params)) for op, params in _OPERATIONS.items()
 }
 
 BUILTIN_ENUMS = {
-    e.name: e for e in ENUMS
+    e.impl().name: e for e in ENUMS
 }
 
 BUILTINS = BUILTIN_VARIABLES | BUILTIN_CONSTANTS | BUILTIN_FUNCTIONS | BUILTIN_OPERATIONS | BUILTIN_ENUMS

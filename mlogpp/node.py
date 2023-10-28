@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+from typing import Callable
+
 from .util import Position
-from .error import Error
 from .values import *
 from .generator import Gen
 from .instruction import *
 from .scope import Scope
 from .abi import ABI
 from .operations import Operations
-from .enums import ENUM_TYPES
+from .enums import ENUM_TYPES_VALUES
 
 
 class Node:
@@ -48,7 +49,7 @@ class Node:
     def gen(self) -> Value:
         Node.current = self
         
-        return NullValue()
+        return Value.null()
 
     def check_types(self, a: Type, b: Type):
         if a in b:
@@ -140,7 +141,7 @@ class BlockNode(Node):
         if len(self.code) > 0:
             return self.code[-1].gen()
 
-        return NullValue()
+        return Value.null()
 
 
 class DeclarationNode(Node):
@@ -170,13 +171,13 @@ class DeclarationNode(Node):
             type_ = self.parse_type(self.type)
 
             if self.type == "Block" and self.is_block_special:
-                value = VariableValue(self.name, Type.BLOCK, True)
+                value = Value.variable(self.name, Type.BLOCK, True)
                 self.scope_declare(self.name, value)
 
                 return value
 
             else:
-                value = NullValue()
+                value = Value.null()
 
         else:
             value = self.value.gen()
@@ -188,10 +189,10 @@ class DeclarationNode(Node):
 
         self.check_types(value.type(), type_)
 
-        val = VariableValue(self.name, type_)
-        val.name = self.scope_declare(self.name, val)
+        val = Value.variable(self.name, type_)
+        val.value = self.scope_declare(self.name, val)
 
-        if value != NullValue():
+        if value != Value.null():
             val.set(value)
 
         return val
@@ -219,13 +220,13 @@ class MultiDeclarationNode(Node):
         type_ = self.parse_type(self.type)
 
         for name in self.names:
-            val = VariableValue(name, type_)
+            val = Value.variable(name, type_)
             if self.type == "Block":
                 self.scope_declare(name, val)
             else:
-                val.name = self.scope_declare(name, val)
+                val.value = self.scope_declare(name, val)
 
-        return NullValue()
+        return Value.null()
 
 
 class ConfigNode(Node):
@@ -257,10 +258,10 @@ class ConfigNode(Node):
             Error.incompatible_types(self, val.type(), type_)
         Scope.configurations[self.name] = val
 
-        val = VariableValue(self.name, type_)
+        val = Value.variable(self.name, type_)
         Scope.scopes[2][self.name] = val
 
-        return NullValue()
+        return Value.null()
 
 
 class UnaryOpNode(Node):
@@ -349,12 +350,14 @@ class IndexNode(Node):
         cell = self.cell.gen()
         index = self.index.gen()
 
-        return IndexedValue(cell.get(), index.get())
+        return Value(Type.OBJECT, cell.get(), False, type_impl=IndexedTypeImpl(index))
 
 
 class CallNode(Node):
     value: Node
     params: list[Node]
+
+    END_LABEL: str = ""
 
     def __init__(self, pos: Position, value: Node, params: list[Node]):
         super().__init__(pos)
@@ -366,43 +369,44 @@ class CallNode(Node):
         return f"{self.value}({','.join(map(str, self.params))})"
 
     def gen(self) -> Value:
-        # TODO: function inlining
-
         Node.gen(self)
         
         func = self.value.gen()
 
-        if isinstance(func, CallableValue):
+        if func.callable():
             if len(self.params) != len(func.get_params()):
                 Error.invalid_arg_count(self, len(self.params), len(func.get_params()))
 
             params = []
-            for param, type_ in zip(self.params, func.get_params()):
+            for param, type_ in zip(self.params, func.impl().get_params(func)):
                 enum = {}
                 for t in type_.list_types():
-                    e = ENUM_TYPES.get(t)
+                    e = ENUM_TYPES_VALUES.get(t)
                     if e is not None:
-                        enum |= e.values
+                        enum |= e
                 Scope.enum(enum)
 
                 params.append(param.gen())
 
                 Scope.enum()
 
-            if isinstance(func, InlinableCallableValue):
-                if func.name in Scope.functions:
+            if func.impl().will_inline():
+                impl = func.impl()
+                assert isinstance(impl, FunctionTypeImpl)
+
+                if func.value in Scope.functions:
                     Error.custom(self.get_pos(), "Recursion is forbidden")
 
-                self.scope_push(func.name)
-                end_label = FunctionValue.end_label
-                FunctionValue.end_label = Gen.tmp()
-                for key, value in func.scope.items():
+                self.scope_push(func.value)
+                end_label = CallNode.END_LABEL
+                CallNode.END_LABEL = Gen.tmp()
+                for key, value in impl.scope.items():
                     Scope.scopes[-1][key] = value
-                result = func.inline(self, params)
+                result = func.call(self, params)
                 Gen.emit(
-                    Label(FunctionValue.end_label)
+                    Label(CallNode.END_LABEL)
                 )
-                FunctionValue.end_label = end_label
+                CallNode.END_LABEL = end_label
                 self.scope_pop()
                 return result
 
@@ -429,20 +433,17 @@ class ReturnNode(Node):
             Error.custom(self.get_pos(), "Return outside of a function")
 
         if self.value is not None:
-            Gen.emit(
-                InstructionSet(ABI.function_return(func), self.value.gen().get())
-            )
+            val = self.value.gen()
+            Value.variable(ABI.function_return(func), val.type()).set(val)
 
         else:
-            Gen.emit(
-                InstructionSet(ABI.function_return(func), "null")
-            )
+            Value.variable(ABI.function_return(func), Type.NULL).set(Value.null())
 
         Gen.emit(
-            InstructionJump(FunctionValue.end_label, "always", 0, 0)
+            InstructionJump(CallNode.END_LABEL, "always", 0, 0)
         )
 
-        return NullValue()
+        return Value.null()
 
 
 class BreakNode(Node):
@@ -462,7 +463,7 @@ class BreakNode(Node):
             InstructionJump(ABI.loop_break(loop), "always", 0, 0)
         )
 
-        return NullValue()
+        return Value.null()
 
 
 class ContinueNode(Node):
@@ -482,7 +483,7 @@ class ContinueNode(Node):
             InstructionJump(ABI.loop_continue(loop), "always", 0, 0)
         )
 
-        return NullValue()
+        return Value.null()
 
 
 class IfNode(Node):
@@ -531,7 +532,7 @@ class IfNode(Node):
 
         self.scope_pop()
 
-        return NullValue()
+        return Value.null()
 
 
 class WhileNode(Node):
@@ -652,8 +653,8 @@ class RangeNode(Node):
 
         self.scope_push(name)
 
-        counter = VariableValue(self.name, Type.NUM)
-        counter.name = self.scope_declare(self.name, counter)
+        counter = Value.variable(self.name, Type.NUM)
+        counter.value = self.scope_declare(self.name, counter)
 
         Gen.emit(
             InstructionSet(counter, 0),
@@ -703,9 +704,9 @@ class FunctionNode(Node):
         params = []
         for type_, n in self.params:
             type_ = self.parse_type(type_)
-            value = VariableValue(n, type_)
-            value.name = self.scope_declare(n, value)
-            params.append((type_, value.name))
+            value = Value.variable(n, type_)
+            value.value = self.scope_declare(n, value)
+            params.append((type_, value.value))
 
         func_scope = Scope.scopes[-1]
 
@@ -713,11 +714,32 @@ class FunctionNode(Node):
 
         return_type = self.parse_type(self.return_type)
 
-        function = FunctionValue(name, params, return_type, self.code, func_scope)
+        function = Value(Type.function([param[0] for param in params], return_type), name, type_impl=FunctionTypeImpl(
+            params, return_type, self.code, func_scope))
 
         self.scope_declare(self.name, function)
 
         return function
+
+
+class CustomNode(Node):
+    instructions: list[Instruction | Callable[[Node], Instruction]]
+
+    def __init__(self, pos: Position, instructions: list[Instruction | Callable[[Node], Instruction]]):
+        super().__init__(pos)
+
+        self.instructions = instructions
+
+    def gen(self) -> Value:
+        for ins in self.instructions:
+            if isinstance(ins, Instruction | BaseInstruction):
+                Gen.emit(ins)
+            else:
+                i = ins(self)
+                if i is not None:
+                    Gen.emit(i)
+
+        return Value.null()
 
 
 class StructNode(Node):
@@ -744,15 +766,21 @@ class StructNode(Node):
 
         type_ = Type.simple(self.name)
         Type.register(self.name, type_)
+        types = {v: self.parse_type(k) for k, v in self.fields}
+        TypeImpl.add_impl(type_, StructTypeImpl(types))
+        struct = Value.variable(Gen.tmp(), type_)
         constructor = FunctionNode(pos, self.name, self.fields, self.name, BlockNode(self.get_pos(), [
-            ReturnNode(pos, StructValueNode(self.get_pos(), {
-                "x": NumberValue(20),
-                "y": NumberValue(10)
-            }, type_))
+            CustomNode(pos, [
+                lambda s: Value.variable(struct.value, type_).set(Value(type_, "null", type_impl=StructSourceTypeImpl({
+                    field: s.scope_get(field) for field in types.keys()
+                })))
+            ]),
+            ReturnNode(pos, StructValueNode(self.get_pos(), struct.value, type_)),
+            CustomNode(pos, [])
         ]))
         constructor.gen()
 
-        return NullValue()
+        return Value.null()
 
 
 class ValueNode(Node):
@@ -792,7 +820,7 @@ class NumberValueNode(ValueNode):
     def gen(self) -> Value:
         Node.gen(self)
         
-        return NumberValue(self.value)
+        return Value.number(self.value)
 
 
 class StringValueNode(ValueNode):
@@ -804,14 +832,14 @@ class StringValueNode(ValueNode):
     def gen(self) -> Value:
         Node.gen(self)
         
-        return StringValue(self.value)
+        return Value.string(self.value)
 
 
 class StructValueNode(ValueNode):
-    value: dict[str, Value]
+    value: str
     type: Type
 
-    def __init__(self, pos: Position, value: dict[str, Value], type_: Type):
+    def __init__(self, pos: Position, value: str, type_: Type):
         super().__init__(pos, value)
 
         self.type = type_
@@ -819,19 +847,4 @@ class StructValueNode(ValueNode):
     def gen(self) -> Value:
         Node.gen(self)
 
-        return StructValue(self.type, self.value)
-
-
-class StructVariableValueNode(ValueNode):
-    value: str
-    fields: dict[str, Type]
-
-    def __init__(self, pos: Position, value: str, fields: dict[str, Type]):
-        super().__init__(pos, value)
-
-        self.fields = fields
-
-    def gen(self) -> Value:
-        Node.gen(self)
-
-        return self.scope_get(self.value)
+        return Value(self.type, self.value)

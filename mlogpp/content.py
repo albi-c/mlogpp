@@ -1,4 +1,4 @@
-from __future__ import annotations
+from .value_types import Type
 
 
 class Content:

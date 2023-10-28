@@ -7,6 +7,7 @@ from .parser import Parser
 from .optimizer import Optimizer
 from .linker import Linker
 from .scope import Scope
+from .value_types import Type
 from .builtins import BUILTINS
 from .asm.parser import AsmParser
 
@@ -25,6 +26,7 @@ def compile_code(code: str, filename: str) -> str:
 
     Gen.reset()
     Scope.reset(BUILTINS)
+    Type.reset()
 
     code = Preprocessor.preprocess(code)
     code = Lexer(os.path.dirname(os.path.abspath(filename))).lex(code, filename)
@@ -53,6 +55,7 @@ def compile_asm(code: str, filename: str) -> str:
     # reset the state
     Gen.reset()
     Scope.reset(BUILTINS)
+    Type.reset()
 
     code = Preprocessor.preprocess(code)
     code = Lexer(os.path.dirname(os.path.abspath(filename))).lex(code, filename)

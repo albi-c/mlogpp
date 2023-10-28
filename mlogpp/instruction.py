@@ -11,22 +11,25 @@ class BaseInstruction:
     side_effects: bool
 
     Param: type = None
-    NativeFunctionValue: type = None
-    NativeMultiFunctionValue: type = None
-    Builtins: dict[str, NativeFunctionValue | NativeMultiFunctionValue] = None
+    NativeInsTypeImpl: type = None
+    NativeMultiInsTypeImpl: type = None
+    Builtins: dict[str, NativeInsTypeImpl | NativeMultiInsTypeImpl] = None
+    Value: type = None
 
     def __init__(self, name: str, params: tuple, side_effects: bool):
         self.name = name
-        self.params = [str(param) for param in params]
+        self.params = [param.get() if isinstance(param, BaseInstruction.Value) else str(param) for param in params]
 
         val = BaseInstruction.Builtins[name]
 
-        if isinstance(val, BaseInstruction.NativeMultiFunctionValue):
-            val = val.functions[val.subname_function(self.params)]
+        impl = val.impl()
+        if isinstance(impl, BaseInstruction.NativeMultiInsTypeImpl):
+            val = impl.instructions[impl.subname_function(self.params)]
 
-        if isinstance(val, BaseInstruction.NativeFunctionValue):
-            self.inputs = [i for i, [param, _] in enumerate(val.params) if param == BaseInstruction.Param.INPUT]
-            self.outputs = [i for i, [param, _] in enumerate(val.params)
+        impl = val.impl()
+        if isinstance(impl, BaseInstruction.NativeInsTypeImpl):
+            self.inputs = [i for i, [param, _] in enumerate(impl.params) if param == BaseInstruction.Param.INPUT]
+            self.outputs = [i for i, [param, _] in enumerate(impl.params)
                             if param in (BaseInstruction.Param.OUTPUT, BaseInstruction.Param.OUTPUT_P)]
 
         else:
@@ -114,7 +117,7 @@ InstructionGetBlock = Instruction.create("getblock", 4, False)
 InstructionSetBlock = Instruction.create("setblock", 6, True)
 InstructionSpawn = Instruction.create("spawn", 6, True)
 
-class InstructionStatus(BaseInstruction):
+class InstructionStatus(Instruction, BaseInstruction):
     name: str
     params: list[str]
     inputs: list[int]
@@ -125,10 +128,11 @@ class InstructionStatus(BaseInstruction):
         self.name = "status"
         self.params = [str(param) for param in params[1:]]
 
-        val = BaseInstruction.Builtins["status"].functions[params[0]]
+        val = BaseInstruction.Builtins["status"].impl().instructions[params[0]]
+        impl = val.impl()
 
-        self.inputs = [i-1 for i, [param, _] in enumerate(val.params) if param == BaseInstruction.Param.INPUT]
-        self.outputs = [i-1 for i, [param, _] in enumerate(val.params)
+        self.inputs = [i-1 for i, [param, _] in enumerate(impl.params) if param == BaseInstruction.Param.INPUT]
+        self.outputs = [i-1 for i, [param, _] in enumerate(impl.params)
                         if param in (BaseInstruction.Param.OUTPUT, BaseInstruction.Param.OUTPUT_P)]
 
         self.side_effects = True

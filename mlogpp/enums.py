@@ -1,54 +1,29 @@
-from .values import Type, Value
+from .values import Type, Value, TypeImpl
 from .content import Content
 
 
-class EnumValue(Value):
-    value: str
-
-    def __init__(self, value: str, type_: Type):
-        super().__init__(type_)
-
-        self.value = value
-
-    def __eq__(self, other):
-        if isinstance(other, EnumValue):
-            return self.value == other.value and self.type() == other.type()
-
-        return False
-
-    def get(self) -> str:
-        return self.value
-
-
-class Enum(Value):
+class EnumTypeImpl(TypeImpl):
     name: str
     type: Type
-    values: dict[str, EnumValue]
+    values: dict[str, Value]
 
     def __init__(self, name: str, type_: Type, values: set[str], content: bool):
-        super().__init__(Type.OBJECT)
-
         self.name = name
         self.type = type_
 
         self.values = {}
         for value in values:
-            self.values[value] = EnumValue(("@" if content else "") + value, self.type)
+            self.values[value] = Value(self.type, ("@" if content else "") + value)
 
-    def __eq__(self, other):
-        if isinstance(other, Enum):
-            return self.name == other.name and self.type == other.type and self.values == other.values
-
-        return False
-
-    def __hash__(self):
-        return hash((self.name, self.type))
-
-    def get(self) -> str:
+    def get(self, value: Value) -> str:
         return self.name
 
-    def getattr(self, name: str) -> Value | None:
+    def getattr(self, value: Value, name: str) -> Value | None:
         return self.values.get(name)
+
+
+def make_enum(name: str, type_: Type, values: set[str], content: bool):
+    return Value(type_, name, type_impl=EnumTypeImpl(name, type_, values, content))
 
 
 SENSABLE: dict[str, Type] = {
@@ -139,33 +114,39 @@ RULES: dict[str, bool] = {
 Content.SENSABLE = SENSABLE
 Content.CONTROLLABLE = CONTROLLABLE
 
-EnumBlock = Enum("BlockType", Type.BLOCK_TYPE, Content.BLOCKS, True)
-EnumItem = Enum("ItemType", Type.ITEM_TYPE, Content.ITEMS, True)
-EnumLiquid = Enum("LiquidType", Type.LIQUID_TYPE, Content.LIQUIDS, True)
-EnumUnit = Enum("UnitType", Type.UNIT_TYPE, Content.UNITS, True)
-EnumTeam = Enum("Team", Type.TEAM, Content.TEAMS, True)
+EnumBlock = make_enum("BlockType", Type.BLOCK_TYPE, Content.BLOCKS, True)
+EnumItem = make_enum("ItemType", Type.ITEM_TYPE, Content.ITEMS, True)
+EnumLiquid = make_enum("LiquidType", Type.LIQUID_TYPE, Content.LIQUIDS, True)
+EnumUnit = make_enum("UnitType", Type.UNIT_TYPE, Content.UNITS, True)
+EnumTeam = make_enum("Team", Type.TEAM, Content.TEAMS, True)
 
-EnumEffect = Enum("Effect", Type.private("Effect"), Content.EFFECTS, False)
+EnumEffect = make_enum("Effect", Type.private("Effect"), Content.EFFECTS, False)
 
-EnumRadarFilter = Enum("RadarFilter", Type.private("RadarFilter"), {
+EnumRadarFilter = make_enum("RadarFilter", Type.private("RadarFilter"), {
     "any", "enemy", "ally", "player", "attacker", "flying", "boss", "ground"
 }, False)
-EnumRadarSort = Enum("RadarSort", Type.private("RadarSort"), {
+EnumRadarSort = make_enum("RadarSort", Type.private("RadarSort"), {
     "distance", "health", "shield", "armor", "maxHealth"
 }, False)
 
-EnumLocateType = Enum("LocateType", Type.private("LocateType"), {
+EnumLocateType = make_enum("LocateType", Type.private("LocateType"), {
     "core", "storage", "generator", "turret", "factory", "repair", "battery", "reactor"
 }, False)
 
 
-ENUMS: list[Enum] = [
+ENUMS: list[Value] = [
     EnumBlock, EnumItem, EnumLiquid, EnumUnit, EnumTeam,
     EnumEffect,
     EnumRadarFilter, EnumRadarSort,
     EnumLocateType
 ]
 
-ENUM_TYPES: dict[Type, Enum] = {
+ENUM_TYPES: dict[Type, Value] = {
     enum.type: enum for enum in ENUMS
 }
+
+ENUM_TYPES_VALUES: dict[Type, dict[str, Value]] = {}
+for enum in ENUMS:
+    impl = enum.impl()
+    if isinstance(impl, EnumTypeImpl):
+        ENUM_TYPES_VALUES[impl.type] = impl.values

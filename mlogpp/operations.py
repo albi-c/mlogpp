@@ -3,7 +3,7 @@ import math
 
 from .instruction import InstructionOp
 from .generator import Gen
-from .values import Type, Value, VariableValue, SettableValue, NumberValue
+from .values import Type, Value
 from .error import Error
 
 
@@ -140,30 +140,32 @@ class Operations:
     @classmethod
     def unary(cls, op: str, value: Value) -> Value | None | typing.Callable:
         if op in cls.UNARY:
-            if isinstance(value, NumberValue):
-                try:
-                    result = float(cls.UNARY_PRECALC[op](value.value))
-                    if result.is_integer():
-                        result = int(result)
-                    return NumberValue(result)
-                except (TypeError, ArithmeticError, KeyError):
-                    pass
-
             if value.type() not in Type.NUM:
                 return lambda node: Error.incompatible_types(node, value.type(), Type.NUM)
+
+            try:
+                val = float(value.value)
+                if val.is_integer():
+                    val = int(val)
+                result = float(cls.UNARY_PRECALC[op](val))
+                if result.is_integer():
+                    result = int(result)
+                return Value.number(result)
+            except (TypeError, ArithmeticError, KeyError, ValueError):
+                pass
 
             result = Gen.tmp()
             Gen.emit(
                 InstructionOp(*cls.UNARY[op](result, value.get()))
             )
-            return VariableValue(result, Type.NUM)
+            return Value.variable(result, Type.NUM)
 
         return None
 
     @classmethod
     def binary(cls, a: Value, op: str, b: Value) -> Value | None | typing.Callable:
         if op == "=":
-            if isinstance(a, SettableValue) and not a.const():
+            if not a.const():
                 a.set(b)
                 return b
 
@@ -177,27 +179,18 @@ class Operations:
             if b.type() not in Type.NUM:
                 return lambda node: Error.incompatible_types(node, b.type(), Type.NUM)
 
-            if isinstance(a, SettableValue) and not a.const():
+            if not a.const():
                 result = Gen.tmp()
                 Gen.emit(
                     InstructionOp(cls.ASSIGNMENT[op], result, a.get(), b.get())
                 )
-                a.set(VariableValue(result, Type.NUM))
+                a.set(Value.variable(result, Type.NUM))
                 return a
 
             else:
                 return lambda node: Error.write_to_const(node, str(a))
 
         elif op in cls.BINARY:
-            if isinstance(a, NumberValue) and isinstance(b, NumberValue):
-                try:
-                    result = float(cls.BINARY_PRECALC[op](a.value, b.value))
-                    if result.is_integer():
-                        result = int(result)
-                    return NumberValue(result)
-                except (TypeError, ArithmeticError, KeyError):
-                    pass
-
             if op not in cls.EQUALITY:
                 if a.type() not in Type.NUM:
                     return lambda node: Error.incompatible_types(node, a.type(), Type.NUM)
@@ -205,10 +198,24 @@ class Operations:
                 if b.type() not in Type.NUM:
                     return lambda node: Error.incompatible_types(node, b.type(), Type.NUM)
 
+                try:
+                    x = float(a.value)
+                    if x.is_integer():
+                        x = int(x)
+                    y = float(b.value)
+                    if y.is_integer():
+                        y = int(y)
+                    result = float(cls.BINARY_PRECALC[op](x, y))
+                    if result.is_integer():
+                        result = int(result)
+                    return Value.number(result)
+                except (TypeError, ArithmeticError, KeyError, ValueError):
+                    pass
+
             result = Gen.tmp()
             Gen.emit(
                 InstructionOp(cls.BINARY[op], result, a.get(), b.get())
             )
-            return VariableValue(result, Type.NUM)
+            return Value.variable(result, Type.NUM)
 
         return None

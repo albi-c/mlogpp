@@ -100,6 +100,27 @@ printflush(message1)
 ```
 Prints `0 10`
 
+### Structures:
+```javascript
+Block message1
+
+struct Vec2 {
+    num x
+    num y
+}
+
+let vec = Vec2(10, 20)
+
+vec.x += 5
+
+print(vec.x)
+print(" ")
+print(vec.y)
+
+printflush(message1)
+```
+Prints `15 20`
+
 ### Assembly:
 ```javascript
 {LOOP_LENGTH = 2 + 3}
@@ -156,6 +177,8 @@ Prints `1 2 3 4 5`
   `{"cell" + x}[0] = y`
 * output from builtin functions directly to new variables \
   `ulocate.building(core, true, x: num, y: num, building: Block)`
+* structures \
+  `struct Vec2 { num x, y }`
 
 ## Native functions:
 * read `result`, `cell`, `position`

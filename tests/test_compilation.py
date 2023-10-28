@@ -31,10 +31,26 @@ for (i : LOOP_UNTIL) {
     y += i * x
 }
 
+struct Vec2 {
+    num x, y
+}
+
+function vec2_add(Vec2 a, Vec2 b) -> Vec2 {
+    return Vec2(a.x + b.x, a.y + b.y)
+}
+
+let v1 = Vec2(-3.5, 6)
+let v2 = Vec2(2.5, 7)
+let v = vec2_add(v1, v2)
+
 Block message1
 print(x)
 print(" ")
 print(y)
+print(" ")
+print(v.x)
+print(" ")
+print(v.y)
 printflush(message1)
 """
 
@@ -50,6 +66,8 @@ printflush(message1)
         spl = vm["message1"].state["text"].split()
         self.assertIn(spl[0], ("1024", "1024.0"))
         self.assertIn(spl[1], ("10240", "10240.0"))
+        self.assertEqual(spl[2], "-1")
+        self.assertEqual(spl[3], "13")
 
 
 if __name__ == '__main__':
