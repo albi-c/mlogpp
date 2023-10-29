@@ -1,4 +1,5 @@
-from .instruction import *
+from .instruction import Instruction
+from .error import InternalError
 
 
 class Linker:
@@ -6,8 +7,10 @@ class Linker:
     Resolves labels.
     """
 
-    @staticmethod
-    def link(code: Instructions | Instruction) -> str:
+    EMIT_LABELS: bool = False
+
+    @classmethod
+    def link(cls, code: list[Instruction]) -> str:
         """
         Resolve labels.
 
@@ -18,16 +21,15 @@ class Linker:
             The code with resolved labels.
         """
 
-        # label at the start of the code
-        labels = {"start": 0}
+        labels = {}
 
         # find labels
         line = 0
-        for ins in code.iter():
+        for ins in code:
             # generate the instruction
-            generated = str(ins)
+            generated = str(ins).strip()
 
-            if generated.strip():
+            if generated:
                 # check if the line is a label
                 if generated.endswith(":"):
                     labels[generated[:-1]] = line
@@ -36,7 +38,7 @@ class Linker:
                     line += 1
 
         # generate instructions and skip labels
-        code = [ins for ins in (str(ins) for ins in code.iter()) if not ins.endswith(":")]
+        code = [ins for ins in (str(ins) for ins in code) if not ins.endswith(":") or cls.EMIT_LABELS]
 
         output_code = ""
         for i, generated in enumerate(code):
@@ -47,14 +49,19 @@ class Linker:
                 if jump_to is None:
                     InternalError.label_not_found(spl[1])
 
-                # wrap around to 0 if address is larger than last instruction
-                if jump_to >= line:
+                # wrap around to 0 if address is larger than end of code or smaller than zero
+                if jump_to >= line or jump_to < 0:
                     jump_to = 0
 
+                # skip if jump is at the end of code and points to the start
                 if i == len(code) - 1 and jump_to == 0:
                     continue
 
-                output_code += spl[0] + " " + str(jump_to) + " " + spl[2] + "\n"
+                if cls.EMIT_LABELS:
+                    output_code += generated + "\n"
+
+                else:
+                    output_code += spl[0] + " " + str(jump_to) + " " + spl[2] + "\n"
 
             else:
                 output_code += generated + "\n"

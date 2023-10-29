@@ -1,15 +1,15 @@
 import os.path
 
-from .scope import Scopes
 from .generator import Gen
-
 from .preprocess import Preprocessor
 from .lexer import Lexer
-from .parser_ import Parser
+from .parser import Parser
 from .optimizer import Optimizer
 from .linker import Linker
-
-from .asm.parser_ import AsmParser
+from .scope import Scope
+from .value_types import Type
+from .builtins import BUILTINS
+from .asm.parser import AsmParser
 
 
 def compile_code(code: str, filename: str) -> str:
@@ -24,15 +24,17 @@ def compile_code(code: str, filename: str) -> str:
         The compiled code.
     """
 
-    # reset the state
-    Scopes.reset()
     Gen.reset()
+    Scope.reset(BUILTINS)
+    Type.reset()
 
-    code = Preprocessor.preprocess(code)
     code = Lexer(os.path.dirname(os.path.abspath(filename))).lex(code, filename)
+    code = Preprocessor.preprocess(code)
     code = Parser().parse(code)
-    code = code.generate()
+    code.gen()
+    code = Gen.get()
     code = Optimizer.optimize(code)
+    code = Scope.get_config() + code
     code = Linker.link(code)
 
     return code
@@ -51,13 +53,15 @@ def compile_asm(code: str, filename: str) -> str:
     """
 
     # reset the state
-    Scopes.reset()
     Gen.reset()
+    Scope.reset(BUILTINS)
+    Type.reset()
 
-    code = Preprocessor.preprocess(code)
     code = Lexer(os.path.dirname(os.path.abspath(filename))).lex(code, filename)
+    code = Preprocessor.preprocess(code)
     code = AsmParser().parse(code)
-    code = code.generate()
+    code.gen()
+    code = Gen.get()
     code = Linker.link(code)
 
     return str(code)

@@ -22,10 +22,20 @@ statically typed high level mindustry logic language
 ## Examples:
 ### Hello, World:
 ```javascript
+Block message1
 print("Hello, World!")
 printflush(message1)
 ```
 Prints `Hello, World!`
+
+### Constants:
+```javascript
+const x = 5
+const let y = "constant"
+const num a, b
+a = 5
+b = 3
+```
 
 ### For loops:
 ```javascript
@@ -64,6 +74,7 @@ Prints `5`
 
 ### Memory cell access:
 ```javascript
+Block cell1
 cell1[0] = 10
 print(cell1[0])
 printflush(message1)
@@ -80,10 +91,12 @@ Makes all `@mega` units move to the processor
 ### Scopes:
 ```javascript
 num a = 0
-num b = 0
+
+# use let for type inference
+let b = 0
 
 function test(num x) {
-    num a = x
+    let a = x
     b = x
 }
 
@@ -96,6 +109,27 @@ print(b)
 printflush(message1)
 ```
 Prints `0 10`
+
+### Structures:
+```javascript
+Block message1
+
+struct Vec2 {
+    num x
+    num y
+}
+
+let vec = Vec2(10, 20)
+
+vec.x += 5
+
+print(vec.x)
+print(" ")
+print(vec.y)
+
+printflush(message1)
+```
+Prints `15 20`
 
 ### Assembly:
 ```javascript
@@ -119,6 +153,11 @@ Prints `1 2 3 4 5`
 ## Features:
 * variables \
   `num x = 1`
+* type inference \
+  `let x = 2`
+* constants \
+  `const x = 2`
+  `const num y = 3`
 * types 
   * `num`, `str`
   * `Block`, `Unit`,
@@ -149,6 +188,12 @@ Prints `1 2 3 4 5`
   `{x = 7 ^ 2}`   
   `print({y = x // 2})`
   `{"cell" + x}[0] = y`
+* output from builtin functions directly to new variables (can be constants) \
+  `ulocate.building(core, true, x: num, y: num, building: const Block)`
+* structures \
+  `struct Vec2 { num x, y }`
+* colors for effects \
+  `effect.hit(x, y, %_35adc8)`
 
 ## Native functions:
 * read `result`, `cell`, `position`

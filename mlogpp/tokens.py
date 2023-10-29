@@ -11,7 +11,6 @@ class TokenType(enum.Flag):
     NONE = enum.auto()
     ID = enum.auto()
     KEYWORD = enum.auto()
-    NATIVE = enum.auto()
     STRING = enum.auto()
     NUMBER = enum.auto()
     LPAREN = enum.auto()
@@ -37,25 +36,21 @@ class Token:
     value: str
     pos: Position
 
-    # builtin types
-    TYPES = (
-        "num", "str",
-        "Block", "Unit", "Team",
-        "BlockType", "UnitType", "ItemType", "LiquidType",
-        "Controller"
-    )
     BLOCK_STATEMENTS = (
-        "if", "while", "for",
-        "function"
+        "if", "elif", "else",
+        "while", "for",
+        "function",
+        "struct",
+        "asm"
     )
     STATEMENTS = BLOCK_STATEMENTS + (
-        "return", "break", "continue",
-        "end",
-        "else"
+        "return",
+        "break", "continue",
+        "configuration", "const"
     )
 
     # reserved keywords
-    KEYWORDS = TYPES + STATEMENTS
+    KEYWORDS = STATEMENTS
 
     def __init__(self, type_: TokenType, value: str, pos: Position):
         self.type = type_

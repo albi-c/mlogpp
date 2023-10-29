@@ -1,3 +1,5 @@
+Block bank1, display1, cell1, message1
+
 const ZCLIP = 2
 
 Block DATA = bank1

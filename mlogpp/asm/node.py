@@ -1,7 +1,9 @@
 from ..util import Position
+from ..values import *
+from ..generator import Gen
 from ..instruction import *
-from ..value import *
-from .. import constants
+from .. import enums
+from .. import instruction
 
 
 class Node:
@@ -34,7 +36,7 @@ class Node:
 
         return "NODE"
 
-    def generate(self) -> Instruction | Instructions:
+    def gen(self):
         """
         Generate the node.
 
@@ -42,7 +44,7 @@ class Node:
             The generated code.
         """
 
-        return Instructions()
+        raise NotImplementedError
 
 
 class CodeBlockNode(Node):
@@ -51,13 +53,11 @@ class CodeBlockNode(Node):
     """
 
     code: list[Node]
-    name: str | None
 
-    def __init__(self, code: list[Node], name: str | None):
+    def __init__(self, code: list[Node]):
         super().__init__(Position(0, 0, 0, "", ""))
 
         self.code = code
-        self.name = name
 
     def __str__(self):
         string = "{\n"
@@ -65,13 +65,9 @@ class CodeBlockNode(Node):
             string += str(node) + "\n"
         return string + "}"
 
-    def generate(self) -> Instruction | Instructions:
-        ins = Instructions()
-
+    def gen(self):
         for node in self.code:
-            ins += node.generate()
-
-        return ins
+            node.gen()
 
 
 class AssignmentNode(Node):
@@ -109,20 +105,23 @@ class AssignmentNode(Node):
     def __str__(self):
         return f"{self.var} {self.op} {self.value}"
 
-    def generate(self) -> Instruction | Instructions:
+    def gen(self):
         if self.op == "=":
-            if "." in self.var and (spl := self.var.split(".", 1))[1] in constants.CONTROLLABLE:
-                return MInstruction(MInstructionType.CONTROL, [
-                    spl[1],
-                    spl[0],
-                    self.value,
-                    "_", "_", "_"
-                ])
+            if "." in self.var and (spl := self.var.split(".", 1))[1] in enums.CONTROLLABLE:
+                Gen.emit(
+                    InstructionControl(spl[1], spl[0], self.value, 0, 0, 0)
+                )
 
             else:
-                return MInstruction(MInstructionType.SET, [self.var, self.value])
+                Gen.emit(
+                    InstructionSet(self.var, self.value)
+                )
 
-        return MInstruction(MInstructionType.OP, [AssignmentNode.OPERATORS[self.op], self.var, self.var, self.value])
+            return
+
+        Gen.emit(
+            InstructionOp(AssignmentNode.OPERATORS[self.op], self.var, self.var, self.value)
+        )
 
 
 class CellWriteNode(Node):
@@ -141,8 +140,10 @@ class CellWriteNode(Node):
         self.index = index
         self.value = value
 
-    def generate(self) -> Instruction | Instructions:
-        return MInstruction(MInstructionType.WRITE, [self.value, self.cell, self.index])
+    def gen(self):
+        Gen.emit(
+            InstructionWrite(self.value, self.cell, self.index)
+        )
 
 
 class CellReadNode(Node):
@@ -161,8 +162,10 @@ class CellReadNode(Node):
         self.index = index
         self.value = value
 
-    def generate(self) -> Instruction | Instructions:
-        return MInstruction(MInstructionType.READ, [self.value, self.cell, self.index])
+    def gen(self):
+        Gen.emit(
+            InstructionRead(self.value, self.cell, self.index)
+        )
 
 
 class BinaryOpNode(Node):
@@ -218,8 +221,10 @@ class BinaryOpNode(Node):
     def __str__(self):
         return f"{self.left} {self.op} {self.right}"
 
-    def generate(self) -> Instruction | Instructions:
-        return MInstruction(MInstructionType.OP, [BinaryOpNode.OPERATORS[self.op], self.result, self.left, self.right])
+    def gen(self):
+        Gen.emit(
+            InstructionOp(BinaryOpNode.OPERATORS[self.op], self.result, self.left, self.right)
+        )
 
 
 class UnaryOpNode(Node):
@@ -241,14 +246,20 @@ class UnaryOpNode(Node):
     def __str__(self):
         return f"{self.op}{str(self.value)}"
 
-    def generate(self) -> Instruction | Instructions:
+    def gen(self):
         match self.op:
             case "-":
-                return MInstruction(MInstructionType.OP, ["sub", self.result, NumberValue(0), self.value])
+                Gen.emit(
+                    InstructionOp("sub", self.result, 0, self.value)
+                )
             case "!":
-                return MInstruction(MInstructionType.OP, ["equal", self.result, self.value, NumberValue(0)])
+                Gen.emit(
+                    InstructionOp("equal", self.result, self.value, 0)
+                )
             case "~":
-                return MInstruction(MInstructionType.OP, ["not", self.result, self.value, "_"])
+                Gen.emit(
+                    InstructionOp("not", self.result, self.value, 0)
+                )
 
 
 class LabelNode(Node):
@@ -263,8 +274,10 @@ class LabelNode(Node):
 
         self.name = name
 
-    def generate(self) -> Instruction | Instructions:
-        return MppInstructionLabel(self.name)
+    def gen(self):
+        Gen.emit(
+            Label(self.name)
+        )
 
 
 class JumpNode(Node):
@@ -291,8 +304,10 @@ class JumpNode(Node):
         self.label = label
         self.condition = [JumpNode.CONDITIONS.get(condition[0], condition[0]), condition[1], condition[2]]
 
-    def generate(self) -> Instruction | Instructions:
-        return MInstruction(MInstructionType.JUMP, [self.label] + self.condition)
+    def gen(self):
+        Gen.emit(
+            InstructionJump(self.label, *self.condition)
+        )
 
 
 class CallNode(Node):
@@ -309,5 +324,11 @@ class CallNode(Node):
         self.name = name
         self.params = params
 
-    def generate(self) -> Instruction | Instructions:
-        return MInstruction(MInstructionType[self.name.upper()], self.params)
+    def __str__(self):
+        return f"{self.name}({', '.join(map(str, self.params))})"
+
+    def gen(self):
+        ins = instruction.INSTRUCTIONS[self.name]
+        Gen.emit(
+            ins(*self.params, *([0] * (ins.num_params() - len(self.params))))
+        )

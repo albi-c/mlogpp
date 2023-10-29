@@ -8,12 +8,15 @@
 # - message [message1] #
 ########################
 
-UnitType UNIT = @mono
-Block VAULT = vault1
-num DEPOSIT_FLAG = floor(@thisx + @thisy * @mapw)
+Block vault1, hail1, cell1, message1, switch1
 
-num x = 0
-num y = 0
+configuration UNIT = UnitType.mono
+configuration VAULT = vault1
+
+let DEPOSIT_FLAG = floor(@thisx + @thisy * @mapw)
+
+let x = 0
+let y = 0
 
 print("[orange]Miner v1.2\nEnable switch and click\n on an ore to mine\n")
 print("[yellow]Selected unit: ")
@@ -58,18 +61,19 @@ if (switch1.enabled) {
         }
     }
 
-    end
+    end()
 }
 
 if (cell1[0] == 0) {
-    end
+    end()
 }
 
 ubind(UNIT)
 if (@unit.flag == DEPOSIT_FLAG) {
     if (VAULT === null) {
-        ulocate.building(core, false, cx, cy, cf, core)
-        if (cf) {
+        num cx, cy
+        Block core
+        if (ulocate.building(LocateType.core, false, cx, cy, core)) {
             ucontrol.approach(cx, cy, 4)
             if (ucontrol.within(cx, cy, 6)) {
                 ucontrol.itemDrop(core, @unit.itemCapacity)

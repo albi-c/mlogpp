@@ -1,8 +1,10 @@
-num a = 0
-num b = 0
+Block message1
+
+let a = 0
+let b = 0
 
 function test(num x) {
-    num a = x
+    let a = x
     b = x
 }
 

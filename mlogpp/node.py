@@ -1,33 +1,30 @@
+from __future__ import annotations
+
+from typing import Callable
+
 from .util import Position
-from .instruction import *
-from .value import *
+from .values import *
 from .generator import Gen
-from .scope import Scope, Scopes
-from .function import Function
-from .functions import Natives, Param, PRECALC
-from .error import Error
-from . import constants
+from .instruction import *
+from .scope import Scope
+from .abi import ABI
+from .operations import Operations
+from .enums import ENUM_TYPES_VALUES
 
 
 class Node:
     """
-    Base node class.
-    """
+        Base node class.
+        """
 
     pos: Position
+
+    current: Node = None
 
     def __init__(self, pos: Position):
         self.pos = pos
 
-    def get_pos(self) -> Position:
-        """
-        Get position of the node.
-
-        Returns:
-            Position of the node.
-        """
-
-        return self.pos
+        Error.node_class = Node
 
     def __str__(self):
         """
@@ -39,363 +36,288 @@ class Node:
 
         return "NODE"
 
-    def generate(self) -> Instruction | Instructions:
+    def get_pos(self) -> Position:
         """
-        Generate the node.
+        Get position of the node.
 
         Returns:
-            The generated code.
+            Position of the node.
         """
 
-        return Instructions()
+        return self.pos
 
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        """
-        Get the node's value and code to obtain it.
+    def gen(self) -> Value:
+        Node.current = self
+        
+        return Value.null()
 
-        Returns:
-            A tuple containing the code to obtain the value and the value.
-        """
+    def check_types(self, a: Type, b: Type):
+        if a in b:
+            return
 
-        return Instructions(), NullValue()
+        Error.incompatible_types(self, a, b)
 
-    def precalc(self) -> Value | None:
-        """
-        Attempt to precalculate the node's value.
-
-        Returns:
-            The value if succeeded, else None.
-        """
-
-        return None
-
-
-class CodeBlockNode(Node):
-    """
-    Block of code.
-    """
-
-    code: list[Node]
-    name: str | None
-
-    def __init__(self, code: list[Node], name: str | None):
-        super().__init__(Position(0, 0, 0, "", ""))
-
-        self.code = code
-        self.name = name
-
-    def __str__(self):
-        string = "{\n"
-        for node in self.code:
-            string += str(node) + "\n"
-        return string + "}"
-
-    def generate(self) -> Instruction | Instructions:
-        ins = Instructions()
-
-        for node in self.code:
-            ins += node.generate()
-
-        return ins
-
-    def push_scope(self) -> None:
-        """
-        Push this node's scope to the scope stack.
-        """
-
-        Scopes.push(self.name)
+    def parse_type(self, type_: str) -> Type:
+        return Type.parse(type_, self)
 
     @staticmethod
-    def pop_scope() -> None:
-        """
-        Pop this node's scope from the scope stack.
-        """
+    def scope_push(name: str):
+        Scope.push(name)
 
-        Scopes.pop()
+    @staticmethod
+    def scope_pop():
+        Scope.pop()
+
+    @staticmethod
+    def scope_name() -> str:
+        return Scope.name()
+
+    @staticmethod
+    def scope_function() -> str | None:
+        return Scope.function()
+
+    @staticmethod
+    def scope_loop() -> str | None:
+        return Scope.loop()
+
+    def scope_get(self, name: str) -> Value:
+        return Scope.get(self, name)
+
+    def scope_set(self, name: str, value: Value):
+        Scope.set(self, name, value)
+
+    def scope_delete(self, name: str):
+        Scope.delete(self, name)
+
+    def scope_declare(self, name: str, value: Value) -> str:
+        return Scope.declare(self, name, value)
+
+    def do_operation(self, a: Value, op: str, b: Value | None = None) -> Value:
+        if b is None:
+            result = Operations.unary(op, a)
+
+            if result is None:
+                Error.invalid_operation(self, a.type(), op)
+
+            elif isinstance(result, Value):
+                return result
+
+            else:
+                result(self)
+
+        else:
+            result = Operations.binary(a, op, b)
+
+            if result is None:
+                Error.invalid_operation(self, a.type(), op, b.type())
+
+            elif isinstance(result, Value):
+                return result
+
+            else:
+                result(self)
+
+
+class BlockNode(Node):
+    code: list[Node]
+    scope: bool
+
+    def __init__(self, pos: Position, code: list[Node], scope: bool = False):
+        super().__init__(pos)
+
+        self.code = code
+        self.scope = scope
+
+    def __str__(self):
+        if len(self.code) > 0:
+            return "{\n" + "\n".join(map(str, self.code)) + "\n}"
+
+        return "{}"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        if self.scope:
+            self.scope_push(Gen.tmp())
+        
+        for node in self.code[:-1]:
+            node.gen()
+
+        if len(self.code) > 0:
+            return self.code[-1].gen()
+
+        if self.scope:
+            self.scope_pop()
+
+        return Value.null()
+
+
+class AsmBlockNode(Node):
+    node: Node
+    inputs: list[str]
+    outputs: list[str]
+
+    def __init__(self, pos: Position, node: Node, inputs: list[str], outputs: list[str]):
+        super().__init__(pos)
+
+        self.node = node
+        self.inputs = inputs
+        self.outputs = outputs
+
+    def __str__(self):
+        return f"asm ({', '.join(self.inputs)}) -> ({', '.join(self.outputs)}) {self.node}"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        Gen.emit(*[
+            InstructionSet(inp, self.scope_get(inp).get()) for inp in self.inputs
+        ])
+        self.node.gen()
+        Gen.emit(*[
+            InstructionSet(self.scope_get(out).get(), out) for out in self.outputs
+        ])
+
+        return Value.null()
 
 
 class DeclarationNode(Node):
-    """
-    Variable declaration.
-    """
-
-    var: VariableValue
+    type: str
+    name: str
     value: Node | None
+    is_block_special: bool
+    const: bool
+    const_on_write: bool
 
-    def __init__(self, pos: Position, var: VariableValue, value: Node | None):
+    def __init__(self, pos: Position, type_: str, name: str, value: Node | None,
+                 is_block_special: bool = True, *, const: bool = False, const_on_write: bool = False):
+
+        assert (not const) or (value is not None)
+
         super().__init__(pos)
 
-        self.var = var
+        self.type = type_
+        self.name = name
         self.value = value
+        self.is_block_special = is_block_special
+        self.const = const
+        self.const_on_write = const_on_write
 
     def __str__(self):
-        return f"{self.var.type.name} {self.var.name} = {str(self.value)}"
+        return f"{'const ' if self.const else ''}{'const_on_write ' if self.const_on_write else ''}{self.type} {self.name} = {self.value}"
 
-    def generate(self) -> Instruction | Instructions:
-        self.var.name = Scopes.rename(self.var.name, True)
+    def gen(self) -> Value:
+        Node.gen(self)
 
-        # check if variable already exists
-        if Scopes.get(self.var.name) is not None:
-            Error.already_defined_var(self, self.var.name)
+        if self.value is None:
+            if self.type == "let":
+                Error.custom(self.get_pos(), "Cannot infer type")
 
-        Scopes.add(self.var)
+            type_ = self.parse_type(self.type)
 
-        # assign a value to the variable
-        if self.value is not None:
-            value_code, value = self.value.get()
+            if self.type == "Block" and self.is_block_special:
+                value = Value.variable(self.name, Type.BLOCK, True)
+                self.scope_declare(self.name, value)
 
-            # check if the value has a correct type
-            if value.type not in self.var.type:
-                Error.incompatible_types(self, value.type, self.var.type)
+                return value
 
-            return value_code + MInstruction(MInstructionType.SET, [self.var, value])
+            else:
+                value = Value.null()
 
-        return Instructions()
+        else:
+            value = self.value.gen()
+
+            if self.type == "let":
+                type_ = value.type()
+
+                if type_.is_private():
+                    Error.private_type(self, type_)
+            else:
+                type_ = self.parse_type(self.type)
+
+        self.check_types(value.type(), type_)
+
+        val = Value.variable(self.name, type_, self.const, const_on_write=self.const_on_write)
+        val.value = self.scope_declare(self.name, val)
+
+        if value != Value.null():
+            val.set(value)
+
+        return val
 
 
-class AssignmentNode(Node):
-    """
-    Variable assignment.
-    """
+class MultiDeclarationNode(Node):
+    type: str
+    names: list[str]
+    const_on_write: bool
 
-    var: str
-    op: str
+    def __init__(self, pos: Position, type_: str, names: list[str], *, const_on_write: bool = False):
+        super().__init__(pos)
+
+        self.type = type_
+        self.names = names
+        self.const_on_write = const_on_write
+
+    def __str__(self):
+        return f"{self.type} {', '.join(self.names)}"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        if self.type == "let":
+            Error.custom(self.get_pos(), "Cannot infer type")
+
+        type_ = self.parse_type(self.type)
+
+        for name in self.names:
+            val = Value.variable(name, type_, const_on_write=self.const_on_write)
+            if self.type == "Block":
+                self.scope_declare(name, val)
+            else:
+                val.value = self.scope_declare(name, val)
+
+        return Value.null()
+
+
+class ConfigNode(Node):
+    type: str
+    name: str
     value: Node
 
-    # mlog++ to mindustry logic operator map
-    OPERATORS = {
-        "+=": "add",
-        "-=": "sub",
-        "%=": "mod",
-        "&=": "and",
-        "|=": "or",
-        "^=": "xor",
-        "*=": "mul",
-        "/=": "div",
-        "**=": "pow",
-        "//=": "idiv",
-        "<<": "shl",
-        ">>": "shr"
-    }
-
-    def __init__(self, pos: Position, var: str, op: str, value: Node):
+    def __init__(self, pos: Position, type_: str, name: str, value: Node):
         super().__init__(pos)
 
-        self.var = var
-        self.op = op
+        self.type = type_
+        self.name = name
         self.value = value
 
     def __str__(self):
-        return f"{self.var} {self.op} {self.value}"
+        return f"configuration {self.type} {self.name} = {self.value}"
 
-    def generate(self) -> Instruction | Instructions:
-        # rename only the first part of the variable if name contains an "."
-        if "." in self.var:
-            spl = self.var.split(".")
-            self.var = Scopes.rename(spl[0]) + "." + spl[1]
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        val = self.value.gen()
+
+        if self.type == "let":
+            type_ = val.type()
+
+            if type_.is_private():
+                Error.private_type(self, type_)
         else:
-            self.var = Scopes.rename(self.var)
+            type_ = self.parse_type(self.type)
 
-        # check if the variable exists
-        if isinstance(var := Scopes.get(self.var), VariableValue):
-            # check if the variable is a constant
-            if var.const:
-                Error.write_to_const(self, self.var)
+        if val.type() not in type_:
+            Error.incompatible_types(self, val.type(), type_)
+        Scope.configurations[self.name] = val
 
-            value_code, value = self.value.get()
+        val = Value.variable(self.name, type_)
+        Scope.scopes[2][self.name] = val
 
-            if self.op == "=":
-                # check if the variable being assigned to is of the same type as the value being used
-                if value.type not in var.type:
-                    Error.incompatible_types(self, value.type, var.type)
-
-                return value_code + MInstruction(MInstructionType.SET, [var, value])
-            else:
-                # check if the variable being assigned to is a number for arithmetic operations
-                if var.type not in Type.NUM:
-                    Error.incompatible_types(self, var.type, Type.NUM)
-                # check if the value being used is a number for arithmetic operations
-                if value.type not in Type.NUM:
-                    Error.incompatible_types(self, value.type, Type.NUM)
-
-                return value_code + MInstruction(MInstructionType.OP, [self.OPERATORS[self.op], var, var, value])
-
-        # if variable doesn't exist, check if it is a control command
-        if self.op == "=" and "." in self.var and (spl := self.var.split("."))[1] in constants.CONTROLLABLE:
-            value_code, value = self.value.get()
-
-            # check if the value used is a number
-            if value.type != Type.NUM:
-                Error.incompatible_types(self, value.type, Type.NUM)
-
-            # check if the block being controlled exists
-            if not isinstance(var := Scopes.get(spl[0]), VariableValue):
-                Error.undefined_variable(self, spl[0])
-
-            # check if the variable is a block
-            if var.type != Type.BLOCK:
-                Error.incompatible_types(self, var.type, Type.BLOCK)
-
-            return value_code + MInstruction(MInstructionType.CONTROL, [
-                spl[1],
-                var,
-                value,
-                "_", "_", "_"
-            ])
-
-        Error.undefined_variable(self, self.var)
-
-
-class IndexedAssignmentNode(AssignmentNode):
-    """
-    Memory cell indexed assignment.
-    """
-
-    index: Node
-
-    def __init__(self, pos: Position, var: str, index: Node, op: str, value: Node):
-        super().__init__(pos, var, op, value)
-
-        self.index = index
-
-    def __str__(self):
-        return f"{self.var}[{self.index}] {self.op} {self.value}"
-
-    def generate(self) -> Instruction | Instructions:
-        # check if the variable exists
-        if (var := Scopes.get(self.var)) is not None:
-            value_code, value = self.value.get()
-            index_code, index = self.index.get()
-
-            # check if the memory cell variable is a block
-            if var.type not in Type.BLOCK:
-                Error.incompatible_types(self, var.type, Type.NUM)
-            # check if the value being used is a number
-            if value.type not in Type.NUM:
-                Error.incompatible_types(self, value.type, Type.NUM)
-            # check if the index is a number
-            if index.type not in Type.NUM:
-                Error.incompatible_types(self, index.type, Type.NUM)
-
-            if self.op == "=":
-                return value_code + index_code + MInstruction(MInstructionType.WRITE, [value, var, index])
-            else:
-                # a temporary variable for the arithmetic operation
-                tmp = Gen.temp_var(Type.NUM)
-
-                return index_code + MInstruction(MInstructionType.READ, [tmp, var, index]) + value_code + \
-                       MInstruction(MInstructionType.OP, [AssignmentNode.OPERATORS[self.op], tmp, tmp, value]) + \
-                       MInstruction(MInstructionType.WRITE, [tmp, var, index])
-
-        Error.undefined_variable(self, self.var)
-
-
-class BinaryOpNode(Node):
-    """
-    binary operator node
-    """
-
-    left: Node
-    right: list[tuple[str, Node]] | None
-
-    # mlog++ to mindustry logic operator map
-    OPERATORS = {
-        "+": "add",
-        "-": "sub",
-        "*": "mul",
-        "/": "div",
-        "//": "idiv",
-        "%": "mod",
-        "**": "pow",
-        "==": "equal",
-        "!=": "notEqual",
-        "&&": "land",
-        "||": "or",
-        "<": "lessThan",
-        "<=": "lessThanEq",
-        ">": "greaterThan",
-        ">=": "greaterThanEq",
-        "===": "strictEqual",
-        "<<": "shl",
-        ">>": "shr",
-        "|": "or",
-        "&": "and",
-        "^": "xor"
-    }
-
-    # equality check operators
-    EQUALITY = {
-        "==",
-        "!=",
-        "==="
-    }
-
-    def __init__(self, pos: Position, left: Node, right: list[tuple[str, Node]] | None):
-        super().__init__(pos)
-
-        self.left = left
-        self.right = right
-
-    def __str__(self):
-        string = str(self.left)
-        for op, node in self.right:
-            string += " " + op + f" {str(node)}"
-        return string
-
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        if (val := self.precalc()) is not None:
-            return Instructions(), val
-
-        code, value = self.left.get()
-
-        # check if the value is a number for arithmetic operations
-        if value.type not in Type.NUM and len(self.right) > 0:
-            for op, _ in self.right:
-                if op not in BinaryOpNode.EQUALITY:
-                    Error.incompatible_types(self, value.type, Type.NUM)
-
-        if self.right is not None and len(self.right) > 0:
-            current_value = value
-
-            for op, node in self.right:
-                value_code, value = node.get()
-
-                # check if the right side value of the arithmetic operation has the right type
-                if value.type not in Type.NUM and op not in BinaryOpNode.EQUALITY:
-                    Error.incompatible_types(self, value.type, Type.NUM)
-
-                # temporary variable for the output of the operation
-                tmpv = Gen.temp_var(Type.NUM)
-
-                code += value_code + MInstruction(MInstructionType.OP, [BinaryOpNode.OPERATORS[op], tmpv, current_value, value])
-
-                current_value = tmpv
-
-            return code, current_value
-
-        return code, value
-
-    def precalc(self) -> Value | None:
-        if (left := self.left.precalc()) is None or left.type not in Type.NUM:
-            return None
-
-        for op, right in self.right:
-            if (op := PRECALC.get(BinaryOpNode.OPERATORS.get(op))) is None or op in BinaryOpNode.EQUALITY:
-                return None
-
-            if (right := right.precalc()) is None or right.type not in Type.NUM:
-                return None
-
-            left = NumberValue(op(left.value, right.value))
-
-        return left
+        return Value.null()
 
 
 class UnaryOpNode(Node):
-    """
-    Unary operator.
-    """
-
     op: str
     value: Node
 
@@ -406,733 +328,415 @@ class UnaryOpNode(Node):
         self.value = value
 
     def __str__(self):
-        return f"{self.op}{str(self.value)}"
+        return f"{self.op}{self.value}"
 
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        if (val := self.precalc()) is not None:
-            return Instructions(), val
-
-        code, value = self.value.get()
-
-        # check if the value is a number
-        if value.type not in Type.NUM:
-            Error.incompatible_types(self, value.type, Type.NUM)
-
-        tmpv = Gen.temp_var(Type.NUM)
-
-        match self.op:
-            case "-":
-                code += MInstruction(MInstructionType.OP, ["sub", tmpv, NumberValue(0), value])
-            case "!":
-                code += MInstruction(MInstructionType.OP, ["equal", tmpv, value, NumberValue(0)])
-            case "~":
-                code += MInstruction(MInstructionType.OP, ["not", tmpv, value, "_"])
-
-        return code, tmpv
-
-    def precalc(self) -> Value | None:
-        if (val := self.value.precalc()) is None:
-            return None
-
-        if val.type not in Type.NUM:
-            return None
-
-        match self.op:
-            case "-":
-                return NumberValue(-val.value)
-            case "!":
-                return NumberValue(int(not val.value))
-
-        return None
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        return self.do_operation(self.value.gen(), self.op)
 
 
-class CallNode(Node):
-    """
-    Function call.
-    """
+class BinaryOpNode(Node):
+    left: Node
+    op: str
+    right: Node
 
-    name: str
-    params: list[Node]
-
-    return_value: Value
-
-    def __init__(self, pos: Position, name: str, params: list[Node]):
+    def __init__(self, pos: Position, left: Node, op: str, right: Node):
         super().__init__(pos)
 
-        self.name = name
-        self.params = params
-
-        self.return_value = NullValue()
-
-    def generate(self) -> Instruction | Instructions:
-        code = Instructions()
-
-        # check if the function is defined
-        if not isinstance(fun := Scopes.get(self.name), Function):
-            Error.undefined_function(self, self.name)
-
-        # check if the parameter count is correct
-        if len(self.params) != len(fun.params):
-            Error.invalid_arg_count(self, len(self.params), len(fun.params))
-
-        # save the return value for later use
-        if fun.return_type != Type.NULL:
-            self.return_value = VariableValue(fun.return_type, f"__f_{self.name}_retv")
-
-        # generate every parameter
-        for i, param in enumerate(self.params):
-            param_code, param_value = param.get()
-
-            # check if the parameter is of the correct type
-            if param_value.type != fun.params[i][1]:
-                Error.incompatible_types(self, param_value.type, fun.params[i][1])
-
-            code += param_code
-            code += MInstruction(MInstructionType.SET, [
-                VariableValue(fun.params[i][1], Scope(self.name).rename(fun.params[i][0])),
-                param_value
-            ])
-
-        code += MInstruction(MInstructionType.OP, [
-            "add",
-            VariableValue(Type.NUM, f"__f_{self.name}_ret"),
-            VariableValue(Type.NUM, "@counter"),
-            NumberValue(1)
-        ])
-        code += MppInstructionJump(f"__f_{self.name}")
-
-        return code
-
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        if (val := self.precalc()) is not None:
-            return Instructions(), val
-
-        return self.generate(), self.return_value
-
-
-class NativeCallNode(Node):
-    """
-    Native function call.
-    """
-
-    name: str
-    params: list[Node | str]
-
-    return_value: Value
-
-    NATIVES = Natives.NATIVES
-    NATIVES_RETURN_POS = Natives.NATIVES_RETURN_POS
-    BUILTINS = Natives.BUILTINS
-
-    def __init__(self, pos: Position, name: str, params: list[Node | str]):
-        super().__init__(pos)
-
-        self.name = name
-        self.params = params
-
-        self.return_value = NullValue()
+        self.left = left
+        self.op = op
+        self.right = right
 
     def __str__(self):
-        return f"{self.name}({', '.join(map(str, self.params))})"
+        return f"{self.left} {self.op} {self.right}"
 
-    def generate(self) -> Instruction | Instructions:
-        if self.name in NativeCallNode.NATIVES:
-            return self.generate_native()
-        elif self.name in NativeCallNode.BUILTINS:
-            return self.generate_builtin()
-
-        Error.undefined_function(self, self.name)
-
-    def generate_native(self) -> Instruction | Instructions:
-        # check if the function is native
-        if (nat := NativeCallNode.NATIVES.get(self.name)) is None:
-            Error.undefined_function(self, self.name)
-
-        # check the number of parameters
-        if len(self.params) != len(nat):
-            Error.invalid_arg_count(self, len(self.params), len(nat))
-
-        code = Instructions()
-
-        params = []
-
-        # generate the parameters
-        for i, param in enumerate(self.params):
-            match nat[i][0]:
-                # a configuration string
-                case Param.CONFIG:
-                    if isinstance(param, str):
-                        params.append(param)
-
-                # an unused parameter
-                case Param.UNUSED:
-                    params.append("_")
-
-                # an input parameter
-                case Param.INPUT:
-                    param_code, param_value = param.get()
-
-                    # check if the parameter's type is correct
-                    if param_value.type not in nat[i][1]:
-                        Error.incompatible_types(self, param_value.type, nat[i][1])
-
-                    code += param_code
-                    params.append(param_value)
-
-                # an output parameter
-                case Param.OUTPUT:
-                    if i == NativeCallNode.NATIVES_RETURN_POS.get(self.name):
-                        # the returned value
-                        value = Gen.temp_var(nat[i][1])
-                        self.return_value = value
-                        params.append(value)
-
-                    else:
-                        param = Scopes.rename(param, True)
-
-                        # declare the output variable if it doesn't exist yet
-                        if (var := Scopes.get(param)) is None:
-                            var = VariableValue(nat[i][1], param)
-                            Scopes.add(var)
-
-                        # check if the output variable is already defined as a function
-                        elif isinstance(var, Function):
-                            Error.already_defined_var(self, param)
-
-                        # check if the output variable is of the correct type
-                        elif var.type != nat[i][1]:
-                            Error.incompatible_types(self, var.type, nat[i][1])
-
-                        params.append(var)
-
-        # subcall
-        if "." in self.name:
-            # sensor has its subcall at the end
-            if self.name == "sensor":
-                params.append("@" + self.name.split(".")[1])
-
-            # others have the subcall at the start
-            else:
-                params = [self.name.split(".")[1]] + params
-
-        code += MInstruction(MInstructionType[self.name.split(".")[0].upper()], params)
-
-        return code
-
-    def generate_builtin(self) -> Instruction | Instructions:
-        # check if the function is builtin
-        if (nat := NativeCallNode.BUILTINS.get(self.name)) is None:
-            Error.undefined_function(self, self.name)
-
-        # check the parameter count
-        if len(self.params) != nat:
-            Error.invalid_arg_count(self, len(self.params), nat)
-
-        code = Instructions()
-
-        params = []
-
-        # generate the parameters
-        for param in self.params:
-            param_code, param_value = param.get()
-
-            # check if the parameter is a number
-            if param_value.type != Type.NUM:
-                Error.incompatible_types(self, param_value.type, Type.NUM)
-
-            code += param_code
-            params.append(param_value)
-
-        out = Gen.temp_var(Type.NUM)
-
-        code += MInstruction(MInstructionType.OP, [
-            self.name,
-            out,
-            *params
-        ] + ["_"] * (2 - len(params)))
-
-        self.return_value = out
-
-        return code
-
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        if (val := self.precalc()) is not None:
-            return Instructions(), val
-
-        return self.generate(), self.return_value
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        return self.do_operation(self.left.gen(), self.op, self.right.gen())
 
 
-class ValueNode(Node):
-    """
-    Value.
-    """
+class AttributeNode(Node):
+    value: Node
+    attr: str
 
-    def __init__(self, pos: Position, value):
+    def __init__(self, pos: Position, value: Node, attr: str):
         super().__init__(pos)
 
         self.value = value
+        self.attr = attr
 
     def __str__(self):
-        return str(self.value)
+        return f"{self.value}.{self.attr}"
 
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        value = self.value.gen()
 
-class StringValueNode(ValueNode):
-    """
-    String value.
-    """
+        attr = value.getattr(self.attr)
 
-    value: str
+        if attr is None:
+            Error.undefined_attribute(self, self.attr, value)
 
-    def __init__(self, pos: Position, value: str):
-        super().__init__(pos, value)
-
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        if (val := self.precalc()) is not None:
-            return Instructions(), val
-
-        return Instructions(), StringValue(self.value)
-
-    def precalc(self) -> Value | None:
-        return StringValue(self.value)
-
-
-class NumberValueNode(ValueNode):
-    """
-    Number value.
-    """
-
-    value: int | float
-
-    def __init__(self, pos: Position, value: int | float):
-        super().__init__(pos, value)
-
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        if (val := self.precalc()) is not None:
-            return Instructions(), val
-
-        return Instructions(), NumberValue(self.value)
-
-    def precalc(self) -> Value | None:
-        return NumberValue(self.value)
-
-
-class ContentValueNode(ValueNode):
-    """
-    Content value.
-    """
-
-    value: str
-    type: Type
-
-    def __init__(self, pos: Position, value: str, type_: Type):
-        super().__init__(pos, value)
-
-        self.type = type_
-
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        if (val := self.precalc()) is not None:
-            return Instructions(), val
-
-        return Instructions(), VariableValue(self.type, self.value)
-
-    def precalc(self) -> Value | None:
-        return VariableValue(self.type, self.value)
-
-
-class BlockValueNode(ValueNode):
-    """
-    Linked block value.
-    """
-
-    value: str
-
-    def __init__(self, pos: Position, value: str):
-        super().__init__(pos, value)
-
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        if (val := self.precalc()) is not None:
-            return Instructions(), val
-
-        return Instructions(), BlockValue(self.value)
-
-    def precalc(self) -> Value | None:
-        return BlockValue(self.value)
-
-
-class VariableValueNode(ValueNode):
-    """
-    Variable value.
-    """
-
-    value: str
-
-    def __init__(self, pos: Position, value: str):
-        super().__init__(pos, value)
-
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        if (val := self.precalc()) is not None:
-            return Instructions(), val
-
-        # rename only the first part of the variable if it contains a "."
-        if "." in self.value:
-            spl = self.value.split(".")
-            self.value = Scopes.rename(spl[0]) + "." + spl[1]
         else:
-            self.value = Scopes.rename(self.value)
-
-        # check if it is a plain variable
-        if isinstance(var := Scopes.get(self.value), VariableValue):
-            return Instructions(), var
-
-        # check if it is a property access
-        if "." in self.value and (spl := self.value.split("."))[1] in constants.SENSOR_READABLE:
-            if isinstance(var := Scopes.get(spl[0]), VariableValue):
-                # check if the variable is of the correct type
-                if var.type not in Type.BLOCK | Type.UNIT:
-                    Error.incompatible_types(self, var.type, Type.BLOCK)
-
-                out = Gen.temp_var(constants.SENSOR_READABLE[spl[1]])
-
-                return Instructions() + MInstruction(MInstructionType.SENSOR, [out, var, "@" + spl[1]]), out
-
-        Error.undefined_variable(self, self.value)
-
-    def precalc(self) -> Value | None:
-        if (var := Scopes.DEFAULT_SCOPE.get(self.value)) is not None:
-            return var.const_val
-
-        return None
+            return attr
 
 
-class IndexedValueNode(ValueNode):
-    """
-    Memory cell indexed value.
-    """
-
-    value: str
+class IndexNode(Node):
+    cell: Node
     index: Node
 
-    def __init__(self, pos: Position, value: str, index: Node):
-        super().__init__(pos, value)
+    def __init__(self, pos: Position, cell: Node, index: Node):
+        super().__init__(pos)
 
+        self.cell = cell
         self.index = index
 
     def __str__(self):
-        return f"{self.value}[{self.index}]"
+        return f"{self.cell}[{self.index}]"
 
-    def get(self) -> tuple[Instruction | Instructions, Value]:
-        if (val := self.precalc()) is not None:
-            return Instructions(), val
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        cell = self.cell.gen()
+        index = self.index.gen()
 
-        self.value = Scopes.rename(self.value)
+        return Value(Type.OBJECT, cell.get(), False, type_impl=IndexedTypeImpl(index))
 
-        # check if the variable exists
-        if not isinstance(var := Scopes.get(self.value), VariableValue):
-            Error.undefined_variable(self, self.value)
 
-        # check if the variable is a block
-        if var.type != Type.BLOCK:
-            Error.incompatible_types(self, var.type, Type.BLOCK)
+class CallNode(Node):
+    value: Node
+    params: list[Node]
 
-        index_code, index = self.index.get()
+    END_LABEL: str = ""
 
-        # check if the index is a number
-        if index.type != Type.NUM:
-            Error.incompatible_types(self, index.type, Type.NUM)
+    def __init__(self, pos: Position, value: Node, params: list[Node]):
+        super().__init__(pos)
 
-        out = Gen.temp_var(Type.NUM)
+        self.value = value
+        self.params = params
 
-        return index_code + MInstruction(MInstructionType.READ, [out, var, index]), out
+    def __str__(self):
+        return f"{self.value}({','.join(map(str, self.params))})"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        func = self.value.gen()
+
+        if func.callable():
+            if len(self.params) != len(func.get_params()):
+                Error.invalid_arg_count(self, len(self.params), len(func.get_params()))
+
+            params = []
+            for param, type_ in zip(self.params, func.impl().get_params(func)):
+                enum = {}
+                for t in type_.list_types():
+                    e = ENUM_TYPES_VALUES.get(t)
+                    if e is not None:
+                        enum |= e
+                Scope.enum(enum)
+
+                params.append(param.gen())
+
+                Scope.enum()
+
+            if func.impl().will_inline():
+                impl = func.impl()
+                assert isinstance(impl, FunctionTypeImpl)
+
+                if func.value in Scope.functions:
+                    Error.custom(self.get_pos(), "Recursion is forbidden")
+
+                self.scope_push(func.value)
+                end_label = CallNode.END_LABEL
+                CallNode.END_LABEL = Gen.tmp()
+                for key, value in impl.scope.items():
+                    Scope.scopes[-1][key] = value
+                result = func.call(self, params)
+                Gen.emit(
+                    Label(CallNode.END_LABEL)
+                )
+                CallNode.END_LABEL = end_label
+                self.scope_pop()
+                return result
+
+            return func.call(self, params)
+
+        Error.not_callable(self, func)
 
 
 class ReturnNode(Node):
-    """
-    Return from a function.
-    """
-
-    func: str
     value: Node | None
 
-    def __init__(self, pos: Position, func: str, value: Node | None):
+    def __init__(self, pos: Position, value: Node | None):
         super().__init__(pos)
 
-        self.func = func
         self.value = value
 
-    def generate(self) -> Instruction | Instructions:
-        # check if it returns a value
-        if self.value is None:
-            return Instructions() + MInstruction(MInstructionType.SET, [
-                VariableValue(Type.NUM, "@counter"),
-                VariableValue(Type.NUM, f"__f_{self.func}_ret")
-            ])
+    def __str__(self):
+        return f"return {self.value if self.value is not None else ''}"
 
-        value_code, value = self.value.get()
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        if (func := self.scope_function()) is None:
+            Error.custom(self.get_pos(), "Return outside of a function")
 
-        # check if the function returned from exists
-        if not isinstance(fun := Scopes.get(self.func), Function):
-            Error.undefined_function(self, self.name)
+        if self.value is not None:
+            val = self.value.gen()
+            Value.variable(ABI.function_return(func), val.type()).set(val)
 
-        # check if the returned value is of the correct type
-        if value.type != fun.return_type:
-            Error.incompatible_types(self, value.type, fun.return_type)
+        else:
+            Value.variable(ABI.function_return(func), Type.NULL).set(Value.null())
 
-        return value_code + MInstruction(MInstructionType.SET, [
-            VariableValue(value.type, f"__f_{self.func}_retv"),
-            value
-        ]) + MInstruction(MInstructionType.SET, [
-            VariableValue(Type.NUM, "@counter"),
-            VariableValue(Type.NUM, f"__f_{self.func}_ret")
-        ])
+        Gen.emit(
+            InstructionJump(CallNode.END_LABEL, "always", 0, 0)
+        )
+
+        return Value.null()
 
 
 class BreakNode(Node):
-    """
-    Break a loop.
-    """
-
-    loop: str
-
-    def __init__(self, pos: Position, loop: str):
+    def __init__(self, pos: Position):
         super().__init__(pos)
 
-        self.loop = loop
+    def __str__(self):
+        return "break"
 
-    def generate(self) -> Instruction | Instructions:
-        return Instructions() + MppInstructionJump(f"{self.loop}_e")
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        if (loop := self.scope_loop()) is None:
+            Error.custom(self.get_pos(), "Break outside of a loop")
+
+        Gen.emit(
+            InstructionJump(ABI.loop_break(loop), "always", 0, 0)
+        )
+
+        return Value.null()
 
 
 class ContinueNode(Node):
-    """
-    Continue a loop.
-    """
-
-    loop: str
-
-    def __init__(self, pos: Position, loop: str):
-        super().__init__(pos)
-
-        self.loop = loop
-
-    def generate(self) -> Instruction | Instructions:
-        return Instructions() + MppInstructionJump(f"{self.loop}_c")
-
-
-class EndNode(Node):
-    """
-    End the program.
-    """
-
     def __init__(self, pos: Position):
         super().__init__(pos)
 
-    def generate(self) -> Instruction | Instructions:
-        return Instructions() + MppInstructionJump("start")
+    def __str__(self):
+        return "continue"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        if (loop := self.scope_loop()) is None:
+            Error.custom(self.get_pos(), "Continue outside of a loop")
+
+        Gen.emit(
+            InstructionJump(ABI.loop_continue(loop), "always", 0, 0)
+        )
+
+        return Value.null()
 
 
 class IfNode(Node):
-    """
-    If conditional.
-    """
+    condition: Node
+    code: Node
+    else_code: Node | None
 
-    cond: Node
-    code: CodeBlockNode
-    else_code: CodeBlockNode | None
-
-    def __init__(self, pos: Position, cond: Node, code: CodeBlockNode, else_code: CodeBlockNode | None):
+    def __init__(self, pos: Position, condition: Node, code: Node, else_code: Node | None):
         super().__init__(pos)
 
-        self.cond = cond
+        self.condition = condition
         self.code = code
         self.else_code = else_code
 
-    def generate(self) -> Instruction | Instructions:
-        self.code.push_scope()
+    def __str__(self):
+        return f"if ({self.condition}) {self.code}" + (f"else {self.else_code}" if self.else_code is not None else "")
 
-        if (cond := self.cond.precalc()) is not None and cond.type in Type.NUM:
-            if cond.value:
-                return self.code.generate()
-            elif self.else_code is not None:
-                return self.else_code.generate()
-            else:
-                return Instructions()
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        # self.scope_push(Gen.tmp())
 
-        cond_code, cond = self.cond.get()
+        condition = self.condition.gen().get()
+        lab1, lab2 = Gen.tmp(), None
 
-        code = self.code.generate()
+        self.scope_push(Gen.tmp())
 
-        self.code.pop_scope()
+        Gen.emit(
+            InstructionJump(lab1, "equal", condition, 0)
+        )
+        self.code.gen()
+        if self.else_code is not None:
+            lab2 = Gen.tmp()
+            Gen.emit(
+                InstructionJump(lab2, "always", 0, 0)
+            )
+        Gen.emit(
+            Label(lab1)
+        )
 
         if self.else_code is not None:
-            self.else_code.push_scope()
-            else_code = self.else_code.generate()
-            self.else_code.pop_scope()
+            self.else_code.gen()
+            Gen.emit(
+                Label(lab2)
+            )
 
-            else_label = Gen.temp_lab()
-            end_label = Gen.temp_lab()
+        self.scope_pop()
 
-            return cond_code + MppInstructionOJump(else_label, cond, "equal", NumberValue(0)) + \
-                   code + MppInstructionJump(end_label) + MppInstructionLabel(else_label) + \
-                   else_code + MppInstructionLabel(end_label)
-
-        end_label = Gen.temp_lab()
-
-        return cond_code + MppInstructionOJump(end_label, cond, "equal", NumberValue(0)) + code + \
-               MppInstructionLabel(end_label)
+        return Value.null()
 
 
-class LoopNode(Node):
-    """
-    Loop.
-    """
+class WhileNode(Node):
+    condition: Node
+    code: Node
 
-    def __init__(self, pos: Position):
+    def __init__(self, pos: Position, condition: Node, code: Node):
         super().__init__(pos)
 
-
-class WhileNode(LoopNode):
-    """
-    While loop.
-    """
-
-    name: str
-    cond: Node
-    code: CodeBlockNode
-
-    def __init__(self, pos: Position, name: str, cond: Node, code: CodeBlockNode):
-        super().__init__(pos)
-
-        self.name = name
-        self.cond = cond
+        self.condition = condition
         self.code = code
 
-    def generate(self) -> Instruction | Instructions:
-        self.code.push_scope()
+    def __str__(self):
+        return f"while ({self.condition}) {self.code}"
 
-        if (cond := self.cond.precalc()) is not None and cond.type in Type.NUM:
-            if cond.value:
-                return MppInstructionLabel(f"{self.name}_l") + MppInstructionLabel(f"{self.name}_c") + \
-                       self.code.generate() + MppInstructionJump(f"{self.name}_l") + \
-                       MppInstructionLabel(f"{self.name}_e")
-            else:
-                return Instructions()
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        name = ABI.loop_name(Gen.tmp())
 
-        cond_code, cond = self.cond.get()
+        break_ = ABI.loop_break(name)
+        continue_ = ABI.loop_continue(name)
 
-        code = self.code.generate()
+        self.scope_push(name)
 
-        self.code.pop_scope()
+        Gen.emit(
+            Label(continue_)
+        )
+        condition = self.condition.gen()
+        Gen.emit(
+            InstructionJump(break_, "equal", condition, 0)
+        )
+        result = self.code.gen()
+        Gen.emit(
+            InstructionJump(continue_, "always", 0, 0),
+            Label(break_)
+        )
 
-        # check if the conditions is a number
-        if cond.type != Type.NUM:
-            Error.incompatible_types(self, cond.type, Type.NUM)
+        self.scope_pop()
 
-        return MppInstructionLabel(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_c") + cond_code + \
-               MppInstructionOJump(f"{self.name}_e", cond, "equal", NumberValue(0)) + \
-               code + MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
+        return result
 
 
-class ForNode(LoopNode):
-    """
-    For loop.
-    """
-
-    name: str
+class ForNode(Node):
     init: Node
-    cond: Node
+    condition: Node
     action: Node
-    code: CodeBlockNode
+    code: Node
 
-    def __init__(self, pos: Position, name: str, init: Node, cond: Node, action: Node, code: CodeBlockNode):
+    def __init__(self, pos: Position, init: Node, condition: Node, action: Node, code: Node):
         super().__init__(pos)
 
-        self.name = name
         self.init = init
-        self.cond = cond
+        self.condition = condition
         self.action = action
         self.code = code
 
-    def generate(self) -> Instruction | Instructions:
-        self.code.push_scope()
+    def __str__(self):
+        return f"for ({self.init}; {self.condition}; {self.action}) {self.code}"
 
-        init = self.init.generate()
-        cond_code, cond = self.cond.get()
-        action = self.action.generate()
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        name = ABI.loop_name(Gen.tmp())
 
-        code = self.code.generate()
+        start = Gen.tmp()
+        break_ = ABI.loop_break(name)
+        continue_ = ABI.loop_continue(name)
 
-        self.code.pop_scope()
+        self.scope_push(name)
 
-        # check if the condition is a number
-        if cond.type != Type.NUM:
-            Error.incompatible_types(self, cond.type, Type.NUM)
+        self.init.gen()
+        Gen.emit(
+            Label(start)
+        )
+        condition = self.condition.gen()
+        Gen.emit(
+            InstructionJump(break_, "equal", condition.get(), 0)
+        )
+        result = self.code.gen()
+        Gen.emit(
+            Label(continue_)
+        )
+        self.action.gen()
+        Gen.emit(
+            InstructionJump(start, "always", 0, 0),
+            Label(break_)
+        )
 
-        return init + MppInstructionLabel(f"{self.name}_s") + cond_code + \
-               MppInstructionOJump(f"{self.name}_e", cond, "equal", NumberValue(0)) + \
-               code + MppInstructionLabel(f"{self.name}_c") + action + MppInstructionJump(f"{self.name}_s") + \
-               MppInstructionLabel(f"{self.name}_e")
+        self.scope_pop()
+
+        return result
 
 
-class RangeNode(LoopNode):
-    """
-    Range loop.
-    """
-
+class RangeNode(Node):
     name: str
-    var: str
     until: Node
-    code: CodeBlockNode
+    code: Node
 
-    def __init__(self, pos: Position, name: str, var: str, until: Node, code: CodeBlockNode):
+    def __init__(self, pos: Position, name: str, until: Node, code: Node):
         super().__init__(pos)
 
         self.name = name
-        self.var = var
         self.until = until
         self.code = code
 
-    def generate(self) -> Instruction | Instructions:
-        self.var = Scopes.rename(self.var, True)
+    def __str__(self):
+        return f"for ({self.name} : {self.until}) {self.code}"
 
-        # check if the counter variable is already defined
-        if (var := Scopes.get(self.var)) is None:
-            var = VariableValue(Type.NUM, self.var)
-            Scopes.add(var)
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        name = ABI.loop_name(Gen.tmp())
 
-        # check if the counter variable is already defined as a function
-        elif isinstance(var, Function):
-            Error.already_defined_var(self, self.var)
+        start = Gen.tmp()
+        break_ = ABI.loop_break(name)
+        continue_ = ABI.loop_continue(name)
 
-        # check if the counter variable is a number
-        elif var.type != Type.NUM:
-            Error.incompatible_types(self, var.type, Type.NUM)
+        self.scope_push(name)
 
-        until_code, until = self.until.get()
+        counter = Value.variable(self.name, Type.NUM)
+        counter.value = self.scope_declare(self.name, counter)
 
-        # check if the until condition is a number
-        if until.type != Type.NUM:
-            Error.incompatible_types(self, until.type, Type.NUM)
+        Gen.emit(
+            InstructionSet(counter, 0),
+            Label(start)
+        )
+        until = self.until.gen()
+        Gen.emit(
+            InstructionJump(break_, "greaterThanEq", counter, until)
+        )
+        result = self.code.gen()
+        Gen.emit(
+            Label(continue_),
+            InstructionOp("add", counter, counter, 1),
+            InstructionJump(start, "always", 0, 0),
+            Label(break_)
+        )
 
-        code = MInstruction(MInstructionType.SET, [var, NumberValue(0)]) + MppInstructionLabel(f"{self.name}_s") + \
-               until_code + MppInstructionOJump(f"{self.name}_e", var, "greaterThanEq", until) + \
-               self.code.generate() + MppInstructionLabel(f"{self.name}_c") + \
-               MInstruction(MInstructionType.OP, ["add", var, var, NumberValue(1)]) + \
-               MppInstructionJump(f"{self.name}_s") + MppInstructionLabel(f"{self.name}_e")
+        self.scope_pop()
 
-        return code
+        return result
 
 
 class FunctionNode(Node):
-    """
-    Function definition.
-    """
-
     name: str
-    params: list[tuple[str, Type]]
-    return_type: Type
-    code: CodeBlockNode
+    params: list[tuple[str, str, bool]]
+    return_type: str
+    code: Node
 
-    def __init__(self, pos: Position, name: str, params: list[tuple[str, Type]], return_type: Type, code: CodeBlockNode):
+    def __init__(self, pos: Position, name: str, params: list[tuple[str, str, bool]], return_type: str, code: Node):
         super().__init__(pos)
 
         self.name = name
@@ -1141,34 +745,174 @@ class FunctionNode(Node):
         self.code = code
 
     def __str__(self):
-        return f"function {self.name} ({', '.join(map(lambda t: t[1].name + ' ' + t[0], self.params))}) {self.code}"
+        return f"function {self.name}({', '.join(map(str, self.params))}) {self.code}"
 
-    def generate(self) -> Instruction | Instructions:
-        # declare the function
-        Scopes.add(Function(self.name, self.params, self.return_type))
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        name = ABI.function_name(self.name)
 
-        code = Instructions()
+        self.scope_push(name)
 
-        code += MppInstructionJump(f"__f_{self.name}_end")
-        code += MppInstructionLabel(f"__f_{self.name}")
+        params = []
+        for type_, n, const in self.params:
+            type_ = self.parse_type(type_)
+            value = Value.variable(n, type_, const)
+            value.value = self.scope_declare(n, value)
+            params.append((type_, value.value))
 
-        Scopes.push(self.name)
-        # declare all parameters
-        for name, type_ in self.params:
-            Scopes.add(VariableValue(type_, Scopes.rename(name, True)))
+        func_scope = Scope.scopes[-1]
 
-        self.code.push_scope()
+        self.scope_pop()
 
-        code += self.code.generate()
+        return_type = self.parse_type(self.return_type)
 
-        self.code.pop_scope()
+        function = Value(Type.function([param[0] for param in params], return_type), name, type_impl=FunctionTypeImpl(
+            params, return_type, self.code, func_scope))
 
-        Scopes.pop()
+        self.scope_declare(self.name, function)
 
-        code += MInstruction(MInstructionType.SET, [
-            VariableValue(Type.NUM, "@counter"),
-            VariableValue(Type.NUM, f"__f_{self.name}_ret")
-        ])
-        code += MppInstructionLabel(f"__f_{self.name}_end")
+        return function
 
-        return code
+
+class CustomNode(Node):
+    instructions: list[Instruction | Callable[[Node], Instruction]]
+
+    def __init__(self, pos: Position, instructions: list[Instruction | Callable[[Node], Instruction]]):
+        super().__init__(pos)
+
+        self.instructions = instructions
+
+    def gen(self) -> Value:
+        for ins in self.instructions:
+            if isinstance(ins, Instruction | BaseInstruction):
+                Gen.emit(ins)
+            else:
+                i = ins(self)
+                if i is not None:
+                    Gen.emit(i)
+
+        return Value.null()
+
+
+class StructNode(Node):
+    name: str
+    fields: list[tuple[str, str]]
+
+    def __init__(self, pos: Position, name: str, fields: list[tuple[str, str]]):
+        super().__init__(pos)
+
+        self.name = name
+        self.fields = fields
+
+    def __str__(self):
+        fields = "".join(f"{k} {v}\n" for k, v in self.fields)
+        return f"struct {self.name} {{{fields}}}"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        if self.name in Type.typenames:
+            Error.already_defined_type(self, self.name)
+
+        pos = self.get_pos()
+
+        type_ = Type.simple(self.name)
+        Type.register(self.name, type_)
+        types = {v: self.parse_type(k) for k, v in self.fields}
+        TypeImpl.add_impl(type_, StructTypeImpl(types))
+        struct = Value.variable(Gen.tmp(), type_)
+        constructor = FunctionNode(pos, self.name, [f + (False,) for f in self.fields], self.name, BlockNode(self.get_pos(), [
+            CustomNode(pos, [
+                lambda s: Value.variable(struct.value, type_).set(Value(type_, "null", type_impl=StructSourceTypeImpl({
+                    field: s.scope_get(field) for field in types.keys()
+                })))
+            ]),
+            ReturnNode(pos, StructValueNode(self.get_pos(), struct.value, type_)),
+            CustomNode(pos, [])
+        ]))
+        constructor.gen()
+
+        return Value.null()
+
+
+class ValueNode(Node):
+    def __init__(self, pos: Position, value):
+        super().__init__(pos)
+
+        self.value = value
+
+    def __str__(self):
+        return str(self.value)
+
+    def gen(self) -> Value:
+        raise NotImplementedError
+
+
+class VariableValueNode(ValueNode):
+    value: str
+
+    def __init__(self, pos: Position, value: str):
+        super().__init__(pos, value)
+
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        return self.scope_get(self.value)
+
+
+class NumberValueNode(ValueNode):
+    value: int | float
+
+    def __init__(self, pos: Position, value: int | float):
+        super().__init__(pos, value)
+
+        if isinstance(self.value, float) and self.value.is_integer():
+            self.value = int(self.value)
+
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        return Value.number(self.value)
+
+
+class StringValueNode(ValueNode):
+    value: str
+
+    def __init__(self, pos: Position, value: str):
+        super().__init__(pos, value)
+
+    def gen(self) -> Value:
+        Node.gen(self)
+        
+        return Value.string(self.value)
+
+
+class StructValueNode(ValueNode):
+    value: str
+    type: Type
+
+    def __init__(self, pos: Position, value: str, type_: Type):
+        super().__init__(pos, value)
+
+        self.type = type_
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        return Value(self.type, self.value)
+
+
+class ColorValueNode(ValueNode):
+    value: str
+
+
+    def __init__(self, pos: Position, value: str):
+        super().__init__(pos, value)
+
+        self.value = value
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        return Value(Type.COLOR, self.value)

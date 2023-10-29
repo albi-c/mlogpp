@@ -1,0 +1,28 @@
+configuration UnitType UNIT = UnitType.flare
+configuration ItemType ITEM = null
+
+let FLAG = floor(@thisx + @thisy * @mapw)
+
+ubind(UNIT)
+while (@unit.flag != 0) {
+    ubind(UNIT)
+}
+ucontrol.flag(FLAG)
+if (@unit.flag != FLAG) {
+    end()
+}
+
+ucontrol.move(@thisx, @thisy)
+while (!ucontrol.within(@thisx, @thisy, 2)) {}
+if (!ulocate.building(core, false, coreX: num, coreY: num, coreBlock: Block)) {
+    end()
+}
+let coreB = ucontrol.getBlock(coreX, coreY, coreType: BlockType, false)
+
+while (!@unit.dead) {
+    for (i : @links) {
+        ucontrol.move(coreX, coreY)
+        ucontrol.itemTake(coreB, ITEM, @unit.itemCapacity)
+        ucontrol.itemDrop(getlink(i), @unit.itemCapacity)
+    }
+}

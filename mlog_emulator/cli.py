@@ -4,9 +4,8 @@ import sys
 
 import pyperclip
 
+from .parser_ import Parser
 from .vm import VM
-from .parser_ import Parser, Instruction
-from .building import Building, BuildingType
 
 
 def main():

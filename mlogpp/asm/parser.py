@@ -1,13 +1,6 @@
-import ast
-import operator
-
-from ..tokens import TokenType, Token
-from ..generic_parser import GenericParser
 from .node import *
-
-
-class DeferredMathValue(Value):
-    pass
+from ..generic_parser import GenericParser
+from ..tokens import TokenType
 
 
 class AsmParser(GenericParser):
@@ -18,17 +11,19 @@ class AsmParser(GenericParser):
     def _init(self):
         # convert keyword and builtin tokens into id tokens
         for tok in self.tokens:
-            if tok.type in (TokenType.KEYWORD, TokenType.NATIVE):
+            if tok.type == TokenType.KEYWORD:
                 tok.type = TokenType.ID
+
+            # if tok.value.endswith("="):
+            #     tok.type = TokenType.SET
 
         self.const_expressions = True
 
-    def parse_CodeBlock(self, name: str | None, end_at_rbrace: bool = True) -> CodeBlockNode:
+    def parse_CodeBlock(self, end_at_rbrace: bool) -> CodeBlockNode:
         """
         Parse a block of code.
 
         Args:
-            name: Name of the code block.
             end_at_rbrace: Break at a right bracket.
 
         Returns:
@@ -45,7 +40,7 @@ class AsmParser(GenericParser):
             if s is not None:
                 code.append(s)
 
-        return CodeBlockNode(code, name)
+        return CodeBlockNode(code)
 
     def parse_Statement(self) -> Node | None:
         n = self.next_token()
@@ -66,7 +61,7 @@ class AsmParser(GenericParser):
                 else:
                     return AssignmentNode(n.pos + op.pos, n.value, op.value, self.parse_Value())
 
-            elif self.lookahead_token(TokenType.LPAREN) and n.value in MInstructionType.INSTRUCTION_NAMES:
+            elif self.lookahead_token(TokenType.LPAREN) and n.value in INSTRUCTIONS:
                 self.prev_token(1)
                 return self.parse_Call()
 
@@ -92,7 +87,7 @@ class AsmParser(GenericParser):
                     self.next_token(TokenType.RPAREN)
                     return JumpNode(n.pos, label.value, (op.value, a, b))
                 else:
-                    return JumpNode(n.pos + label.pos, label.value, ("always", NullValue(), NullValue()))
+                    return JumpNode(n.pos + label.pos, label.value, ("always", Value.null(), Value.null()))
 
         elif n.type in (TokenType.NUMBER, TokenType.STRING) and self.lookahead_line() != n.pos.line:
             return None
@@ -102,14 +97,14 @@ class AsmParser(GenericParser):
     def parse_Value(self) -> Value:
         n = self.next_token(TokenType.ID | TokenType.NUMBER | TokenType.STRING)
         if n.type == TokenType.ID:
-            return VariableValue(Type.ANY, n.value)
+            return Value.variable(n.value, Type.ANY)
         elif n.type == TokenType.NUMBER:
             try:
-                return NumberValue(int(n.value))
+                return Value.number(int(n.value))
             except ValueError:
-                return NumberValue(float(n.value))
+                return Value.number(float(n.value))
         elif n.type == TokenType.STRING:
-            return StringValue(n.value)
+            return Value.string(n.value)
 
         raise RuntimeError("Internal error")
 

@@ -1,8 +1,10 @@
+Block display1
+
 function draw_line(num x1, num y1, num x2, num y2) {
-    num dx = x2 - x1
-    num dy = y2 - y1
-    num D = 2 * dy - dx
-    num y = y1
+    let dx = x2 - x1
+    let dy = y2 - y1
+    let D = 2 * dy - dx
+    let y = y1
 
     for (num x = x1; x < x2; x += 1) {
         draw.rect(x, y, 1, 1)
@@ -16,10 +18,10 @@ function draw_line(num x1, num y1, num x2, num y2) {
 }
 
 draw.clear(0, 0, 0)
-for (num i = 10; i < 100; i += 1) {
-    num r = abs(noise(i, 0))
-    num g = abs(noise(i, 1))
-    num b = abs(noise(i, 2))
+for (let i = 10; i < 100; i += 1) {
+    let r = abs(noise(i, 0))
+    let g = abs(noise(i, 1))
+    let b = abs(noise(i, 2))
 
     draw.color(r * 255, g * 255, b * 255, 255)
     draw_line(i, 10, 100, 100)

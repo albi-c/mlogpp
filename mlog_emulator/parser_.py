@@ -241,7 +241,7 @@ class Instruction:
                 try:
                     env["variables"]["@counter"] = int(pos)
                 except ValueError:
-                    env["variables"]["@counter"] = env["labels"].get(pos, 0)
+                    env["variables"]["@counter"] = env["labels"].gen(pos, 0)
         elif self.name == "ubind":
             pass
         elif self.name == "ucontrol":

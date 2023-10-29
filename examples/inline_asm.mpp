@@ -1,0 +1,42 @@
+let x = 10
+let y = 20
+num z
+
+asm {
+    {subtract = 1}
+    {x = 5}
+}
+
+# variable captures and outputs
+asm (x, y) -> (z) {
+    z = x {"-" if subtract else "+"} y
+}
+
+function fma(num a, num b, num c) -> num {
+    num result
+    asm (a, b, c) -> (result) {
+        b *= c
+        result = a + b
+    }
+    return result
+}
+print(fma(5, 6, 7))
+print(" ")
+print(z)
+
+asm {
+    i = 0
+    loop:
+        i = i + 1
+        print(i)
+        print("\n")
+        cell1[i] = i
+        i = cell1[i]
+        print({x})
+        print({"\"" + "X" * x + "\""})
+        {"print("}{x / 2}{")"}
+        :loop (i < {x * 2})
+        {"cell" + x}[0] = y
+
+    printflush(message1)
+}

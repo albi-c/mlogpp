@@ -1,0 +1,37 @@
+Block message1
+
+struct Vec2 {
+    num x
+    num y
+}
+
+let vec = Vec2(10, 20)
+
+vec.x += 5
+
+print(vec.x)
+print(" ")
+print(vec.y)
+
+print(" | ")
+
+let vec2 = Vec2(vec.x + 10, vec.y + 15)
+print(vec2.x)
+print(" ")
+print(vec2.y)
+
+struct NStr {
+    str s
+    num n
+}
+
+function print_nstr(NStr nstr) {
+    for (i : nstr.n) {
+        print(nstr.s)
+    }
+}
+
+print(" | ")
+print_nstr(NStr("a", 10))
+
+printflush(message1)
