@@ -11,7 +11,7 @@ class Parser(GenericParser):
     Parses mlog++ code.
     """
 
-    def parse_CodeBlock(self, end_at_rbrace: bool) -> Node:
+    def parse_CodeBlock(self, end_at_rbrace: bool, create_scope: bool = False) -> Node:
         pos = None
         code = []
         end_by_rbrace = False
@@ -31,7 +31,7 @@ class Parser(GenericParser):
         if end_at_rbrace and not end_by_rbrace:
             Error.unexpected_eof(pos)
 
-        return BlockNode(pos, code)
+        return BlockNode(pos, code, scope=create_scope)
 
     def parse_AsmCodeBlock(self) -> Node:
         self.next_token(TokenType.LBRACE)
@@ -58,7 +58,7 @@ class Parser(GenericParser):
 
             return self.parse_inlineAsm()
 
-        if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.ID, None, 2):
+        elif self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.ID, None, 2):
             type_ = self.next_token()
             name = self.next_token()
 
@@ -114,7 +114,40 @@ class Parser(GenericParser):
 
                     return ConfigNode(tok.pos + value.get_pos(), type_, name.value, value)
 
+                case "const":
+                    if self.lookahead_token(TokenType.SET, "=", n=2):
+                        name = self.next_token(TokenType.ID)
+                        self.next_token()
+                        value = self.parse_Value()
+
+                        return DeclarationNode(tok.pos + value.get_pos(), "let", name.value, value, const_on_write=True)
+
+                    type_ = self.next_token(TokenType.ID).value
+                    name = self.next_token(TokenType.ID)
+
+                    if self.lookahead_token(TokenType.SET, "="):
+                        self.next_token()
+                        value = self.parse_Value()
+
+                        return DeclarationNode(tok.pos + value.get_pos(), type_, name.value, value, const_on_write=True)
+
+                    else:
+                        names = [name.value]
+                        pos = tok.pos + name.pos
+                        while self.lookahead_token(TokenType.COMMA):
+                            self.next_token()
+                            name = self.next_token(TokenType.ID)
+                            names.append(name.value)
+                            pos += name.pos
+
+                        return MultiDeclarationNode(pos, type_, names, const_on_write=True)
+
+
             raise RuntimeError("invalid keyword")
+
+        elif self.lookahead_token(TokenType.LBRACE):
+            self.next_token()
+            return self.parse_CodeBlock(True, create_scope=True)
 
         return self.parse_Value()
 
@@ -544,14 +577,21 @@ class Parser(GenericParser):
                 if last_tok == TokenType.ID:
                     Error.unexpected_token(self.next_token())
 
-                if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.COLON, n=2) \
-                        and self.lookahead_token(TokenType.ID, n=3):
-
+                if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.COLON, n=2):
                     name = self.next_token()
                     self.next_token()
+
+                    if self.lookahead_token(TokenType.KEYWORD, "const"):
+                        self.next_token()
+                        const = True
+
+                    else:
+                        const = False
+
                     type_ = self.next_token()
 
-                    params.append(DeclarationNode(type_.pos + name.pos, type_.value, name.value, None, False))
+                    params.append(DeclarationNode(type_.pos + name.pos, type_.value, name.value,
+                                                  None, False, const_on_write=const))
 
                 else:
                     params.append(self.parse_Value())
@@ -560,11 +600,12 @@ class Parser(GenericParser):
 
         return params
 
-    def parse_funcParamsVars(self) -> list[tuple[str, str]]:
+    def parse_funcParamsVars(self) -> list[tuple[str, str, bool]]:
         params = []
 
         last_tok = TokenType.LPAREN
         type_ = ""
+        const = False
         while self.has_token():
             if self.lookahead_token(TokenType.RPAREN):
                 if last_tok in TokenType.COMMA | TokenType.KEYWORD:
@@ -580,16 +621,21 @@ class Parser(GenericParser):
 
                 last_tok = TokenType.COMMA
 
-            elif self.lookahead_token(TokenType.ID):
+            elif self.lookahead_token(TokenType.ID) or self.lookahead_token(TokenType.KEYWORD, "const"):
                 if last_tok == TokenType.KEYWORD:
-                    params.append((type_, self.next_token().value))
+                    params.append((type_, self.next_token().value, const))
+
+                    const = False
 
                     last_tok = TokenType.ID
 
                 elif last_tok in TokenType.LPAREN | TokenType.COMMA:
-                    type_ = self.next_token().value
-
-                    last_tok = TokenType.KEYWORD
+                    if self.lookahead_token(TokenType.KEYWORD, "const"):
+                        self.next_token()
+                        const = True
+                    else:
+                        type_ = self.next_token().value
+                        last_tok = TokenType.KEYWORD
 
                 else:
                     Error.unexpected_token(self.next_token())

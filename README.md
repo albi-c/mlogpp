@@ -22,10 +22,20 @@ statically typed high level mindustry logic language
 ## Examples:
 ### Hello, World:
 ```javascript
+Block message1
 print("Hello, World!")
 printflush(message1)
 ```
 Prints `Hello, World!`
+
+### Constants:
+```javascript
+const x = 5
+const let y = "constant"
+const num a, b
+a = 5
+b = 3
+```
 
 ### For loops:
 ```javascript
@@ -145,6 +155,9 @@ Prints `1 2 3 4 5`
   `num x = 1`
 * type inference \
   `let x = 2`
+* constants \
+  `const x = 2`
+  `const num y = 3`
 * types 
   * `num`, `str`
   * `Block`, `Unit`,
@@ -175,8 +188,8 @@ Prints `1 2 3 4 5`
   `{x = 7 ^ 2}`   
   `print({y = x // 2})`
   `{"cell" + x}[0] = y`
-* output from builtin functions directly to new variables \
-  `ulocate.building(core, true, x: num, y: num, building: Block)`
+* output from builtin functions directly to new variables (can be constants) \
+  `ulocate.building(core, true, x: num, y: num, building: const Block)`
 * structures \
   `struct Vec2 { num x, y }`
 * colors for effects \

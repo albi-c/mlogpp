@@ -234,10 +234,8 @@ class Lexer:
                         with open(path, "r") as f:
                             imported_code = f.read()
 
-                        # preprocess the imported file
-                        imported_code = Preprocessor.preprocess(imported_code)
                         # add tokens of the imported file to the currently parsed ones
-                        tokens += self.lex(imported_code, path)
+                        tokens += Preprocessor.preprocess(self.lex(imported_code, path))
 
                     else:
                         Error.cannot_find_file(self.make_position(len(token)), path)

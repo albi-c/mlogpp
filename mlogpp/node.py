@@ -120,11 +120,13 @@ class Node:
 
 class BlockNode(Node):
     code: list[Node]
+    scope: bool
 
-    def __init__(self, pos: Position, code: list[Node]):
+    def __init__(self, pos: Position, code: list[Node], scope: bool = False):
         super().__init__(pos)
 
         self.code = code
+        self.scope = scope
 
     def __str__(self):
         if len(self.code) > 0:
@@ -134,12 +136,18 @@ class BlockNode(Node):
 
     def gen(self) -> Value:
         Node.gen(self)
+
+        if self.scope:
+            self.scope_push(Gen.tmp())
         
         for node in self.code[:-1]:
             node.gen()
 
         if len(self.code) > 0:
             return self.code[-1].gen()
+
+        if self.scope:
+            self.scope_pop()
 
         return Value.null()
 
@@ -178,17 +186,25 @@ class DeclarationNode(Node):
     name: str
     value: Node | None
     is_block_special: bool
+    const: bool
+    const_on_write: bool
 
-    def __init__(self, pos: Position, type_: str, name: str, value: Node | None, is_block_special: bool = True):
+    def __init__(self, pos: Position, type_: str, name: str, value: Node | None,
+                 is_block_special: bool = True, *, const: bool = False, const_on_write: bool = False):
+
+        assert (not const) or (value is not None)
+
         super().__init__(pos)
 
         self.type = type_
         self.name = name
         self.value = value
         self.is_block_special = is_block_special
+        self.const = const
+        self.const_on_write = const_on_write
 
     def __str__(self):
-        return f"{self.type} {self.name} = {self.value}"
+        return f"{'const ' if self.const else ''}{'const_on_write ' if self.const_on_write else ''}{self.type} {self.name} = {self.value}"
 
     def gen(self) -> Value:
         Node.gen(self)
@@ -221,7 +237,7 @@ class DeclarationNode(Node):
 
         self.check_types(value.type(), type_)
 
-        val = Value.variable(self.name, type_)
+        val = Value.variable(self.name, type_, self.const, const_on_write=self.const_on_write)
         val.value = self.scope_declare(self.name, val)
 
         if value != Value.null():
@@ -233,12 +249,14 @@ class DeclarationNode(Node):
 class MultiDeclarationNode(Node):
     type: str
     names: list[str]
+    const_on_write: bool
 
-    def __init__(self, pos: Position, type_: str, names: list[str]):
+    def __init__(self, pos: Position, type_: str, names: list[str], *, const_on_write: bool = False):
         super().__init__(pos)
 
         self.type = type_
         self.names = names
+        self.const_on_write = const_on_write
 
     def __str__(self):
         return f"{self.type} {', '.join(self.names)}"
@@ -252,7 +270,7 @@ class MultiDeclarationNode(Node):
         type_ = self.parse_type(self.type)
 
         for name in self.names:
-            val = Value.variable(name, type_)
+            val = Value.variable(name, type_, const_on_write=self.const_on_write)
             if self.type == "Block":
                 self.scope_declare(name, val)
             else:
@@ -714,11 +732,11 @@ class RangeNode(Node):
 
 class FunctionNode(Node):
     name: str
-    params: list[tuple[str, str]]
+    params: list[tuple[str, str, bool]]
     return_type: str
     code: Node
 
-    def __init__(self, pos: Position, name: str, params: list[tuple[str, str]], return_type: str, code: Node):
+    def __init__(self, pos: Position, name: str, params: list[tuple[str, str, bool]], return_type: str, code: Node):
         super().__init__(pos)
 
         self.name = name
@@ -737,9 +755,9 @@ class FunctionNode(Node):
         self.scope_push(name)
 
         params = []
-        for type_, n in self.params:
+        for type_, n, const in self.params:
             type_ = self.parse_type(type_)
-            value = Value.variable(n, type_)
+            value = Value.variable(n, type_, const)
             value.value = self.scope_declare(n, value)
             params.append((type_, value.value))
 
@@ -804,7 +822,7 @@ class StructNode(Node):
         types = {v: self.parse_type(k) for k, v in self.fields}
         TypeImpl.add_impl(type_, StructTypeImpl(types))
         struct = Value.variable(Gen.tmp(), type_)
-        constructor = FunctionNode(pos, self.name, self.fields, self.name, BlockNode(self.get_pos(), [
+        constructor = FunctionNode(pos, self.name, [f + (False,) for f in self.fields], self.name, BlockNode(self.get_pos(), [
             CustomNode(pos, [
                 lambda s: Value.variable(struct.value, type_).set(Value(type_, "null", type_impl=StructSourceTypeImpl({
                     field: s.scope_get(field) for field in types.keys()

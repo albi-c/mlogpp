@@ -13,12 +13,15 @@ class Value:
     value: str
     _const: bool
     _type_impl: TypeImpl
+    _const_on_write: bool
 
-    def __init__(self, type_: Type, value: str, const: bool = True, *, type_impl: TypeImpl = None):
+    def __init__(self, type_: Type, value: str, const: bool = True, *,
+                 type_impl: TypeImpl = None, const_on_write: bool = False):
         self._type = type_
         self.value = value
         self._const = const
         self._type_impl = TypeImpl.get_impl(self._type) if type_impl is None else type_impl
+        self._const_on_write = const_on_write
 
     def __eq__(self, other):
         if isinstance(other, Value):
@@ -37,8 +40,8 @@ class Value:
         return Value(Type.STR, val)
 
     @classmethod
-    def variable(cls, name: str, type_: Type, const: bool = False) -> Value:
-        return Value(type_, name, const)
+    def variable(cls, name: str, type_: Type, const: bool = False, *, const_on_write: bool = False) -> Value:
+        return Value(type_, name, const, const_on_write=const_on_write)
 
     def is_null(self) -> bool:
         return self.get() == "null" or self.type() in Type.NULL
@@ -68,7 +71,9 @@ class Value:
         if self.const():
             raise TypeError("Assignment to const variable")
 
-        return self._type_impl.set(self, value)
+        self._type_impl.set(self, value)
+        if self._const_on_write:
+            self._const = True
 
     def write(self, cell: Value, index: Value):
         self._type_impl.write(self, cell, index)

@@ -28,8 +28,8 @@ def compile_code(code: str, filename: str) -> str:
     Scope.reset(BUILTINS)
     Type.reset()
 
-    code = Preprocessor.preprocess(code)
     code = Lexer(os.path.dirname(os.path.abspath(filename))).lex(code, filename)
+    code = Preprocessor.preprocess(code)
     code = Parser().parse(code)
     code.gen()
     code = Gen.get()
@@ -57,8 +57,8 @@ def compile_asm(code: str, filename: str) -> str:
     Scope.reset(BUILTINS)
     Type.reset()
 
-    code = Preprocessor.preprocess(code)
     code = Lexer(os.path.dirname(os.path.abspath(filename))).lex(code, filename)
+    code = Preprocessor.preprocess(code)
     code = AsmParser().parse(code)
     code.gen()
     code = Gen.get()

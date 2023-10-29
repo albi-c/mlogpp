@@ -1,7 +1,16 @@
 Block message1
 
 const VALUE = 10
-const VALUE_2 = 12
+const num VALUE_2 = 12
+
+function sum(const num a, const num b) -> num {
+    return a + b
+}
+
+const num a, b
+a = 30
+b = 20
+print(sum(a, b))
 
 print(VALUE)
 print(VALUE_2)

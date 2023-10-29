@@ -173,7 +173,7 @@ class Operations:
                 return b
 
             else:
-                return lambda node: Error.write_to_const(node, str(a))
+                return lambda node: Error.write_to_const(node, a.get())
 
         elif op in cls.ASSIGNMENT:
             if a.type() not in Type.NUM:
