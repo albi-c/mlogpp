@@ -21,24 +21,18 @@ class Expression:
                              ast.NotEq: operator.ne, ast.LShift: operator.lshift, ast.RShift: operator.rshift}
 
     @staticmethod
-    def exec(pos: Position, expr: str) -> str | int | float | None:
+    def exec(pos: Position, expr: str) -> list[str | int | float | None]:
         if expr.strip():
             try:
                 return Expression.op_eval(ast.parse(expr, mode="exec").body)
             except ArithmeticError:
                 Error.custom(pos, f"Arithmetic error in const expression [{expr}]")
-                return 0
             except TypeError:
                 Error.custom(pos, f"Type mismatch in const expression [{expr}]")
-                return 0
             except (NameError, KeyError):
                 Error.custom(pos, f"Variable not found in const expression [{expr}]")
-                return 0
             except (RuntimeError, Exception):
                 Error.custom(pos, f"Invalid const expression [{expr}]")
-                return 0
-
-        return 0
 
     @staticmethod
     def coerce(op, a, b):
@@ -76,6 +70,13 @@ class Expression:
             return node.n
         elif isinstance(node, ast.Str):
             return node.s
+        elif isinstance(node, ast.Compare):
+            all_true = True
+            for op, cmp in zip(node.ops, node.comparators):
+                if (op_ := Expression.OPERATORS.get(type(op))) is None:
+                    raise RuntimeError("Eval error {node}")
+                all_true = all_true and Expression.coerce(op_, Expression.op_eval(node.left), Expression.op_eval(cmp))
+            return all_true
         elif isinstance(node, ast.BinOp):
             if (op := Expression.OPERATORS.get(type(node.op))) is None:
                 raise RuntimeError("Eval error {node}")
