@@ -290,6 +290,10 @@ class Lexer:
                 self.next_char()
                 tokens.append(self.make_token(TokenType.COLON, ch))
 
+            elif ch == "$":
+                self.next_char()
+                tokens.append(self.make_token(TokenType.DOLLAR, ch))
+
             # lex an arrow
             elif ch == "-" and (token := self.lex_arrow()) is not None:
                 tokens.append(self.make_token(TokenType.ARROW, token))

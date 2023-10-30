@@ -1,5 +1,7 @@
 import unittest
 
+import os
+
 from mlogpp.compile import compile_code
 
 from mlog_emulator.vm import VM
@@ -8,49 +10,7 @@ from mlog_emulator.building import Building, BuildingType
 
 
 class CompilationTestCase(unittest.TestCase):
-    CODE = """\
-const LOOP_UNTIL = 5
-
-let x = 10
-
-function func1(num x, num y) -> num {
-    x = 12
-    y = 20
-    return x + y
-}
-
-function func2(num n) {
-    x = n ** 2
-}
-
-num val = func1(3, 4)
-func2(val)
-
-num y = 0
-for (i : LOOP_UNTIL) {
-    y += i * x
-}
-
-struct Vec2 {
-    num x, y
-}
-
-function vec2_add(Vec2 a, Vec2 b) -> Vec2 {
-    return Vec2(a.x + b.x, a.y + b.y)
-}
-
-let v = vec2_add(Vec2(-3.5, 6), Vec2(2.5, 7))
-
-Block message1
-print(x)
-print(" ")
-print(y)
-print(" ")
-print(v.x)
-print(" ")
-print(v.y)
-printflush(message1)
-"""
+    CODE = open(os.path.join(os.path.dirname(os.path.dirname(__file__)), os.path.join("examples", "test.mpp"))).read()
 
     def test_compilation(self):
         code = compile_code(CompilationTestCase.CODE, "<test>")

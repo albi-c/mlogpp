@@ -31,11 +31,5 @@ function vec2_add(Vec2 a, Vec2 b) -> Vec2 {
 let v = vec2_add(Vec2(-3.5, 6), Vec2(2.5, 7))
 
 Block message1
-print(x)
-print(" ")
-print(y)
-print(" ")
-print(v.x)
-print(" ")
-print(v.y)
+${["\nprint(\" \")\n".join([f"print({v})" for v in ["x", "y", "v.x", "v.y"]])]}
 printflush(message1)

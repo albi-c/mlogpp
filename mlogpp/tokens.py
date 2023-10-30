@@ -25,6 +25,7 @@ class TokenType(enum.Flag):
     ARROW = enum.auto()
     OPERATOR = enum.auto()
     SET = enum.auto()
+    DOLLAR = enum.auto()
 
 
 class Token:

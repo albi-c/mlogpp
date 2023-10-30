@@ -21,6 +21,7 @@ class GenericParser(ABC):
     loop_count: int
 
     const_expressions: bool
+    token_preprocess_start: TokenType
 
     def parse(self, tokens: list[Token]):
         """
@@ -42,6 +43,7 @@ class GenericParser(ABC):
         self.loop_count = 0
 
         self.const_expressions = False
+        self.token_preprocess_start = TokenType.LBRACE
 
         self._init()
 
@@ -66,7 +68,7 @@ class GenericParser(ABC):
         return tokens
 
     @staticmethod
-    def _val_into_tokens(pos: Position, val) -> tuple[list[Token], int]:
+    def _val_into_tokens(pos: Position, val, nested: bool = False) -> tuple[list[Token], int]:
         if isinstance(val, str):
             if val.startswith("\"") and val.endswith("\""):
                 return [Token(TokenType.STRING, val, pos)], 0
@@ -82,8 +84,17 @@ class GenericParser(ABC):
             return [Token(TokenType.NUMBER, str(int(val)), pos)], 0
 
         elif isinstance(val, list):
+            tokens = []
+            if nested:
+                for v in val:
+                    t, r = GenericParser._val_into_tokens(pos, v, True)
+                    if r != 0:
+                        return [], r
+                    tokens += t
+                return tokens, 0
+
             if len(val) > 0:
-                return GenericParser._val_into_tokens(pos, val[-1])
+                return GenericParser._val_into_tokens(pos, val[-1], True)
 
             else:
                 return [], 1
@@ -92,44 +103,48 @@ class GenericParser(ABC):
             return [], -1
 
     def _preprocess_tokens(self):
-        if self.const_expressions:
-            for i, tok in enumerate(self.tokens):
-                if tok.type == TokenType.LBRACE:
-                    expr = []
+        if not self.const_expressions:
+            return
 
-                    end = tok
-                    j = i + 1
-                    while j < len(self.tokens):
-                        t = self.tokens[j]
-                        if t.type == TokenType.RBRACE:
-                            end = t
-                            break
-                        elif t.type in Expression.TOKENS:
-                            if t.type == TokenType.SET and t.value != "=":
-                                Error.unexpected_token(t)
+        for i, tok in enumerate(self.tokens):
+            if tok.type not in self.token_preprocess_start:
+                continue
 
-                            expr.append(t.value)
-                        else:
-                            Error.unexpected_token(tok)
-                        j += 1
+            expr = []
 
-                    tok.pos += end.pos
+            end = tok
+            j = i + (1 if self.token_preprocess_start == TokenType.LBRACE else 2)
+            while j < len(self.tokens):
+                t = self.tokens[j]
+                if t.type == TokenType.RBRACE:
+                    end = t
+                    break
+                elif t.type in Expression.TOKENS:
+                    if t.type == TokenType.SET and t.value != "=":
+                        Error.unexpected_token(t)
 
-                    for _ in range(len(expr) + 2):
-                        self.tokens.pop(i)
+                    expr.append(t.value)
+                else:
+                    Error.unexpected_token(tok)
+                j += 1
 
-                    expr = "\n".join(ln.strip() for ln in " ".join(expr).splitlines())
+            tok.pos += end.pos
 
-                    val = Expression.exec(tok.pos, expr)
+            for _ in range(len(expr) + (2 if self.token_preprocess_start == TokenType.LBRACE else 3)):
+                self.tokens.pop(i)
 
-                    tokens, err = GenericParser._val_into_tokens(tok.pos, val)
+            expr = "\n".join(ln.strip() for ln in " ".join(expr).splitlines())
 
-                    if err == -1 or err == 1:
-                        Error.custom(tok.pos, f"Invalid const expression [{expr}]")
+            val = Expression.exec(tok.pos, expr)
 
-                    self.tokens[i:i] = tokens
+            tokens, err = GenericParser._val_into_tokens(tok.pos, val)
 
-                    self._init()
+            if err == -1 or err == 1:
+                Error.custom(tok.pos, f"Invalid const expression [{expr}]")
+
+            self.tokens[i:i] = tokens
+
+            self._init()
 
     def loop_name(self) -> str:
         """
