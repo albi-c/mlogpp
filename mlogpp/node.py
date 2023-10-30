@@ -459,6 +459,9 @@ class CallNode(Node):
                 Gen.emit(
                     Label(CallNode.END_LABEL)
                 )
+                ret = Value.variable(Gen.tmp(), impl.ret)
+                ret.set(result)
+                result = ret
                 CallNode.END_LABEL = end_label
                 self.scope_pop()
                 return result

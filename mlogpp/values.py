@@ -44,7 +44,7 @@ class Value:
         return Value(type_, name, const, const_on_write=const_on_write)
 
     def is_null(self) -> bool:
-        return self.get() == "null" or self.type() in Type.NULL
+        return self.type() in Type.NULL
 
     def impl(self) -> TypeImpl:
         return self._type_impl
@@ -216,6 +216,12 @@ class StructTypeImpl(TypeImpl):
         return "null"
 
     def set(self, value: Value, source: Value):
+        if source.is_null():
+            for field in self.fields.keys():
+                value.getattr(field).set(Value.null())
+
+            return
+
         for field in self.fields.keys():
             value.getattr(field).set(source.getattr(field))
 
@@ -257,11 +263,9 @@ class FunctionTypeImpl(TypeImpl):
 
         self.code.gen()
 
-        Gen.emit(
-            InstructionSet(ABI.function_return(value.value), "null")
-        )
+        Value.variable(ABI.function_return(value.value), self.ret).set(Value.null())
 
-        return Value(self.ret, ABI.function_return(value.value), False)
+        return Value.variable(ABI.function_return(value.value), self.ret)
 
     def get_params(self, value: Value) -> list[Type]:
         return [param[0] for param in self.params]

@@ -39,9 +39,7 @@ function vec2_add(Vec2 a, Vec2 b) -> Vec2 {
     return Vec2(a.x + b.x, a.y + b.y)
 }
 
-let v1 = Vec2(-3.5, 6)
-let v2 = Vec2(2.5, 7)
-let v = vec2_add(v1, v2)
+let v = vec2_add(Vec2(-3.5, 6), Vec2(2.5, 7))
 
 Block message1
 print(x)
