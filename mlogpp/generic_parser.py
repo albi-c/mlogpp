@@ -47,7 +47,8 @@ class GenericParser(ABC):
 
         self._init()
 
-        self._preprocess_tokens()
+        while self._preprocess_tokens():
+            pass
 
         return self.parse_CodeBlock(False)
 
@@ -75,7 +76,7 @@ class GenericParser(ABC):
             elif not val.startswith("\"") and not val.endswith("\""):
                 return GenericParser._lex_const_val(pos, val), 0
             else:
-                raise RuntimeError("Not implemented")
+                return Lexer("").lex(val, pos.file, pos), 0
 
         elif isinstance(val, int | float):
             return [Token(TokenType.NUMBER, str(val), pos)], 0
@@ -99,12 +100,15 @@ class GenericParser(ABC):
             else:
                 return [], 1
 
+        elif val is None:
+            return [], 0
+
         else:
             return [], -1
 
-    def _preprocess_tokens(self):
+    def _preprocess_tokens(self) -> bool:
         if not self.const_expressions:
-            return
+            return False
 
         for i, tok in enumerate(self.tokens):
             if tok.type not in self.token_preprocess_start:
@@ -145,6 +149,10 @@ class GenericParser(ABC):
             self.tokens[i:i] = tokens
 
             self._init()
+
+            return True
+
+        return False
 
     def loop_name(self) -> str:
         """

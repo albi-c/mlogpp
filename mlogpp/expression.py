@@ -25,7 +25,7 @@ class Expression:
 
     @staticmethod
     def exec(pos: Position, expr: str) -> list[str | int | float | list | None]:
-        expr = expr.replace(" f \"", " f\"")
+        expr = expr.replace("f \"", "f\"")
         if expr.strip():
             try:
                 return Expression.op_eval(ast.parse(expr, mode="exec").body)
@@ -113,7 +113,7 @@ class Expression:
                     Expression.variables[target.id] = value
                 else:
                     raise RuntimeError(f"Eval error {node}")
-            return value
+            return None
         elif isinstance(node, ast.Name):
             if node.id in Expression.BUILTINS:
                 return Expression.BUILTINS[node.id]
