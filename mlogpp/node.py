@@ -235,12 +235,13 @@ class DeclarationNode(Node):
             else:
                 type_ = self.parse_type(self.type)
 
-        self.check_types(value.type(), type_)
+        if value.is_null():
+            self.check_types(value.type(), type_)
 
         val = Value.variable(self.name, type_, self.const, const_on_write=self.const_on_write)
         val.value = self.scope_declare(self.name, val)
 
-        if value != Value.null():
+        if not value.is_null():
             val.set(value)
 
         return val

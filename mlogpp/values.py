@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .value_types import Type
 from .generator import Gen
-from .instruction import InstructionSet, InstructionRead, InstructionWrite, InstructionControl, InstructionSensor
+from .instruction import InstructionSet, InstructionRead, InstructionWrite, InstructionControl, InstructionSensor, InstructionOp
 from .abi import ABI
 from .error import Error
 from .content import Content
@@ -67,6 +67,9 @@ class Value:
     def get(self) -> str:
         return self._type_impl.get(self)
 
+    def get_as(self, type_: Type) -> Value | None:
+        return self._type_impl.get_as(self, type_)
+
     def set(self, value: Value):
         if self.const():
             raise TypeError("Assignment to const variable")
@@ -121,6 +124,9 @@ class TypeImpl:
     def get(self, value: Value) -> str:
         return value.value
 
+    def get_as(self, value: Value, type_: Type) -> Value | None:
+        return None
+
     def set(self, value: Value, source: Value):
         Gen.emit(
             InstructionSet(value.value, source.get())
@@ -132,17 +138,19 @@ class TypeImpl:
     def type_set(self, value: Value) -> Type:
         return value.type()
 
-    def write(self, value: Value, cell: Value, index: Value):
+    def write(self, value: Value, cell: Value, index: Value) -> int:
         Gen.emit(
             InstructionWrite(value.get(), cell.value, index.get())
         )
+        return 1
 
-    def read(self, value: Value, cell: Value, index: Value):
+    def read(self, value: Value, cell: Value, index: Value) -> int:
         val = Gen.tmp()
         Gen.emit(
             InstructionRead(val, cell.value, index.get())
         )
         value.set(Value(value.type(), val, False))
+        return 1
 
     def getattr(self, value: Value, name: str) -> Value | None:
         if name in Content.CONTROLLABLE and value.type() in Type.BLOCK:
@@ -169,6 +177,9 @@ class TypeImpl:
         return False
 
 
+TypeImpl._DEFAULT_IMPL = TypeImpl()
+
+
 class IndexedTypeImpl(TypeImpl):
     index: Value
 
@@ -180,6 +191,11 @@ class IndexedTypeImpl(TypeImpl):
         val.read(value, self.index)
         return val.get()
 
+    def get_as(self, value: Value, type_: Type) -> Value | None:
+        val = Value.variable(Gen.tmp(), type_)
+        val.read(value, self.index)
+        return val
+
     def set(self, value: Value, source: Value):
         source.write(value, self.index)
 
@@ -187,10 +203,7 @@ class IndexedTypeImpl(TypeImpl):
         return Type.NUM
 
     def type_set(self, value: Value) -> Type:
-        return Type.NUM | Type.COLOR
-
-
-TypeImpl._DEFAULT_IMPL = TypeImpl()
+        return Type.ANY
 
 
 class StructSourceTypeImpl(TypeImpl):
@@ -229,13 +242,31 @@ class StructTypeImpl(TypeImpl):
         for field in self.fields.keys():
             value.getattr(field).set(source.getattr(field))
 
-    def write(self, value: Value, cell: Value, index: Value):
-        # TODO: serialization
-        raise NotImplementedError
+    def write(self, value: Value, cell: Value, index: Value) -> int:
+        i = 0
+        for name in self.fields.keys():
+            val = self.getattr(value, name)
+            offset = index
+            if i != 0:
+                offset = Value.variable(Gen.tmp(), Type.NUM)
+                Gen.emit(
+                    InstructionOp("add", offset.value, index.get(), i)
+                )
+            i += val.impl().write(val, cell, offset)
+        return i
 
-    def read(self, value: Value, cell: Value, index: Value):
-        # TODO: deserialization
-        raise NotImplementedError
+    def read(self, value: Value, cell: Value, index: Value) -> int:
+        i = 0
+        for name in self.fields.keys():
+            val = self.getattr(value, name)
+            offset = index
+            if i != 0:
+                offset = Value.variable(Gen.tmp(), Type.NUM)
+                Gen.emit(
+                    InstructionOp("add", offset.value, index.get(), i)
+                )
+            i += val.impl().read(val, cell, offset)
+        return i
 
     def getattr(self, value: Value, name: str) -> Value | None:
         if name in self.fields:

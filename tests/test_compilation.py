@@ -25,6 +25,7 @@ class CompilationTestCase(unittest.TestCase):
             vm = VM(*VMParser.parse(code))
 
             vm.env["variables"]["message1"] = Building(BuildingType.MESSAGE, "message1", {})
+            vm.env["variables"]["cell1"] = Building(BuildingType.CELL, "cell1", {"size": 64})
 
             vm.cycle()
 

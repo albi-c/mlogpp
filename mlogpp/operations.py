@@ -167,6 +167,11 @@ class Operations:
         if op == "=":
             if not a.const():
                 if b.type_get() not in a.type_set():
+                    conv = b.get_as(a.type_set())
+                    if conv is not None:
+                        a.set(conv)
+                        return conv
+
                     return lambda node: Error.incompatible_types(node, b.type(), a.type())
 
                 a.set(b)

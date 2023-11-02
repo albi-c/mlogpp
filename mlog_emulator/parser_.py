@@ -136,10 +136,10 @@ class Instruction:
             except ValueError:
                 raise ExecutionError(f"Invalid memory cell position \"{pos}\"")
             
-            if pos >= cell["params"]["size"]:
+            if pos >= cell.params["size"]:
                 raise ExecutionError(f"Memory cell access out of bounds {pos}")
 
-            env["variables"][target] = cell["state"]["memory"][pos]
+            env["variables"][target] = cell.state["memory"][pos]
         elif self.name == "write":
             value = self.resolve_value(self.params[0], env)
             cell = self.resolve_value(self.params[1], env)
@@ -158,10 +158,10 @@ class Instruction:
             except ValueError:
                 raise ExecutionError(f"Invalid memory cell position \"{pos}\"")
             
-            if pos >= cell["params"]["size"]:
+            if pos >= cell.params["size"]:
                 raise ExecutionError(f"Memory cell access out of bounds {pos}")
             
-            cell["state"]["memory"][pos] = value
+            cell.state["memory"][pos] = value
         elif self.name == "draw":
             pass
         elif self.name == "print":

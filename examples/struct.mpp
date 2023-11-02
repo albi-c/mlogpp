@@ -1,4 +1,4 @@
-Block message1
+Block message1, cell1
 
 struct Vec2 {
     num x
@@ -39,6 +39,10 @@ struct AABB {
 }
 
 let box = AABB(Vec2(1, 2), Vec2(3, 4))
+
+cell1[0] = box
+box = cell1[0]
+
 print(" | ")
 print(box.a.x)
 print(" ")
@@ -67,6 +71,10 @@ print(" | ")
 v3.print2(", ")
 
 Vec2 v2 = v3
+
+cell1[0] = v2
+v2 = cell1[0]
+
 print(" | ")
 v2.print2(", ")
 
