@@ -871,6 +871,7 @@ class StructNode(Node):
         fields = self.fields.copy()
         parents = set()
 
+        parent_methods = {}
         for name in self.parents:
             if name in parents:
                 Error.custom(self.get_pos(), f"Duplicate struct parent [{name}]")
@@ -881,6 +882,11 @@ class StructNode(Node):
             if isinstance(impl, StructTypeImpl):
                 fields = impl.fields_with_typenames + fields
 
+            for k, v in impl.methods.items():
+                if k in parent_methods:
+                    Error.already_defined_var(self, k)
+                parent_methods[k] = v
+
         seen = set()
         for _, name in fields:
             if name in seen:
@@ -889,9 +895,10 @@ class StructNode(Node):
         pos = self.get_pos()
 
         type_ = Type.simple(self.name)
+        type_.convertible_to.update(parents)
         Type.register(self.name, type_)
         types = {v: self.parse_type(k) for k, v in fields}
-        TypeImpl.add_impl(type_, StructTypeImpl(types, {}, fields))
+        TypeImpl.add_impl(type_, StructTypeImpl(types, parent_methods, fields))
         impl = TypeImpl.get_impl(type_)
         assert isinstance(impl, StructTypeImpl)
         for func in self.functions:

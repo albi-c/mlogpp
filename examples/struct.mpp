@@ -3,15 +3,29 @@ Block message1
 struct Vec2 {
     num x
     num y
+
+    function print(const self, str sep) {
+        print(self.x)
+        print(sep)
+        print(self.y)
+    }
+
+    function print2(const self, str sep) {
+        print(self.x)
+        print(sep)
+        print(self.y)
+    }
 }
 
 let vec = Vec2(10, 20)
 
 vec.x += 5
 
-print(vec.x)
-print(" ")
-print(vec.y)
+vec.print(" ")
+
+# print(vec.x)
+# print(" ")
+# print(vec.y)
 
 print(" | ")
 
@@ -37,7 +51,7 @@ print(box.b.y)
 struct Vec3 : Vec2 {
     num z
 
-    function print(const self, str sep) {
+    function print2(const self, str sep) {
         print(self.x)
         print(sep)
         print(self.y)
@@ -49,6 +63,12 @@ struct Vec3 : Vec2 {
 let v3 = Vec3(5, 6, 7)
 print(" | ")
 v3.print(", ")
+print(" | ")
+v3.print2(", ")
+
+Vec2 v2 = v3
+print(" | ")
+v2.print2(", ")
 
 struct NStr {
     str s

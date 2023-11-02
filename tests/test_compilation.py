@@ -12,7 +12,7 @@ from mlog_emulator.building import Building, BuildingType
 class CompilationTestCase(unittest.TestCase):
     DATA: list[tuple[str, str]] = [
         ("test.mpp", "1024 10240 -1 13"),
-        ("struct.mpp", "15 20 | 25 35 | 1 2 3 4 | 5, 6, 7 | " + ("a" * 10))
+        ("struct.mpp", "15 20 | 25 35 | 1 2 3 4 | 5, 6 | 5, 6, 7 | 5, 6 | " + ("a" * 10))
     ]
 
     def _test_compilation(self, name: str, output: str):

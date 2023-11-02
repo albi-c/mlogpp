@@ -11,6 +11,7 @@ class Type:
     types: set[str]
     any_: bool
     convertible_from: set[str]
+    convertible_to: set[str]
 
     typenames = {}
     any_type = None
@@ -55,7 +56,7 @@ class Type:
         if name in cls.typenames:
             return cls.typenames[name]
 
-        type_ = cls({name}, False, set())
+        type_ = cls({name}, False, set(), set())
         cls.typenames[name] = type_
         return type_
 
@@ -77,7 +78,7 @@ class Type:
     @classmethod
     def any(cls):
         if cls.any_type is None:
-            cls.any_type = cls(set(), True, set())
+            cls.any_type = cls(set(), True, set(), set())
 
         return cls.any_type
 
@@ -90,7 +91,7 @@ class Type:
 
     def list_types(self) -> typing.Iterable[Type]:
         for name in self.types:
-            yield Type({name}, False, set())
+            yield Type({name}, False, set(), set())
 
     def __class_getitem__(cls, name: str) -> Type:
         return cls.typenames[name]
@@ -125,13 +126,14 @@ class Type:
                 return self.any_
 
             return other.types & self.types == other.types or other.types == {"null"} \
-                   or other.types & self.convertible_from == other.types
+                   or other.types & self.convertible_from == other.types or self.types & other.convertible_to == self.types
 
         return False
 
     def __or__(self, other):
         if isinstance(other, Type):
-            return Type(self.types | other.types, self.any_ or other.any_, self.convertible_from & other.convertible_from)
+            return Type(self.types | other.types, self.any_ or other.any_,
+                        self.convertible_from & other.convertible_from, self.convertible_to & other.convertible_to)
 
         return NotImplemented
 
