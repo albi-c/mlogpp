@@ -20,6 +20,36 @@ print(vec2.x)
 print(" ")
 print(vec2.y)
 
+struct AABB {
+    Vec2 a, b
+}
+
+let box = AABB(Vec2(1, 2), Vec2(3, 4))
+print(" | ")
+print(box.a.x)
+print(" ")
+print(box.a.y)
+print(" ")
+print(box.b.x)
+print(" ")
+print(box.b.y)
+
+struct Vec3 : Vec2 {
+    num z
+
+    function print(const self, str sep) {
+        print(self.x)
+        print(sep)
+        print(self.y)
+        print(sep)
+        print(self.z)
+    }
+}
+
+let v3 = Vec3(5, 6, 7)
+print(" | ")
+v3.print(", ")
+
 struct NStr {
     str s
     num n

@@ -378,7 +378,7 @@ class AttributeNode(Node):
         attr = value.getattr(self.attr)
 
         if attr is None:
-            Error.undefined_attribute(self, self.attr, value)
+            Error.undefined_attribute(self, self.attr, value.value)
 
         else:
             return attr
@@ -445,7 +445,7 @@ class CallNode(Node):
 
             if func.impl().will_inline():
                 impl = func.impl()
-                assert isinstance(impl, FunctionTypeImpl)
+                assert isinstance(impl, FunctionTypeImpl | MemberFunctionTypeImpl | ClosureTypeImpl)
 
                 if func.value in Scope.functions:
                     Error.custom(self.get_pos(), "Recursion is forbidden")
@@ -778,6 +778,51 @@ class FunctionNode(Node):
         return function
 
 
+class MemberFunctionNode(Node):
+    struct: str
+    name: str
+    params: list[tuple[str, str, bool]]
+    return_type: str
+    code: Node
+
+    def __init__(self, pos: Position, struct: str, name: str, params: list[tuple[str, str, bool]], return_type: str, code: Node):
+        super().__init__(pos)
+
+        self.struct = struct
+        self.name = name
+        self.params = params
+        self.return_type = return_type
+        self.code = code
+
+    def __str__(self):
+        return f"function [member] {self.name}({', '.join(map(str, self.params))}) {self.code}"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        name = ABI.struct_method(self.struct, self.name)
+
+        self.scope_push(name)
+
+        params = []
+        for type_, n, const in self.params:
+            type_ = self.parse_type(type_)
+            value = Value.variable(n, type_, const)
+            value.value = self.scope_declare(n, value)
+            params.append((type_, value.value))
+
+        func_scope = Scope.scopes[-1]
+
+        self.scope_pop()
+
+        return_type = self.parse_type(self.return_type)
+
+        function = Value(Type.function([param[0] for param in params], return_type), name, type_impl=MemberFunctionTypeImpl(
+            params, return_type, self.code, func_scope))
+
+        return function
+
+
 class CustomNode(Node):
     instructions: list[Instruction | Callable[[Node], Instruction]]
 
@@ -801,12 +846,17 @@ class CustomNode(Node):
 class StructNode(Node):
     name: str
     fields: list[tuple[str, str]]
+    functions: list[MemberFunctionNode]
+    parents: list[str]
 
-    def __init__(self, pos: Position, name: str, fields: list[tuple[str, str]]):
+    def __init__(self, pos: Position, name: str, fields: list[tuple[str, str]],
+                 functions: list[MemberFunctionNode], parents: list[str]):
         super().__init__(pos)
 
         self.name = name
         self.fields = fields
+        self.functions = functions
+        self.parents = parents
 
     def __str__(self):
         fields = "".join(f"{k} {v}\n" for k, v in self.fields)
@@ -818,14 +868,40 @@ class StructNode(Node):
         if self.name in Type.typenames:
             Error.already_defined_type(self, self.name)
 
+        fields = self.fields.copy()
+        parents = set()
+
+        for name in self.parents:
+            if name in parents:
+                Error.custom(self.get_pos(), f"Duplicate struct parent [{name}]")
+            parents.add(name)
+
+            parent = self.parse_type(name)
+            impl = TypeImpl.get_impl(parent)
+            if isinstance(impl, StructTypeImpl):
+                fields = impl.fields_with_typenames + fields
+
+        seen = set()
+        for _, name in fields:
+            if name in seen:
+                Error.already_defined_var(self, name)
+            seen.add(name)
         pos = self.get_pos()
 
         type_ = Type.simple(self.name)
         Type.register(self.name, type_)
-        types = {v: self.parse_type(k) for k, v in self.fields}
-        TypeImpl.add_impl(type_, StructTypeImpl(types))
+        types = {v: self.parse_type(k) for k, v in fields}
+        TypeImpl.add_impl(type_, StructTypeImpl(types, {}, fields))
+        impl = TypeImpl.get_impl(type_)
+        assert isinstance(impl, StructTypeImpl)
+        for func in self.functions:
+            if func.name in seen:
+                Error.already_defined_var(self, func.name)
+            seen.add(func.name)
+
+            impl.methods[func.name] = func.gen()
         struct = Value.variable(Gen.tmp(), type_)
-        constructor = FunctionNode(pos, self.name, [f + (False,) for f in self.fields], self.name, BlockNode(self.get_pos(), [
+        constructor = FunctionNode(pos, self.name, [f + (False,) for f in fields], self.name, BlockNode(self.get_pos(), [
             CustomNode(pos, [
                 lambda s: Value.variable(struct.value, type_).set(Value(type_, "null", type_impl=StructSourceTypeImpl({
                     field: s.scope_get(field) for field in types.keys()

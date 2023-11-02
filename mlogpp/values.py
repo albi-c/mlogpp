@@ -208,9 +208,13 @@ class StructSourceTypeImpl(TypeImpl):
 
 class StructTypeImpl(TypeImpl):
     fields: dict[str, Type]
+    methods: dict[str, Value]
+    fields_with_typenames: list[tuple[str, str]]
 
-    def __init__(self, fields: dict[str, Type]):
+    def __init__(self, fields: dict[str, Type], methods: dict[str, Value], fields_with_typenames: list[tuple[str, str]]):
         self.fields = fields
+        self.methods = methods
+        self.fields_with_typenames = fields_with_typenames
 
     def get(self, value: Value) -> str:
         return "null"
@@ -237,7 +241,84 @@ class StructTypeImpl(TypeImpl):
         if name in self.fields:
             return Value(self.fields[name], ABI.struct_field(value.value, name), value.const())
 
+        elif name in self.methods:
+            method = self.methods[name]
+            return Value(method.type(), method.value, type_impl=ClosureTypeImpl(method.impl().scope, method, [(0, value)]))
+
         return None
+
+
+class ClosureTypeImpl(TypeImpl):
+    func: Value
+    insertions: list[tuple[int, Value]]
+
+    params: list[tuple[Type, str]]
+    ret: Type
+    scope: dict[str, Value]
+
+    def __init__(self, scope, func: Value, insertions: list[tuple[int, Value]]):
+        self.scope = scope
+        self.func = func
+        self.insertions = insertions
+
+        self.params = func.impl().params
+        self.ret = func.impl().ret
+        self.scope = func.impl().scope
+
+    def callable(self, value: Value) -> bool:
+        return self.func.impl().callable(value)
+
+    def call(self, value: Value, node, params: list[Value]) -> Value:
+        par = params.copy()
+        for i, v, in self.insertions:
+            if i == -1:
+                par.append(v)
+            else:
+                par.insert(i, v)
+        return self.func.impl().call(value, node, par)
+
+    def get_params(self, value: Value) -> list[Type]:
+        return self.func.impl().get_params(value)
+
+    def will_inline(self) -> bool:
+        return self.func.impl().will_inline()
+
+
+class MemberFunctionTypeImpl(TypeImpl):
+    params: list[tuple[Type, str]]
+    ret: Type
+    scope: dict[str, Value]
+
+    def __init__(self, params: list[tuple[Type, str]], ret: Type, code, scope: dict[str, Value]):
+        self.params = params
+        self.ret = ret
+        self.code = code
+        self.scope = scope
+
+    def callable(self, value: Value) -> bool:
+        return True
+
+    def call(self, value: Value, node, params: list[Value]) -> Value:
+        if len(self.params) != len(params):
+            Error.invalid_arg_count(node, len(params), len(self.params))
+
+        for i, [type_, name] in enumerate(self.params):
+            if params[i].type() not in type_:
+                Error.incompatible_types(node, params[i].type(), type_)
+
+            Value.variable(name, type_).set(params[i])
+
+        self.code.gen()
+
+        Value.variable(ABI.function_return(value.value), self.ret).set(Value.null())
+
+        return Value.variable(ABI.function_return(value.value), self.ret)
+
+    def get_params(self, value: Value) -> list[Type]:
+        return [param[0] for param in self.params[1:]]
+
+    def will_inline(self) -> bool:
+        return True
 
 
 class FunctionTypeImpl(TypeImpl):
@@ -255,6 +336,9 @@ class FunctionTypeImpl(TypeImpl):
         return True
 
     def call(self, value: Value, node, params: list[Value]) -> Value:
+        if len(self.params) != len(params):
+            Error.invalid_arg_count(node, len(params), len(self.params))
+
         for i, [type_, name] in enumerate(self.params):
             if params[i].type() not in type_:
                 Error.incompatible_types(node, params[i].type(), type_)

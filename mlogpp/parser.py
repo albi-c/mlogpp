@@ -302,35 +302,72 @@ class Parser(GenericParser):
                 return ForNode(tok.pos + end.pos, init, condition, action, code)
 
             case "function":
-                name = self.next_token(TokenType.ID)
-                self.next_token(TokenType.LPAREN)
-                params = self.parse_funcParamsVars()
-                self.next_token(TokenType.RPAREN)
-
-                type_ = "null"
-                if self.lookahead_token(TokenType.ARROW):
-                    self.next_token()
-                    type_ = self.next_token(TokenType.ID).value
-
-                self.next_token(TokenType.LBRACE)
-                code = self.parse_CodeBlock(True)
-                end = self.next_token(TokenType.RBRACE)
-
-                return FunctionNode(tok.pos + end.pos, name.value, params, type_, code)
+                self.prev_token()
+                return self.parse_Function()
 
             case "struct":
                 name = self.next_token(TokenType.ID)
+
+                parents = []
+                if self.lookahead_token(TokenType.COLON):
+                    self.next_token()
+                    parents.append(self.next_token(TokenType.ID).value)
+                    while self.lookahead_token(TokenType.COMMA):
+                        self.next_token()
+                        parents.append(self.next_token(TokenType.ID).value)
+
                 self.next_token(TokenType.LBRACE)
-                fields = self.parse_structFields()
+                fields, functions = self.parse_structFields(name.value)
                 end = self.next_token(TokenType.RBRACE)
 
-                return StructNode(tok.pos + end.pos, name.value, fields)
+                return StructNode(tok.pos + end.pos, name.value, fields, functions, parents)
 
         raise RuntimeError("invalid keyword")
 
-    def parse_structFields(self) -> list[tuple[str, str]]:
+    def parse_Function(self) -> FunctionNode:
+        tok = self.next_token()
+        name = self.next_token(TokenType.ID)
+        self.next_token(TokenType.LPAREN)
+        params = self.parse_funcParamsVars()
+        self.next_token(TokenType.RPAREN)
+
+        type_ = "null"
+        if self.lookahead_token(TokenType.ARROW):
+            self.next_token()
+            type_ = self.next_token(TokenType.ID).value
+
+        self.next_token(TokenType.LBRACE)
+        code = self.parse_CodeBlock(True)
+        end = self.next_token(TokenType.RBRACE)
+
+        return FunctionNode(tok.pos + end.pos, name.value, params, type_, code)
+
+    def parse_MemberFunction(self, typename: str) -> MemberFunctionNode:
+        tok = self.next_token()
+        name = self.next_token(TokenType.ID)
+        self.next_token(TokenType.LPAREN)
+        params = self.parse_memberFuncParamsVars(typename)
+        self.next_token(TokenType.RPAREN)
+
+        type_ = "null"
+        if self.lookahead_token(TokenType.ARROW):
+            self.next_token()
+            type_ = self.next_token(TokenType.ID).value
+
+        self.next_token(TokenType.LBRACE)
+        code = self.parse_CodeBlock(True)
+        end = self.next_token(TokenType.RBRACE)
+
+        return MemberFunctionNode(tok.pos + end.pos, typename, name.value, params, type_, code)
+
+    def parse_structFields(self, typename: str) -> tuple[list[tuple[str, str]], list[MemberFunctionNode]]:
         fields = []
+        functions = []
         while not self.lookahead_token(TokenType.RBRACE):
+            if self.lookahead_token(TokenType.KEYWORD, "function"):
+                functions.append(self.parse_MemberFunction(typename))
+                continue
+
             type_ = self.next_token(TokenType.ID).value
 
             fields.append((type_, self.next_token(TokenType.ID).value))
@@ -339,7 +376,7 @@ class Parser(GenericParser):
                 self.next_token(TokenType.COMMA)
                 fields.append((type_, self.next_token(TokenType.ID).value))
 
-        return fields
+        return fields, functions
 
     def parse_binaryOp(self, operators: tuple[str, ...], lower_func: Callable[[], Node],
                        token_type: TokenType = TokenType.OPERATOR, invert: bool = False) -> Node:
@@ -608,6 +645,58 @@ class Parser(GenericParser):
         params = []
 
         last_tok = TokenType.LPAREN
+        type_ = ""
+        const = False
+        while self.has_token():
+            if self.lookahead_token(TokenType.RPAREN):
+                if last_tok in TokenType.COMMA | TokenType.KEYWORD:
+                    Error.unexpected_token(self.next_token())
+
+                break
+
+            elif self.lookahead_token(TokenType.COMMA):
+                if last_tok != TokenType.ID:
+                    Error.unexpected_token(self.next_token())
+
+                self.next_token()
+
+                last_tok = TokenType.COMMA
+
+            elif self.lookahead_token(TokenType.ID) or self.lookahead_token(TokenType.KEYWORD, "const"):
+                if last_tok == TokenType.KEYWORD:
+                    params.append((type_, self.next_token().value, const))
+
+                    const = False
+
+                    last_tok = TokenType.ID
+
+                elif last_tok in TokenType.LPAREN | TokenType.COMMA:
+                    if self.lookahead_token(TokenType.KEYWORD, "const"):
+                        self.next_token()
+                        const = True
+                    else:
+                        type_ = self.next_token().value
+                        last_tok = TokenType.KEYWORD
+
+                else:
+                    Error.unexpected_token(self.next_token())
+
+            else:
+                Error.unexpected_token(self.next_token())
+
+        return params
+
+    def parse_memberFuncParamsVars(self, typename: str) -> list[tuple[str, str, bool]]:
+        params = []
+
+        self_const = False
+        if self.lookahead_token(TokenType.KEYWORD, "const"):
+            self.next_token()
+            self_const = True
+
+        params.append((typename, self.next_token(TokenType.ID).value, self_const))
+
+        last_tok = TokenType.ID
         type_ = ""
         const = False
         while self.has_token():

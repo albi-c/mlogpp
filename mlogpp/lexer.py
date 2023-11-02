@@ -176,20 +176,12 @@ class Lexer:
             A list of tokens from the code.
         """
 
-        # save variables, used for import recursion
-        old_current_code = self.current_code
         self.current_code = code
-        old_current_code_lines = self.current_code_lines
         self.current_code_lines = code.splitlines()
-        old_current_input_file = self.current_input_file
         self.current_input_file = input_file
-        old_i = self.i
         self.i = -1
-        old_i_line = self.i_line
         self.i_line = 0
-        old_line = self.line
         self.line = 0
-        old_char = self.char
         self.char = 0
 
         if start_pos is not None:
@@ -235,7 +227,7 @@ class Lexer:
                             imported_code = f.read()
 
                         # add tokens of the imported file to the currently parsed ones
-                        tokens += Preprocessor.preprocess(self.lex(imported_code, path))
+                        tokens += Preprocessor.preprocess(Lexer(self.include_search_dir).lex(imported_code, path))
 
                     else:
                         Error.cannot_find_file(self.make_position(len(token)), path)
@@ -308,15 +300,6 @@ class Lexer:
 
             else:
                 Error.unexpected_character(self.make_position(1), ch)
-
-        # restore variables
-        self.current_code = old_current_code
-        self.current_code_lines = old_current_code_lines
-        self.current_input_file = old_current_input_file
-        self.i = old_i
-        self.i_line = old_i_line
-        self.line = old_line
-        self.char = old_char
 
         return tokens
 

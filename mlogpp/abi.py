@@ -34,3 +34,7 @@ class ABI:
     @staticmethod
     def struct_field(struct: str, name: str) -> str:
         return f"{struct}::{name}"
+
+    @staticmethod
+    def struct_method(struct: str, name: str) -> str:
+        return ABI.function_name(ABI.struct_field(struct, name))
