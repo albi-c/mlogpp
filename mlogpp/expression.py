@@ -9,6 +9,8 @@ from .error import Error
 class Expression:
     variables: dict[str] = {}
 
+    return_stack: list = []
+
     TOKENS: TokenType = TokenType.ID | TokenType.STRING | TokenType.SET | TokenType.OPERATOR | TokenType.NUMBER | \
                         TokenType.LPAREN | TokenType.RPAREN | TokenType.SEMICOLON | TokenType.KEYWORD | \
                         TokenType.LBRACK | TokenType.RBRACK | TokenType.COMMA | TokenType.COLON
@@ -21,23 +23,22 @@ class Expression:
                              ast.Gt: operator.gt, ast.GtE: operator.ge, ast.Lt: operator.lt, ast.LtE: operator.le,
                              ast.NotEq: operator.ne, ast.LShift: operator.lshift, ast.RShift: operator.rshift}
 
-    BUILTINS: dict[str] = {"range": range, "map": map, "str": str, "list": list}
+    BUILTINS: dict[str] = {"range": range, "map": map, "str": str, "list": list, "int": int, "float": float,
+                           "print": lambda *x: print("EXPRESSION:", *x)}
 
     @staticmethod
     def exec(pos: Position, expr: str) -> list[str | int | float | list | None]:
-        expr = expr.replace("f \"", "f\"")
+        expr = expr.replace("\" \"", "\"\"").replace("f \"", "f\"")
         if expr.strip():
             try:
                 return Expression.op_eval(ast.parse(expr, mode="exec").body)
             except ArithmeticError:
                 Error.custom(pos, f"Arithmetic error in const expression [{expr}]")
-            except TypeError:
-                Error.custom(pos, f"Type mismatch in const expression [{expr}]")
             except IndexError:
                 Error.custom(pos, f"Index error in const expression [{expr}]")
             except (NameError, KeyError):
                 Error.custom(pos, f"Variable not found in const expression [{expr}]")
-            except (RuntimeError, AssertionError, Exception):
+            except (RuntimeError, AssertionError, TypeError, Exception):
                 Error.custom(pos, f"Invalid const expression [{expr}]")
 
     @staticmethod
@@ -163,6 +164,29 @@ class Expression:
             if isinstance(val, str):
                 if node.attr == "join":
                     return val.join
+                elif node.attr == "replace":
+                    return val.replace
             raise RuntimeError(f"Eval error {node}")
+        elif isinstance(node, ast.FunctionDef):
+            assert len(node.args.posonlyargs) == 0
+            assert len(node.args.kwonlyargs) == 0
+            assert len(node.args.kw_defaults) == 0
+            assert len(node.args.defaults) == 0
+
+            def func(*args):
+                if len(args) != len(node.args.args):
+                    raise TypeError("Invalid argument count")
+
+                Expression.return_stack.append(None)
+
+                Expression.op_eval(node.body, overrides | {
+                    arg.arg: args[i] for i, arg in enumerate(node.args.args)
+                })
+
+                return Expression.return_stack.pop(-1)
+
+            Expression.variables[node.name] = func
+        elif isinstance(node, ast.Return):
+            Expression.return_stack[-1] = Expression.op_eval(node.value, overrides)
         else:
             raise RuntimeError(f"Eval error {node}")
