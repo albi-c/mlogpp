@@ -279,14 +279,18 @@ class Parser(GenericParser):
                 if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.COLON, None, 2):
                     name = self.next_token()
                     self.next_token()
-                    until = self.parse_Value()
+                    a = self.parse_Value()
+                    b = None
+                    if self.lookahead_token(TokenType.OPERATOR, ".."):
+                        self.next_token()
+                        b = self.parse_Value()
                     self.next_token(TokenType.RPAREN)
 
                     self.next_token(TokenType.LBRACE)
                     code = self.parse_CodeBlock(True)
                     end = self.next_token(TokenType.RBRACE)
 
-                    return RangeNode(tok.pos + end.pos, name.value, until, code)
+                    return RangeNode(tok.pos + end.pos, name.value, a, b, code)
 
                 init = self.parse_Statement()
                 self.next_token(TokenType.SEMICOLON)

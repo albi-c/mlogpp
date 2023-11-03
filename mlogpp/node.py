@@ -686,14 +686,16 @@ class ForNode(Node):
 
 class RangeNode(Node):
     name: str
-    until: Node
+    a: Node
+    b: Node | None
     code: Node
 
-    def __init__(self, pos: Position, name: str, until: Node, code: Node):
+    def __init__(self, pos: Position, name: str, a: Node, b: Node | None, code: Node):
         super().__init__(pos)
 
         self.name = name
-        self.until = until
+        self.a = a
+        self.b = b
         self.code = code
 
     def __str__(self):
@@ -714,10 +716,10 @@ class RangeNode(Node):
         counter.value = self.scope_declare(self.name, counter)
 
         Gen.emit(
-            InstructionSet(counter, 0),
+            InstructionSet(counter, 0 if self.b is None else self.a.gen().get()),
             Label(start)
         )
-        until = self.until.gen()
+        until = self.a.gen() if self.b is None else self.b.gen()
         Gen.emit(
             InstructionJump(break_, "greaterThanEq", counter, until)
         )

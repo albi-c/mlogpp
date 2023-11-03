@@ -46,20 +46,22 @@ for (num i = 1; i < 11; i += 1) {
     }
 }
 
+Block message1
 printflush(message1)
 ```
 Prints `1, 2, 3, 4, 5, 6, 7, 8, 9, 10`
 
 ### Ranges:
 ```javascript
-for (i : 5) {
+for (i : 1..5) {
     print(i + 1)
     print(" ")
 }
 
+Block message1
 printflush(message1)
 ```
-Prints `1 2 3 4 5`
+Prints `2 3 4 5`
 
 ### Functions:
 ```javascript
@@ -68,13 +70,15 @@ function length(num x, num y) -> num {
 }
 
 print(length(3, 4))
+
+Block message1
 printflush(message1)
 ```
 Prints `5`
 
 ### Memory cell access:
 ```javascript
-Block cell1
+Block cell1, message1
 cell1[0] = 10
 print(cell1[0])
 printflush(message1)
@@ -106,6 +110,7 @@ print(a)
 print(" ")
 print(b)
 
+Block message1
 printflush(message1)
 ```
 Prints `0 10`
@@ -144,6 +149,7 @@ loop_start:
     
     :loop_start (i < {LOOP_LENGTH})
 
+Block message1
 printflush(message1)
 ```
 Prints `1 2 3 4 5`
@@ -158,6 +164,7 @@ Prints `1 2 3 4 5`
 * constants \
   `const x = 2`
   `const num y = 3`
+  `const let z = 5`
 * types 
   * `num`, `str`
   * `Block`, `Unit`,

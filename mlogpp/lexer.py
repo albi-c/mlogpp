@@ -1,7 +1,6 @@
 import os
 import string
 
-from .preprocess import Preprocessor
 from .error import Error
 from .tokens import *
 
@@ -227,7 +226,7 @@ class Lexer:
                             imported_code = f.read()
 
                         # add tokens of the imported file to the currently parsed ones
-                        tokens += Preprocessor.preprocess(Lexer(self.include_search_dir).lex(imported_code, path))
+                        tokens += Lexer(self.include_search_dir).lex(imported_code, path)
 
                     else:
                         Error.cannot_find_file(self.make_position(len(token)), path)
@@ -373,7 +372,13 @@ class Lexer:
 
             # check if "." is already used
             if ch == "." and "." in token:
-                Error.unexpected_character(self.make_position(1), ch)
+                self.prev_char()
+                if token.endswith("."):
+                    self.prev_char()
+                    return token[:-1]
+                return token
+
+                # Error.unexpected_character(self.make_position(1), ch)
 
             token += ch
 
@@ -399,11 +404,11 @@ class Lexer:
         """
 
         match ch := self.next_char():
-            # . + - ~ ^ %
-            case "." | "+" | "-" | "~" | "^" | "%":
+            # + - ~ ^ %
+            case "+" | "-" | "~" | "^" | "%":
                 return ch
-            # & && | || * ** / //
-            case "&" | "|" | "*" | "/":
+            # & && | || * ** / // . ..
+            case "&" | "|" | "*" | "/" | ".":
                 if self.lookahead_char(ch):
                     return ch + ch
                 return ch

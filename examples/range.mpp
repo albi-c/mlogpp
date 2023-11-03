@@ -1,6 +1,6 @@
 Block message1
 
-for (i : 5) {
+for (i : 1..2+3) {
     print(i + 1)
     print(" ")
 }
