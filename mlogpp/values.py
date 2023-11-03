@@ -274,27 +274,36 @@ class StructTypeImpl(TypeImpl):
 
         elif name in self.methods:
             method = self.methods[name]
-            return Value(method.type(), method.value, type_impl=ClosureTypeImpl(method.impl().scope, method, [(0, value)]))
+            impl = method.impl()
+            assert isinstance(impl, BaseFunctionTypeImpl)
+            return Value(method.type(), method.value, type_impl=ClosureTypeImpl(impl.scope, method, [(0, value)]))
 
         return None
 
 
-class ClosureTypeImpl(TypeImpl):
-    func: Value
-    insertions: list[tuple[int, Value]]
-
+class BaseFunctionTypeImpl(TypeImpl):
     params: list[tuple[Type, str]]
     ret: Type
     scope: dict[str, Value]
 
+    def __init__(self, params: list[tuple[Type, str]], ret: Type, scope: dict[str, Value]):
+        self.params = params
+        self.ret = ret
+        self.scope = scope
+
+
+class ClosureTypeImpl(BaseFunctionTypeImpl):
+    func: Value
+    insertions: list[tuple[int, Value]]
+
     def __init__(self, scope, func: Value, insertions: list[tuple[int, Value]]):
+        impl = func.impl()
+        assert isinstance(impl, BaseFunctionTypeImpl)
+        super().__init__(impl.params, impl.ret, impl.scope)
+
         self.scope = scope
         self.func = func
         self.insertions = insertions
-
-        self.params = func.impl().params
-        self.ret = func.impl().ret
-        self.scope = func.impl().scope
 
     def callable(self, value: Value) -> bool:
         return self.func.impl().callable(value)
@@ -315,16 +324,10 @@ class ClosureTypeImpl(TypeImpl):
         return self.func.impl().will_inline()
 
 
-class MemberFunctionTypeImpl(TypeImpl):
-    params: list[tuple[Type, str]]
-    ret: Type
-    scope: dict[str, Value]
-
+class MemberFunctionTypeImpl(BaseFunctionTypeImpl):
     def __init__(self, params: list[tuple[Type, str]], ret: Type, code, scope: dict[str, Value]):
-        self.params = params
-        self.ret = ret
+        super().__init__(params, ret, scope)
         self.code = code
-        self.scope = scope
 
     def callable(self, value: Value) -> bool:
         return True
@@ -352,16 +355,14 @@ class MemberFunctionTypeImpl(TypeImpl):
         return True
 
 
-class FunctionTypeImpl(TypeImpl):
+class FunctionTypeImpl(BaseFunctionTypeImpl):
     params: list[tuple[Type, str]]
     ret: Type
     scope: dict[str, Value]
 
     def __init__(self, params: list[tuple[Type, str]], ret: Type, code, scope: dict[str, Value]):
-        self.params = params
-        self.ret = ret
+        super().__init__(params, ret, scope)
         self.code = code
-        self.scope = scope
 
     def callable(self, value: Value) -> bool:
         return True
