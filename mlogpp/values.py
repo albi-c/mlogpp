@@ -279,6 +279,10 @@ class StructTypeImpl(TypeImpl):
             method = self.methods[name]
             impl = method.impl()
             assert isinstance(impl, BaseFunctionTypeImpl)
+
+            if value.const() and not impl.scope["self"].const():
+                Error.custom(node_module.Node.current.get_pos(), f"Calling method with non-const [self] on const struct")
+
             return Value(method.type(), method.value, type_impl=ClosureTypeImpl(impl.scope, method, [(0, value)]))
 
         return None
@@ -363,6 +367,8 @@ class MemberFunctionTypeImpl(BaseFunctionTypeImpl):
         return True
 
     def get_copies_after_call(self, value: Value) -> list[tuple[Value, Value]]:
+        if self.scope["self"].const():
+            return []
         return [(value.last_params[0], Value.variable(self.params[0][1], self.params[0][0]))]
 
 
@@ -421,3 +427,6 @@ class ControlSensorTypeImpl(TypeImpl):
         Gen.emit(
             InstructionControl(self.attrib, value.value, source.get(), 0, 0, 0)
         )
+
+
+from . import node as node_module

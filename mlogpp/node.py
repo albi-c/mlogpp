@@ -891,6 +891,9 @@ class StructNode(Node):
             if isinstance(impl, StructTypeImpl):
                 fields = impl.fields_with_typenames + fields
 
+            else:
+                Error.custom(self.get_pos(), f"Cannot inherit from [{name}]")
+
             for k, v in impl.methods.items():
                 if k in parent_methods:
                     Error.already_defined_var(self, k)
@@ -917,6 +920,8 @@ class StructNode(Node):
 
             impl.methods[func.name] = func.gen()
         struct = Value.variable(Gen.tmp(), type_)
+        if type_ in types.values():
+            Error.custom(self.get_pos(), f"Recursive struct not allowed")
         constructor = FunctionNode(pos, self.name, [f + (False,) for f in fields], self.name, BlockNode(self.get_pos(), [
             CustomNode(pos, [
                 lambda s: Value.variable(struct.value, type_).set(Value(type_, "null", type_impl=StructSourceTypeImpl({
