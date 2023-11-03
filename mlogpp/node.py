@@ -174,9 +174,13 @@ class AsmBlockNode(Node):
             InstructionSet(inp, self.scope_get(inp).get()) for inp in self.inputs
         ])
         self.node.gen()
-        Gen.emit(*[
-            InstructionSet(self.scope_get(out).get(), out) for out in self.outputs
-        ])
+        for output in self.outputs:
+            out = self.scope_get(output)
+            if out.const():
+                Error.write_to_const(self, out.value)
+            Gen.emit(
+                InstructionSet(out.get(), output)
+            )
 
         return Value.null()
 
@@ -446,7 +450,7 @@ class CallNode(Node):
 
             if func.impl().will_inline():
                 impl = func.impl()
-                assert isinstance(impl, FunctionTypeImpl | MemberFunctionTypeImpl | ClosureTypeImpl)
+                assert isinstance(impl, BaseFunctionTypeImpl)
 
                 if func.value in Scope.functions:
                     Error.custom(self.get_pos(), "Recursion is forbidden")
@@ -463,6 +467,8 @@ class CallNode(Node):
                 ret = Value.variable(Gen.tmp(), impl.ret)
                 ret.set(result)
                 result = ret
+                for dst, src in impl.get_copies_after_call(func):
+                    dst.set(src)
                 CallNode.END_LABEL = end_label
                 self.scope_pop()
                 return result

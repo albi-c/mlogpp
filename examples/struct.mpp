@@ -62,11 +62,16 @@ struct Vec3 : Vec2 {
         print(sep)
         print(self.z)
     }
+
+    function increase_x(self, num n) {
+        self.x += n
+    }
 }
 
 let v3 = Vec3(5, 6, 7)
 print(" | ")
 v3.print(", ")
+v3.increase_x(2)
 print(" | ")
 v3.print2(", ")
 

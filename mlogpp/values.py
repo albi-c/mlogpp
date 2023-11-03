@@ -176,6 +176,9 @@ class TypeImpl:
     def will_inline(self) -> bool:
         return False
 
+    def get_copies_after_call(self, value: Value) -> list[tuple[Value, Value]]:
+        return []
+
 
 TypeImpl._DEFAULT_IMPL = TypeImpl()
 
@@ -239,7 +242,7 @@ class StructTypeImpl(TypeImpl):
 
             return
 
-        for field in self.fields.keys():
+        for field in self.fields.keys() & source.impl().fields.keys():
             value.getattr(field).set(source.getattr(field))
 
     def write(self, value: Value, cell: Value, index: Value) -> int:
@@ -323,6 +326,9 @@ class ClosureTypeImpl(BaseFunctionTypeImpl):
     def will_inline(self) -> bool:
         return self.func.impl().will_inline()
 
+    def get_copies_after_call(self, value: Value) -> list[tuple[Value, Value]]:
+        return self.func.impl().get_copies_after_call(value)
+
 
 class MemberFunctionTypeImpl(BaseFunctionTypeImpl):
     def __init__(self, params: list[tuple[Type, str]], ret: Type, code, scope: dict[str, Value]):
@@ -335,6 +341,8 @@ class MemberFunctionTypeImpl(BaseFunctionTypeImpl):
     def call(self, value: Value, node, params: list[Value]) -> Value:
         if len(self.params) != len(params):
             Error.invalid_arg_count(node, len(params), len(self.params))
+
+        value.last_params = params
 
         for i, [type_, name] in enumerate(self.params):
             if params[i].type() not in type_:
@@ -353,6 +361,9 @@ class MemberFunctionTypeImpl(BaseFunctionTypeImpl):
 
     def will_inline(self) -> bool:
         return True
+
+    def get_copies_after_call(self, value: Value) -> list[tuple[Value, Value]]:
+        return [(value.last_params[0], Value.variable(self.params[0][1], self.params[0][0]))]
 
 
 class FunctionTypeImpl(BaseFunctionTypeImpl):
