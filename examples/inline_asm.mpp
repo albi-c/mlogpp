@@ -3,13 +3,13 @@ let y = 20
 num z
 
 asm {
-    {subtract = 1}
-    {x = 5}
+    ${subtract = 1}
+    ${x = 5}
 }
 
 # variable captures and outputs
 asm (x, y) -> (z) {
-    z = x {"-" if subtract else "+"} y
+    z = x ${"-" if subtract else "+"} y
 }
 
 function fma(num a, num b, num c) -> num {
@@ -32,11 +32,11 @@ asm {
         print("\n")
         cell1[i] = i
         i = cell1[i]
-        print({x})
-        print({"\"" + "X" * x + "\""})
-        {"print("}{x / 2}{")"}
-        :loop (i < {x * 2})
-        {"cell" + x}[0] = y
+        print(${x})
+        print(${"\"" + "X" * x + "\""})
+        ${"print(" + str(x / 2) + ")"}
+        :loop (i < ${x * 2})
+        ${"cell" + x}[0] = y
 
     printflush(message1)
 }

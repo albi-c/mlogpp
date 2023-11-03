@@ -138,7 +138,7 @@ Prints `15 20`
 
 ### Assembly:
 ```javascript
-{LOOP_LENGTH = 2 + 3}
+${LOOP_LENGTH = 2 + 3}
 
 i = 0
 loop_start:
@@ -147,7 +147,7 @@ loop_start:
     print(i)
     print("\n")
     
-    :loop_start (i < {LOOP_LENGTH})
+    :loop_start (i < ${LOOP_LENGTH})
 
 Block message1
 printflush(message1)
@@ -162,8 +162,8 @@ Prints `1 2 3 4 5`
 * type inference \
   `let x = 2`
 * constants \
-  `const x = 2`
-  `const num y = 3`
+  `const x = 2`  
+  `const num y = 3`  
   `const let z = 5`
 * types 
   * `num`, `str`
@@ -191,14 +191,15 @@ Prints `1 2 3 4 5`
   `ubind(@mega)`
 * constants \
   `const VALUE = 30`
-* inline python subset in assembly \
-  `{x = 7 ^ 2}`   
-  `print({y = x // 2})`
-  `{"cell" + x}[0] = y`
+* inline python subset \
+  `${x = 7 ^ 2}`  
+  `print(${y = x // 2})`  
+  `${"cell" + x}[0] = y`
 * output from builtin functions directly to new variables (can be constants) \
   `ulocate.building(core, true, x: num, y: num, building: const Block)`
-* structures \
-  `struct Vec2 { num x, y }`
+* structures with inheritance \
+  `struct Vec2 { num x, y }`  
+  `struct Vec3 : Vec2 { num z }`
 * colors for effects \
   `effect.hit(x, y, %_35adc8)`
 
