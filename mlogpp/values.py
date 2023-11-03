@@ -242,8 +242,15 @@ class StructTypeImpl(TypeImpl):
 
             return
 
-        for field in self.fields.keys() & source.impl().fields.keys():
-            value.getattr(field).set(source.getattr(field))
+        impl = source.impl()
+        if isinstance(impl, StructTypeImpl):
+            for field in self.fields.keys() & impl.fields.keys():
+                value.getattr(field).set(source.getattr(field))
+        elif isinstance(impl, IndexedTypeImpl):
+            value.read(source, impl.index)
+        else:
+            for field in self.fields.keys():
+                value.getattr(field).set(source.getattr(field))
 
     def write(self, value: Value, cell: Value, index: Value) -> int:
         i = 0

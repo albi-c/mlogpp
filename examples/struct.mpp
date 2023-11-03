@@ -78,10 +78,10 @@ v3.print2(", ")
 Vec2 v2 = v3
 
 cell1[0] = v2
-v2 = cell1[0]
+Vec2 vector2 = cell1[0]
 
 print(" | ")
-v2.print2(", ")
+vector2.print2(", ")
 
 struct NStr {
     str s

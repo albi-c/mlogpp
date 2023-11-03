@@ -705,7 +705,7 @@ class RangeNode(Node):
         self.code = code
 
     def __str__(self):
-        return f"for ({self.name} : {self.until}) {self.code}"
+        return f"for ({self.name} : {self.a}{'..' if self.b is not None else ''}{self.b if self.b is not None else ''}) {self.code}"
 
     def gen(self) -> Value:
         Node.gen(self)
