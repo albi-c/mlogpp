@@ -47,7 +47,7 @@ class Expression:
         raise NameError(name)
 
     def execute(self, pos: Position, expr: str) -> list[str | int | float | list | None]:
-        new_expr = expr.replace("\" \"", "\"\"").replace("f \"", "f\"")
+        new_expr = expr.replace("\" \"", "\"\"").replace("\"\n\"", "\"\"").replace("f \"", "f\"")
         if new_expr.strip():
             try:
                 return self.eval(ast.parse(new_expr, mode="exec").body)
