@@ -13,7 +13,6 @@ class Parser(GenericParser):
 
     def _init(self):
         self.const_expressions = True
-        self.token_preprocess_start = TokenType.DOLLAR
 
     def parse_CodeBlock(self, end_at_rbrace: bool, create_scope: bool = False) -> Node:
         pos = None

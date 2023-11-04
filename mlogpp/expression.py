@@ -97,7 +97,7 @@ class Expression:
         elif isinstance(node, ast.Compare):
             all_true = True
             for op, cmp in zip(node.ops, node.comparators):
-                if (op_ := Expression.OPERATORS.get(type(op))) is None:
+                if (op_ := self.OPERATORS.get(type(op))) is None:
                     raise RuntimeError(f"Eval error {node}")
                 all_true = all_true and self.coerce(op_, self.eval(node.left), self.eval(cmp))
             return all_true
@@ -191,7 +191,7 @@ class Expression:
 
                 return self.return_stack.pop(-1)
 
-            Expression.variables[node.name] = func
+            self.scope_set(node.name, func)
         elif isinstance(node, ast.Return):
             self.return_stack[-1] = self.eval(node.value)
         else:

@@ -45,7 +45,6 @@ class GenericParser(ABC):
         self.loop_count = 0
 
         self.const_expressions = False
-        self.token_preprocess_start = TokenType.LBRACE
 
         self.expression_executor = Expression()
 
@@ -73,14 +72,9 @@ class GenericParser(ABC):
         return tokens
 
     @staticmethod
-    def _val_into_tokens(pos: Position, val, nested: bool = False) -> tuple[list[Token], int]:
+    def _val_into_tokens(pos: Position, val) -> tuple[list[Token], int]:
         if isinstance(val, str):
-            if val.startswith("\"") and val.endswith("\""):
-                return [Token(TokenType.STRING, val, pos)], 0
-            elif not val.startswith("\"") and not val.endswith("\""):
-                return GenericParser._lex_const_val(pos, val), 0
-            else:
-                return Lexer("").lex(val, pos.file, pos), 0
+            return Lexer("").lex(val, pos.file, pos), 0
 
         elif isinstance(val, int | float):
             return [Token(TokenType.NUMBER, str(val), pos)], 0
@@ -90,19 +84,12 @@ class GenericParser(ABC):
 
         elif isinstance(val, list):
             tokens = []
-            if nested:
-                for v in val:
-                    t, r = GenericParser._val_into_tokens(pos, v, True)
-                    if r != 0:
-                        return [], r
-                    tokens += t
-                return tokens, 0
-
-            if len(val) > 0:
-                return GenericParser._val_into_tokens(pos, val[-1], True)
-
-            else:
-                return [], 1
+            for v in val:
+                t, r = GenericParser._val_into_tokens(pos, v)
+                if r != 0:
+                    return [], r
+                tokens += t
+            return tokens, 0
 
         elif val is None:
             return [], 0
@@ -115,18 +102,34 @@ class GenericParser(ABC):
             return False
 
         for i, tok in enumerate(self.tokens):
-            if tok.type not in self.token_preprocess_start:
+            if tok.type not in TokenType.DOLLAR:
                 continue
 
             expr = []
 
             end = tok
-            j = i + (1 if self.token_preprocess_start == TokenType.LBRACE else 2)
+            j = i + 2
+            line = -1
+            depth = 1
+            newlines = 0
             while j < len(self.tokens):
                 t = self.tokens[j]
+
+                if t.pos.line != line:
+                    line = t.pos.line
+                    expr.append("\n")
+                    newlines += 1
+
                 if t.type == TokenType.RBRACE:
-                    end = t
-                    break
+                    depth -= 1
+                    if depth == 0:
+                        end = t
+                        break
+
+                    expr.append(t.value)
+                elif t.type == TokenType.LBRACE:
+                    depth += 1
+                    expr.append(t.value)
                 elif t.type in Expression.TOKENS:
                     if t.type == TokenType.SET and t.value != "=":
                         Error.unexpected_token(t)
@@ -138,7 +141,7 @@ class GenericParser(ABC):
 
             tok.pos += end.pos
 
-            for _ in range(len(expr) + (2 if self.token_preprocess_start == TokenType.LBRACE else 3)):
+            for _ in range(len(expr) - newlines + 3):
                 self.tokens.pop(i)
 
             expr = "\n".join(ln.strip() for ln in " ".join(expr).splitlines())

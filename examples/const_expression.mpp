@@ -1,5 +1,7 @@
-${message_block = "message1"}
-${x = [5, 8, 1, 3, 5, 8]}
-${f"Block {message_block}"}
-${[f"print({''.join(map(str, x[i:i+2]))})" for i in range(5) if i != 3]}
-${"${f\"printflush({message_block})\"}"}
+${
+    message_block = "message1"
+    x = [5, 8, 1, 3, 5, 8]
+    f"Block {message_block}"
+    [f"print({''.join(map(str, x[i:i+2]))})" for i in range(5) if i != 3]
+    "${f\"printflush({message_block})\"}"
+}

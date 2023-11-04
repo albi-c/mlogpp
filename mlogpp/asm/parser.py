@@ -18,7 +18,6 @@ class AsmParser(GenericParser):
             #     tok.type = TokenType.SET
 
         self.const_expressions = True
-        self.token_preprocess_start = TokenType.DOLLAR
 
     def parse_CodeBlock(self, end_at_rbrace: bool) -> CodeBlockNode:
         """
