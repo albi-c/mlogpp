@@ -4,6 +4,8 @@ struct Vec2 {
     num x
     num y
 
+    const size = 2
+
     function print(const self, str sep) {
         print(self.x)
         print(sep)
@@ -55,6 +57,12 @@ print(box.b.y)
 struct Vec3 : Vec2 {
     num z
 
+    const size = 3
+
+    static get_size() {
+        return Vec3::size
+    }
+
     function print2(const self, str sep) {
         print(self.x)
         print(sep)
@@ -71,7 +79,7 @@ struct Vec3 : Vec2 {
 let v3 = Vec3(5, 6, 7)
 print(" | ")
 v3.print(", ")
-v3.increase_x(2)
+v3.increase_x(v3.get_size() - 1)
 print(" | ")
 v3.print2(", ")
 

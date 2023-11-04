@@ -321,10 +321,11 @@ class Parser(GenericParser):
                         parents.append(self.next_token(TokenType.ID).value)
 
                 self.next_token(TokenType.LBRACE)
-                fields, functions = self.parse_structFields(name.value)
+                fields, functions, static_vars, static_functions = self.parse_structFields(name.value)
                 end = self.next_token(TokenType.RBRACE)
 
-                return StructNode(tok.pos + end.pos, name.value, fields, functions, parents)
+                return StructNode(tok.pos + end.pos, name.value, fields, functions,
+                                  static_vars, static_functions, parents)
 
         raise RuntimeError("invalid keyword")
 
@@ -364,23 +365,47 @@ class Parser(GenericParser):
 
         return MemberFunctionNode(tok.pos + end.pos, typename, name.value, params, type_, code)
 
-    def parse_structFields(self, typename: str) -> tuple[list[tuple[str, str]], list[MemberFunctionNode]]:
+    def parse_structFields(self, typename: str) \
+            -> tuple[list[tuple[str, str]], list[MemberFunctionNode], list[tuple[bool, str, str, Node]], list[FunctionNode]]:
         fields = []
         functions = []
+        static_vars = []
+        static_functions = []
         while not self.lookahead_token(TokenType.RBRACE):
+            if self.lookahead_token(TokenType.KEYWORD, "static"):
+                static_functions.append(self.parse_Function())
+                continue
+
             if self.lookahead_token(TokenType.KEYWORD, "function"):
                 functions.append(self.parse_MemberFunction(typename))
                 continue
 
-            type_ = self.next_token(TokenType.ID).value
+            if self.lookahead_token(TokenType.SET, "=", 3) or self.lookahead_token(TokenType.SET, "=", 4):
+                if self.lookahead_token(TokenType.KEYWORD, "const"):
+                    self.next_token()
+                    const = True
+                else:
+                    const = False
 
-            fields.append((type_, self.next_token(TokenType.ID).value))
+                if const and self.lookahead_token(TokenType.SET, "=", 2):
+                    type_ = "let"
+                else:
+                    type_ = self.next_token(TokenType.ID).value
+                name = self.next_token(TokenType.ID)
+                self.next_token(TokenType.SET, "=")
+                static_vars.append((const, type_, name.value, self.parse_Value()))
+                continue
+
+            type_ = self.next_token(TokenType.ID).value
+            name = self.next_token(TokenType.ID)
+
+            fields.append((type_, name.value))
 
             while self.lookahead_token(TokenType.COMMA):
                 self.next_token(TokenType.COMMA)
                 fields.append((type_, self.next_token(TokenType.ID).value))
 
-        return fields, functions
+        return fields, functions, static_vars, static_functions
 
     def parse_binaryOp(self, operators: tuple[str, ...], lower_func: Callable[[], Node],
                        token_type: TokenType = TokenType.OPERATOR, invert: bool = False) -> Node:
@@ -576,6 +601,11 @@ class Parser(GenericParser):
 
         match tok.type:
             case TokenType.ID:
+                if self.lookahead_token(TokenType.COLON) and self.lookahead_token(TokenType.COLON, n=2):
+                    self.next_token()
+                    self.next_token()
+                    attr = self.next_token(TokenType.ID)
+                    return StaticAttributeNode(tok.pos + attr.pos, tok.value, attr.value)
                 return VariableValueNode(tok.pos, tok.value)
 
             case TokenType.NUMBER:
@@ -622,7 +652,8 @@ class Parser(GenericParser):
                 if last_tok == TokenType.ID:
                     Error.unexpected_token(self.next_token())
 
-                if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.COLON, n=2):
+                if self.lookahead_token(TokenType.ID) and self.lookahead_token(TokenType.COLON, n=2) \
+                        and not self.lookahead_token(TokenType.COLON, n=3):
                     name = self.next_token()
                     self.next_token()
 

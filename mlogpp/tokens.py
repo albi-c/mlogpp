@@ -47,7 +47,7 @@ class Token:
     STATEMENTS = BLOCK_STATEMENTS + (
         "return",
         "break", "continue",
-        "configuration", "const"
+        "configuration", "const", "static"
     )
 
     # reserved keywords

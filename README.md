@@ -122,11 +122,27 @@ Block message1
 struct Vec2 {
     num x
     num y
+    
+    static size = 2
+    
+    static get_size() {
+        return Vec2::size
+    }
+    
+    function increase_x(self, num n) {
+        self.x += n
+    }
 }
 
 let vec = Vec2(10, 20)
 
-vec.x += 5
+vec.increase_x(5)
+
+# static properties can be accessed
+# using `.` from an instance
+# or using `::` from the type
+
+vec.y += vec.size + Vec2::get_size()
 
 print(vec.x)
 print(" ")
@@ -134,7 +150,7 @@ print(vec.y)
 
 printflush(message1)
 ```
-Prints `15 20`
+Prints `15 24`
 
 ### Assembly:
 ```javascript

@@ -389,6 +389,33 @@ class AttributeNode(Node):
             return attr
 
 
+class StaticAttributeNode(Node):
+    type: str
+    attr: str
+
+    def __init__(self, pos: Position, type_: str, attr: str):
+        super().__init__(pos)
+
+        self.type = type_
+        self.attr = attr
+
+    def __str__(self):
+        return f"{self.value}.{self.attr}"
+
+    def gen(self) -> Value:
+        Node.gen(self)
+
+        type_ = self.parse_type(self.type)
+
+        attr = TypeImpl.get_impl(type_).static_getattr(self.attr)
+
+        if attr is None:
+            Error.undefined_attribute(self, self.attr, self.type)
+
+        else:
+            return attr
+
+
 class IndexNode(Node):
     cell: Node
     index: Node
@@ -856,15 +883,20 @@ class StructNode(Node):
     name: str
     fields: list[tuple[str, str]]
     functions: list[MemberFunctionNode]
+    static_vars: list[tuple[bool, str, str, Node]]
+    static_functions: list[FunctionNode]
     parents: list[str]
 
     def __init__(self, pos: Position, name: str, fields: list[tuple[str, str]],
-                 functions: list[MemberFunctionNode], parents: list[str]):
+                 functions: list[MemberFunctionNode], static_vars: list[tuple[bool, str, str, Node]],
+                 static_functions: list[FunctionNode], parents: list[str]):
         super().__init__(pos)
 
         self.name = name
         self.fields = fields
         self.functions = functions
+        self.static_vars = static_vars
+        self.static_functions = static_functions
         self.parents = parents
 
     def __str__(self):
@@ -880,6 +912,7 @@ class StructNode(Node):
         fields = self.fields.copy()
         parents = set()
 
+        parent_static_values = {}
         parent_methods = {}
         for name in self.parents:
             if name in parents:
@@ -890,6 +923,7 @@ class StructNode(Node):
             impl = TypeImpl.get_impl(parent)
             if isinstance(impl, StructTypeImpl):
                 fields = impl.fields_with_typenames + fields
+                parent_static_values |= impl.static_values
 
             else:
                 Error.custom(self.get_pos(), f"Cannot inherit from [{name}]")
@@ -906,11 +940,38 @@ class StructNode(Node):
             seen.add(name)
         pos = self.get_pos()
 
+        static_values = {}
+
+        for function in self.static_functions:
+            name = function.name
+            if name in static_values:
+                Error.already_defined_var(self, name)
+
+            function.name = f"__{self.name}::{function.name}"
+            func = function.gen()
+            function.name = name
+            static_values[name] = func
+
+        for const, typename, name, value in self.static_vars:
+            if name in static_values:
+                Error.already_defined_var(self, name)
+
+            val = value.gen()
+            if typename == "let":
+                val_type = val.type()
+            else:
+                val_type = self.parse_type(typename)
+            tmp_val = Value.variable(Gen.tmp(), val_type, const_on_write=const)
+            tmp_val.set(val)
+            static_values[name] = tmp_val
+
+        static_values = parent_static_values | static_values
+
         type_ = Type.simple(self.name)
         type_.convertible_to.update(parents)
         Type.register(self.name, type_)
         types = {v: self.parse_type(k) for k, v in fields}
-        TypeImpl.add_impl(type_, StructTypeImpl(types, parent_methods, fields))
+        TypeImpl.add_impl(type_, StructTypeImpl(types, parent_methods, fields, static_values))
         impl = TypeImpl.get_impl(type_)
         assert isinstance(impl, StructTypeImpl)
         for func in self.functions:

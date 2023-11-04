@@ -161,6 +161,9 @@ class TypeImpl:
 
         return None
 
+    def static_getattr(self, name: str) -> Value | None:
+        return None
+
     def callable(self, value: Value) -> bool:
         return False
 
@@ -226,11 +229,14 @@ class StructTypeImpl(TypeImpl):
     fields: dict[str, Type]
     methods: dict[str, Value]
     fields_with_typenames: list[tuple[str, str]]
+    static_values: dict[str, Value]
 
-    def __init__(self, fields: dict[str, Type], methods: dict[str, Value], fields_with_typenames: list[tuple[str, str]]):
+    def __init__(self, fields: dict[str, Type], methods: dict[str, Value],
+                 fields_with_typenames: list[tuple[str, str]], static_values: dict[str, Value]):
         self.fields = fields
         self.methods = methods
         self.fields_with_typenames = fields_with_typenames
+        self.static_values = static_values
 
     def get(self, value: Value) -> str:
         return "null"
@@ -292,7 +298,10 @@ class StructTypeImpl(TypeImpl):
 
             return Value(method.type(), method.value, type_impl=ClosureTypeImpl(impl.scope, method, [(0, value)]))
 
-        return None
+        return self.static_getattr(name)
+
+    def static_getattr(self, name: str) -> Value | None:
+        return self.static_values.get(name)
 
 
 class BaseFunctionTypeImpl(TypeImpl):
