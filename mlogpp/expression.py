@@ -1,5 +1,6 @@
 import ast
 import operator
+from typing import Any, Callable
 
 from .util import Position
 from .tokens import TokenType
@@ -7,9 +8,8 @@ from .error import Error
 
 
 class Expression:
-    variables: dict[str] = {}
-
-    return_stack: list = []
+    scopes: list[dict[str, Any]]
+    return_stack: list[Any]
 
     TOKENS: TokenType = TokenType.ID | TokenType.STRING | TokenType.SET | TokenType.OPERATOR | TokenType.NUMBER | \
                         TokenType.LPAREN | TokenType.RPAREN | TokenType.SEMICOLON | TokenType.KEYWORD | \
@@ -23,15 +23,34 @@ class Expression:
                              ast.Gt: operator.gt, ast.GtE: operator.ge, ast.Lt: operator.lt, ast.LtE: operator.le,
                              ast.NotEq: operator.ne, ast.LShift: operator.lshift, ast.RShift: operator.rshift}
 
-    BUILTINS: dict[str] = {"range": range, "map": map, "str": str, "list": list, "int": int, "float": float,
-                           "print": lambda *x: print("EXPRESSION:", *x)}
+    BUILTINS: dict[str, Any] = {"range": range, "map": map, "str": str, "list": list, "int": int, "float": float,
+                                "print": lambda *x: print("EXPRESSION:", *x)}
 
-    @staticmethod
-    def exec(pos: Position, expr: str) -> list[str | int | float | list | None]:
-        expr = expr.replace("\" \"", "\"\"").replace("f \"", "f\"")
-        if expr.strip():
+    def __init__(self):
+        self.scopes = [self.BUILTINS, {}]
+        self.return_stack = []
+
+    def scope_push(self):
+        self.scopes.append({})
+
+    def scope_pop(self):
+        self.scopes.pop(-1)
+
+    def scope_set(self, name: str, val: Any):
+        self.scopes[-1][name] = val
+
+    def scope_get(self, name: str) -> Any:
+        for scope in reversed(self.scopes):
+            if name in scope:
+                return scope[name]
+
+        raise NameError(name)
+
+    def execute(self, pos: Position, expr: str) -> list[str | int | float | list | None]:
+        new_expr = expr.replace("\" \"", "\"\"").replace("f \"", "f\"")
+        if new_expr.strip():
             try:
-                return Expression.op_eval(ast.parse(expr, mode="exec").body)
+                return self.eval(ast.parse(new_expr, mode="exec").body)
             except ArithmeticError:
                 Error.custom(pos, f"Arithmetic error in const expression [{expr}]")
             except IndexError:
@@ -40,6 +59,8 @@ class Expression:
                 Error.custom(pos, f"Variable not found in const expression [{expr}]")
             except (RuntimeError, AssertionError, TypeError, Exception):
                 Error.custom(pos, f"Invalid const expression [{expr}]")
+
+        return []
 
     @staticmethod
     def coerce(op, a, b):
@@ -54,42 +75,23 @@ class Expression:
                 if isinstance(b, int):
                     return op(a, str(b))
 
-    @staticmethod
-    def op_eval(node, overrides: dict[str] = None):
-        """
-        Evaluate constant expression.
-
-        Args:
-            node: AST node
-            overrides: Local variable overrides
-
-        Returns:
-            Result of the expression
-        """
-
+    def eval(self, node):
         if node is None:
             return None
 
-        if overrides is None:
-            overrides = {}
-
         if isinstance(node, list):
-            values = []
-            for n in node:
-                values.append(Expression.op_eval(n, overrides))
-
-            return values
+            return list(map(self.eval, node))
 
         if isinstance(node, ast.Num):
             return node.n
         elif isinstance(node, ast.Str):
             return node.s
         elif isinstance(node, ast.JoinedStr):
-            return "".join([str(Expression.op_eval(val, overrides)) for val in node.values])
+            return "".join([str(self.eval(val)) for val in node.values])
         elif isinstance(node, ast.FormattedValue):
             assert node.format_spec is None
             assert node.conversion == -1
-            return Expression.op_eval(node.value, overrides)
+            return self.eval(node.value)
         elif isinstance(node, ast.Constant):
             return node.value
         elif isinstance(node, ast.Compare):
@@ -97,37 +99,33 @@ class Expression:
             for op, cmp in zip(node.ops, node.comparators):
                 if (op_ := Expression.OPERATORS.get(type(op))) is None:
                     raise RuntimeError(f"Eval error {node}")
-                all_true = all_true and Expression.coerce(op_,Expression.op_eval(node.left, overrides), Expression.op_eval(cmp, overrides))
+                all_true = all_true and self.coerce(op_, self.eval(node.left), self.eval(cmp))
             return all_true
         elif isinstance(node, ast.BinOp):
-            if (op := Expression.OPERATORS.get(type(node.op))) is None:
+            if (op := self.OPERATORS.get(type(node.op))) is None:
                 raise RuntimeError(f"Eval error {node}")
-            return Expression.coerce(op, Expression.op_eval(node.left, overrides), Expression.op_eval(node.right, overrides))
+            return self.coerce(op, self.eval(node.left), self.eval(node.right))
         elif isinstance(node, ast.UnaryOp):
-            if (op := Expression.OPERATORS.get(type(node.op))) is None:
+            if (op := self.OPERATORS.get(type(node.op))) is None:
                 raise RuntimeError(f"Eval error {node}")
-            return op(Expression.op_eval(node.operand, overrides))
+            return op(self.eval(node.operand))
         elif isinstance(node, ast.Assign):
-            value = Expression.op_eval(node.value, overrides)
+            value = self.eval(node.value)
             for target in node.targets:
                 if isinstance(target, ast.Name):
-                    Expression.variables[target.id] = value
+                    self.scope_set(target.id, value)
                 else:
                     raise RuntimeError(f"Eval error {node}")
             return None
         elif isinstance(node, ast.Name):
-            if node.id in Expression.BUILTINS:
-                return Expression.BUILTINS[node.id]
-            if node.id in overrides:
-                return overrides[node.id]
-            return Expression.variables[node.id]
+            return self.scope_get(node.id)
         elif isinstance(node, ast.Expr):
-            return Expression.op_eval(node.value, overrides)
+            return self.eval(node.value)
         elif isinstance(node, ast.IfExp):
-            if Expression.op_eval(node.test):
-                return Expression.op_eval(node.body, overrides)
+            if self.eval(node.test):
+                return self.eval(node.body)
             else:
-                return Expression.op_eval(node.orelse, overrides)
+                return self.eval(node.orelse)
         elif isinstance(node, ast.ListComp):
             if len(node.generators) != 1:
                 raise RuntimeError(f"Eval error {node}")
@@ -137,30 +135,34 @@ class Expression:
             name = comp.target
             assert isinstance(name, ast.Name)
             name = name.id
-            seq = Expression.op_eval(comp.iter, overrides)
+            seq = self.eval(comp.iter)
+
+            self.scope_push()
 
             lst = []
             for elem in seq:
-                overrides_ = overrides | {name: elem}
-                if not all(Expression.op_eval(cond, overrides_) for cond in comp.ifs):
+                self.scope_set(name, elem)
+
+                if not all(self.eval(cond) for cond in comp.ifs):
                     continue
 
-                lst.append(Expression.op_eval(node.elt, overrides_))
+                lst.append(self.eval(node.elt))
+
+            self.scope_pop()
 
             return lst
         elif isinstance(node, ast.Call):
             assert len(node.keywords) == 0
-            func = Expression.op_eval(node.func, overrides)
-            return func(*[Expression.op_eval(val, overrides) for val in node.args])
+            func = self.eval(node.func)
+            return func(*[self.eval(val) for val in node.args])
         elif isinstance(node, ast.List):
-            return [Expression.op_eval(val, overrides) for val in node.elts]
+            return [self.eval(val) for val in node.elts]
         elif isinstance(node, ast.Subscript):
-            return Expression.op_eval(node.value, overrides).__getitem__(Expression.op_eval(node.slice, overrides))
+            return self.eval(node.value).__getitem__(self.eval(node.slice))
         elif isinstance(node, ast.Slice):
-            return slice(Expression.op_eval(node.lower, overrides), Expression.op_eval(node.upper, overrides),
-                         Expression.op_eval(node.step, overrides))
+            return slice(self.eval(node.lower), self.eval(node.upper), self.eval(node.step))
         elif isinstance(node, ast.Attribute):
-            val = Expression.op_eval(node.value, overrides)
+            val = self.eval(node.value)
             if isinstance(val, str):
                 if node.attr == "join":
                     return val.join
@@ -177,16 +179,20 @@ class Expression:
                 if len(args) != len(node.args.args):
                     raise TypeError("Invalid argument count")
 
-                Expression.return_stack.append(None)
+                self.return_stack.append(None)
 
-                Expression.op_eval(node.body, overrides | {
-                    arg.arg: args[i] for i, arg in enumerate(node.args.args)
-                })
+                self.scope_push()
+                for i, arg in enumerate(node.args.args):
+                    self.scope_set(arg.arg, args[i])
 
-                return Expression.return_stack.pop(-1)
+                self.eval(node.body)
+
+                self.scope_pop()
+
+                return self.return_stack.pop(-1)
 
             Expression.variables[node.name] = func
         elif isinstance(node, ast.Return):
-            Expression.return_stack[-1] = Expression.op_eval(node.value, overrides)
+            self.return_stack[-1] = self.eval(node.value)
         else:
             raise RuntimeError(f"Eval error {node}")

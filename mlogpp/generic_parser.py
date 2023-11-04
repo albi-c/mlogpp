@@ -23,6 +23,8 @@ class GenericParser(ABC):
     const_expressions: bool
     token_preprocess_start: TokenType
 
+    expression_executor: Expression
+
     def parse(self, tokens: list[Token]):
         """
         Parse tokens into an AST.
@@ -44,6 +46,8 @@ class GenericParser(ABC):
 
         self.const_expressions = False
         self.token_preprocess_start = TokenType.LBRACE
+
+        self.expression_executor = Expression()
 
         self._init()
 
@@ -139,7 +143,7 @@ class GenericParser(ABC):
 
             expr = "\n".join(ln.strip() for ln in " ".join(expr).splitlines())
 
-            val = Expression.exec(tok.pos, expr)
+            val = self.expression_executor.execute(tok.pos, expr)
 
             tokens, err = GenericParser._val_into_tokens(tok.pos, val)
 
