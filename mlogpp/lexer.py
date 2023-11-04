@@ -175,6 +175,8 @@ class Lexer:
             A list of tokens from the code.
         """
 
+        code += " "
+
         self.current_code = code
         self.current_code_lines = code.splitlines()
         self.current_input_file = input_file
@@ -188,9 +190,18 @@ class Lexer:
             self.line = start_pos.line
             self.char = start_pos.start
 
+        else:
+            start_pos = Position(self.line, 0, 0, "", input_file)
+
         # list of lexed tokens
         tokens = []
         while ch := self.lookahead_char():
+            if ch == "%":
+                if self.lookahead_str("%%LINE"):
+                    length = int(self.next_char())
+                    self.line = int("".join(self.next_char() for _ in range(length))) + start_pos.line
+                    continue
+
             # break at the end of code
             if ch == "":
                 break
@@ -373,12 +384,11 @@ class Lexer:
             # check if "." is already used
             if ch == "." and "." in token:
                 self.prev_char()
+                # don't match ".."
                 if token.endswith("."):
                     self.prev_char()
                     return token[:-1]
                 return token
-
-                # Error.unexpected_character(self.make_position(1), ch)
 
             token += ch
 

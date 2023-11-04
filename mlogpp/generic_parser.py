@@ -63,18 +63,12 @@ class GenericParser(ABC):
         pass
 
     @staticmethod
-    def _lex_const_val(pos: Position, val: str) -> list[Token]:
-        pos.start += 2
-        pos.end += 2
-        tokens = Lexer("").lex(val, pos.file, pos)
-        for tok in tokens:
-            tok.pos.code = pos.code
-        return tokens
-
-    @staticmethod
     def _val_into_tokens(pos: Position, val) -> tuple[list[Token], int]:
         if isinstance(val, str):
-            return Lexer("").lex(val, pos.file, pos), 0
+            tokens = Lexer("").lex(val, pos.file, pos)
+            for tok in tokens:
+                tok.pos.code = pos.code
+            return tokens, 0
 
         elif isinstance(val, int | float):
             return [Token(TokenType.NUMBER, str(val), pos)], 0
